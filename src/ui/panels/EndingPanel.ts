@@ -2,6 +2,8 @@
 import { EventBus } from '../../utils/EventBus';
 import { gameState, updateGameState } from '../../state/GameState';
 import { GRID_SLOTS } from '../../data/map';
+import { resetAchievements } from '../../systems/AchievementEngine';
+import { resetEventTracking } from '../../systems/EventEngine';
 
 export type EndingType = 'bankrupt' | 'loan-shark' | 'territory-win' | 'day30';
 
@@ -113,9 +115,11 @@ export class EndingPanel {
     el.className = 'ending-stats';
 
     const items = [
-      { label: '存活天數', value: `${data.dayssurvived} 天` },
+      { label: '存活天數', value: `${data.dayssurvived ?? gameState.day} 天` },
       { label: '累計營收', value: `$${data.totalRevenue}` },
       { label: '最終版圖', value: `${playerSlots} / ${GRID_SLOTS.length} 格` },
+      { label: '烤制香腸', value: `${gameState.stats['totalSausagesSold'] ?? 0} 根` },
+      { label: '戰鬥紀錄', value: `${gameState.stats['battlesWon'] ?? 0} 勝 ${gameState.stats['battlesLost'] ?? 0} 敗` },
     ];
 
     items.forEach(item => {
@@ -156,14 +160,21 @@ export class EndingPanel {
         totalSausagesSold: 0,
         totalRevenue: 0,
         totalExpenses: 0,
+        battlesWon: 0,
+        battlesLost: 0,
       },
       dailyExpenses: 0,
       selectedSlot: -1,
       prices: {},
       dailySalesLog: [],
       dailyGrillStats: { perfect: 0, ok: 0, raw: 0, burnt: 0 },
+      unlockedSausages: ['black-pig', 'flying-fish-roe', 'garlic-bomb'],
+      activeOpponents: [],
+      defeatedOpponents: [],
     });
 
+    resetAchievements();
+    resetEventTracking();
     EventBus.emit('restart-game', {});
   }
 

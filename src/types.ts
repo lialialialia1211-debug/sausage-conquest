@@ -1,6 +1,6 @@
 // Global type definitions
 
-export type GamePhase = 'boot' | 'morning' | 'evening' | 'grill' | 'battle' | 'event' | 'summary' | 'shop';
+export type GamePhase = 'boot' | 'morning' | 'evening' | 'grill' | 'battle' | 'event' | 'summary' | 'shop' | 'ending';
 
 export interface InventoryItem {
   id: string;

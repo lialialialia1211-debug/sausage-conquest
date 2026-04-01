@@ -1,6 +1,7 @@
 import { EventBus } from '../../utils/EventBus';
 import { gameState } from '../../state/GameState';
 import { formatMoney } from '../../utils/helpers';
+import { sfx } from '../../utils/SoundFX';
 
 // StatusBar: top status bar always visible, updates reactively via EventBus
 export class StatusBar {
@@ -17,9 +18,22 @@ export class StatusBar {
     this.dayEl = this.createItem('📅', `Day ${gameState.day}`);
     this.repEl = this.createItem('⭐', `${gameState.reputation}`);
 
+    // Mute toggle button
+    const muteBtn = document.createElement('div');
+    muteBtn.className = 'status-item';
+    muteBtn.style.cursor = 'pointer';
+    muteBtn.style.userSelect = 'none';
+    muteBtn.textContent = '🔊';
+    muteBtn.title = '靜音切換';
+    muteBtn.addEventListener('click', () => {
+      const muted = sfx.toggleMute();
+      muteBtn.textContent = muted ? '🔇' : '🔊';
+    });
+
     this.element.appendChild(this.moneyEl);
     this.element.appendChild(this.dayEl);
     this.element.appendChild(this.repEl);
+    this.element.appendChild(muteBtn);
 
     container.appendChild(this.element);
 

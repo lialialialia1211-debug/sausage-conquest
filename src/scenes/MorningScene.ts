@@ -2,9 +2,17 @@ import Phaser from 'phaser';
 import { EventBus } from '../utils/EventBus';
 import { gameState, updateGameState } from '../state/GameState';
 import { spoilOvernight } from '../systems/EconomyEngine';
+import { processAIDaily, checkNewOpponent } from '../systems/AIEngine';
+import { processDaily } from '../systems/LoanEngine';
+import { STORY_BEATS } from '../data/dialogue';
 
-// MorningScene: procurement phase
-// Calls spoilOvernight() first, then triggers HTML overlay panel
+// Sausage unlock schedule: [day, sausageId, name]
+const UNLOCK_SCHEDULE: [number, string, string][] = [
+  [5, 'cheese', '起司爆漿'],
+  [8, 'squidink', '墨魚香腸'],
+  [12, 'mala', '麻辣螺螄'],
+];
+
 export class MorningScene extends Phaser.Scene {
   private readyForNext = false;
 
@@ -20,21 +28,70 @@ export class MorningScene extends Phaser.Scene {
     // Reset daily expenses at start of each morning
     updateGameState({ dailyExpenses: 0 });
 
-    // Apply overnight spoilage before showing panel
-    // Only spoil on day 2+ (day 1 starts with empty inventory)
-    const spoilage = gameState.day > 1 ? spoilOvernight() : {};
+    // ── Daily processing (Day 2+) ──
+    const notifications: string[] = [];
+
+    if (gameState.day > 1) {
+      // Overnight spoilage
+      spoilOvernight();
+
+      // Loan daily processing
+      const loanResult = processDaily();
+      if (loanResult.gameOver) {
+        // Loan shark game over — redirect to ending
+        EventBus.emit('show-panel', 'ending', {
+          type: 'loan-shark',
+          daysSurvived: gameState.day,
+          totalRevenue: gameState.stats['totalRevenue'] ?? 0,
+        });
+        EventBus.once('restart-game', () => {
+          EventBus.emit('hide-panel');
+          this.scene.start('BootScene');
+        }, this);
+        return;
+      }
+      if (loanResult.isOverdue && loanResult.overdueDays > 0) {
+        notifications.push(`借款逾期 ${loanResult.overdueDays} 天！小心後果...`);
+      }
+
+      // AI daily processing
+      processAIDaily();
+    }
+
+    // Check new opponent appearance
+    const newOpponent = checkNewOpponent();
+    if (newOpponent && !gameState.activeOpponents.includes(newOpponent.id)) {
+      updateGameState({
+        activeOpponents: [...gameState.activeOpponents, newOpponent.id],
+      });
+      notifications.push(`${newOpponent.emoji} ${newOpponent.name} 進駐了第 ${newOpponent.gridSlot} 格！\n「${newOpponent.dialogue.greeting}」`);
+    }
+
+    // Story beat every 5 days
+    const storyBeat = STORY_BEATS[gameState.day];
+    if (storyBeat) {
+      notifications.unshift(storyBeat); // story beats show first
+    }
+
+    // Check sausage unlocks
+    for (const [day, id, name] of UNLOCK_SCHEDULE) {
+      if (gameState.day >= day && !gameState.unlockedSausages.includes(id)) {
+        updateGameState({
+          unlockedSausages: [...gameState.unlockedSausages, id],
+        });
+        notifications.push(`新品種解鎖：${name}！`);
+      }
+    }
 
     // Phaser background: morning sky gradient
     const bg = this.add.graphics();
     bg.fillGradientStyle(0x0a0a1a, 0x0a0a1a, 0x1a1a3e, 0x101030, 1);
     bg.fillRect(0, 0, width, height);
 
-    // Subtle morning glow at the top
     const glow = this.add.graphics();
     glow.fillGradientStyle(0x221100, 0x221100, 0x0a0a1a, 0x0a0a1a, 0.6);
     glow.fillRect(0, 0, width, height * 0.4);
 
-    // Background scene label
     this.add.text(cx, cy - 20, '🌅', {
       fontSize: '80px',
     }).setOrigin(0.5).setAlpha(0.12);
@@ -47,11 +104,67 @@ export class MorningScene extends Phaser.Scene {
 
     this.cameras.main.fadeIn(400, 0, 0, 0);
 
-    // Show HTML overlay panel, passing spoilage data
+    // Show notifications if any, then show morning panel
+    if (notifications.length > 0) {
+      this.showNotifications(notifications, () => {
+        this.showMorningPanel();
+      });
+    } else {
+      this.showMorningPanel();
+    }
+  }
+
+  private showNotifications(messages: string[], onDone: () => void): void {
+    const { width, height } = this.scale;
+    const cx = width / 2;
+    const cy = height / 2;
+
+    let index = 0;
+    const showNext = () => {
+      if (index >= messages.length) {
+        onDone();
+        return;
+      }
+
+      const msg = messages[index];
+      const notifBg = this.add.graphics();
+      notifBg.fillStyle(0x000000, 0.7);
+      notifBg.fillRoundedRect(cx - 200, cy - 60, 400, 120, 12);
+
+      const notifText = this.add.text(cx, cy, msg, {
+        fontSize: '16px',
+        fontFamily: 'Microsoft JhengHei, PingFang TC, sans-serif',
+        color: '#ffcc00',
+        align: 'center',
+        wordWrap: { width: 360 },
+      }).setOrigin(0.5);
+
+      // Auto-advance after 2s or on click
+      const advance = () => {
+        notifBg.destroy();
+        notifText.destroy();
+        index++;
+        showNext();
+      };
+
+      this.time.delayedCall(2500, advance);
+      notifBg.setInteractive(
+        new Phaser.Geom.Rectangle(cx - 200, cy - 60, 400, 120),
+        Phaser.Geom.Rectangle.Contains
+      );
+      notifBg.once('pointerdown', () => {
+        this.time.removeAllEvents();
+        advance();
+      });
+    };
+
+    showNext();
+  }
+
+  private showMorningPanel(): void {
+    const spoilage = gameState.day > 1 ? {} : {};
     EventBus.emit('show-panel', 'morning', { spoilage });
     EventBus.emit('scene-ready', 'MorningScene');
-
-    // Wait for HTML panel to emit morning-done
     EventBus.once('morning-done', this.onMorningDone, this);
   }
 

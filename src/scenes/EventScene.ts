@@ -1,11 +1,16 @@
 import Phaser from 'phaser';
 import { EventBus } from '../utils/EventBus';
 import { gameState } from '../state/GameState';
+import { rollDailyEvents } from '../systems/EventEngine';
+import { EventPanel } from '../ui/panels/EventPanel';
+import type { GameEvent } from '../data/events';
 
-// EventScene: placeholder — random events (triggers overlay)
-// Not in basic P0 cycle, skipped until later
+// EventScene: drives one or more random events per day via HTML overlay panels
 export class EventScene extends Phaser.Scene {
   private readyForNext = false;
+  private eventQueue: GameEvent[] = [];
+  private currentEventPanel: EventPanel | null = null;
+  private panelArea: HTMLElement | null = null;
 
   constructor() {
     super({ key: 'EventScene' });
@@ -13,41 +18,99 @@ export class EventScene extends Phaser.Scene {
 
   create(): void {
     const { width, height } = this.scale;
-    const cx = width / 2;
-    const cy = height / 2;
 
+    // Dark tinted background
     const bg = this.add.graphics();
     bg.fillGradientStyle(0x05100a, 0x05100a, 0x0a1a10, 0x0a1a10, 1);
     bg.fillRect(0, 0, width, height);
 
-    this.add.text(cx, cy, '📰', { fontSize: '80px' }).setOrigin(0.5).setAlpha(0.15);
-
-    this.add.text(cx, cy + 70, `Day ${gameState.day} 突發事件`, {
-      fontSize: '18px',
-      fontFamily: 'Microsoft JhengHei, PingFang TC, sans-serif',
-      color: '#224433',
-    }).setOrigin(0.5);
+    // Subtle atmosphere icon
+    this.add.text(width / 2, height / 2, '📰', { fontSize: '80px' })
+      .setOrigin(0.5)
+      .setAlpha(0.08);
 
     this.cameras.main.fadeIn(400, 0, 0, 0);
 
-    EventBus.emit('show-panel', 'event');
+    // Cache the panel-area element for direct DOM mounting
+    this.panelArea = document.getElementById('panel-area');
+
     EventBus.emit('scene-ready', 'EventScene');
 
+    // Roll events for today
+    this.eventQueue = rollDailyEvents();
+
+    if (this.eventQueue.length === 0) {
+      // No events today — skip straight to summary
+      this.finishAllEvents();
+      return;
+    }
+
+    // Show first event
+    this.showNextEvent();
+  }
+
+  private showNextEvent(): void {
+    const nextEvent = this.eventQueue.shift();
+    if (!nextEvent) {
+      this.finishAllEvents();
+      return;
+    }
+
+    this.removePanelFromDOM();
+
+    this.currentEventPanel = new EventPanel(nextEvent);
+    const el = this.currentEventPanel.getElement();
+    el.classList.add('fade-in');
+
+    if (this.panelArea) {
+      this.panelArea.appendChild(el);
+    }
+
+    // Listen for this event's completion
     EventBus.once('event-done', this.onEventDone, this);
   }
 
   private onEventDone = (): void => {
+    if (this.eventQueue.length > 0) {
+      // More events in queue — show the next one after a brief beat
+      this.time.delayedCall(200, () => {
+        this.showNextEvent();
+      });
+    } else {
+      this.finishAllEvents();
+    }
+  };
+
+  private removePanelFromDOM(): void {
+    if (this.currentEventPanel) {
+      const el = this.currentEventPanel.getElement();
+      if (el.parentElement) {
+        el.parentElement.removeChild(el);
+      }
+      this.currentEventPanel.destroy();
+      this.currentEventPanel = null;
+    }
+  }
+
+  private finishAllEvents(): void {
     if (this.readyForNext) return;
     this.readyForNext = true;
 
-    EventBus.emit('hide-panel');
+    this.removePanelFromDOM();
+
     this.cameras.main.fadeOut(400, 0, 0, 0);
     this.cameras.main.once('camerafadeoutcomplete', () => {
-      this.scene.start('SummaryScene');
+      // After events: battle check (every 3 days), then summary
+      if (gameState.day % 3 === 0) {
+        this.scene.start('BattleScene');
+      } else {
+        this.scene.start('SummaryScene');
+      }
     });
-  };
+  }
 
   shutdown(): void {
     EventBus.off('event-done', this.onEventDone, this);
+    this.removePanelFromDOM();
   }
 }

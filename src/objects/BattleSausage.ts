@@ -73,19 +73,38 @@ export class BattleSausage extends Phaser.GameObjects.Container {
     }
   }
 
+  /**
+   * Public method: gentle floating up/down idle animation.
+   * Restarts the idle float if it was stopped.
+   */
+  public playIdleAnimation(_scene: Phaser.Scene): void {
+    this.stopIdleFloat();
+    this.startIdleFloat();
+  }
+
   playAttackAnim(targetX: number, onComplete?: () => void): void {
     this.stopIdleFloat();
     const direction = this.unit.team === 'player' ? 1 : -1;
-    const dashDist = 80 * direction;
+
+    // Determine dash distance based on battle type
+    const sausageType = SAUSAGE_MAP[this.unit.sausageTypeId];
+    const battleType = sausageType?.battle?.type ?? 'normal';
+
+    // Ranged and support don't dash forward; others do
+    const isRanged = battleType === 'ranged';
+    const isSupport = battleType === 'support';
+    const dashDist = isRanged || isSupport ? 20 * direction : 80 * direction;
+    const dashDuration = battleType === 'tank' ? 260 : 180;
 
     this.scene.tweens.add({
       targets: this,
       x: this.baseX + dashDist,
-      duration: 180,
-      ease: 'Power2.In',
+      duration: dashDuration,
+      ease: battleType === 'assassin' ? 'Power3.In' : 'Power2.In',
       onComplete: () => {
-        // Small impact shake at target
-        void targetX; // used conceptually
+        // Trigger variety-specific visual effect at impact point
+        this.playAttackEffect(this.scene, targetX, this.y);
+
         this.scene.tweens.add({
           targets: this,
           x: this.baseX,
@@ -98,6 +117,216 @@ export class BattleSausage extends Phaser.GameObjects.Container {
         });
       },
     });
+  }
+
+  /**
+   * Variety-specific attack visual effects.
+   * Uses the scene's tweens and graphics; all created objects are cleaned up after effect.
+   */
+  public playAttackEffect(_scene: Phaser.Scene, targetX: number, targetY: number): void {
+    const scene = this.scene;
+    const sausageType = SAUSAGE_MAP[this.unit.sausageTypeId];
+    const battleType = sausageType?.battle?.type ?? 'normal';
+
+    switch (battleType) {
+      case 'normal':
+        this._effectNormalCharge(scene, targetX, targetY);
+        break;
+      case 'ranged':
+        this._effectRangedRoe(scene, targetX, targetY);
+        break;
+      case 'aoe':
+        this._effectAoeGarlic(scene, targetX, targetY);
+        break;
+      case 'tank':
+        this._effectTankCheese(scene, targetX, targetY);
+        break;
+      case 'assassin':
+        this._effectAssassinInk(scene, targetX, targetY);
+        break;
+      case 'support':
+        this._effectSupportMala(scene, targetX, targetY);
+        break;
+      default:
+        this._effectNormalCharge(scene, targetX, targetY);
+    }
+  }
+
+  // ── Per-type effect implementations ──────────────────────────────────────
+
+  /** black-pig (normal): white impact flash at target */
+  private _effectNormalCharge(scene: Phaser.Scene, targetX: number, targetY: number): void {
+    const flash = scene.add.graphics();
+    flash.fillStyle(0xffffff, 0.85);
+    flash.fillCircle(targetX, targetY, 22);
+    flash.setDepth(20);
+
+    scene.tweens.add({
+      targets: flash,
+      alpha: 0,
+      scaleX: 2.2,
+      scaleY: 2.2,
+      duration: 280,
+      ease: 'Power2.Out',
+      onComplete: () => flash.destroy(),
+    });
+  }
+
+  /** flying-fish-roe (ranged): 3 scatter projectiles toward target */
+  private _effectRangedRoe(scene: Phaser.Scene, targetX: number, targetY: number): void {
+    const startX = this.x;
+    const startY = this.y;
+    const offsets = [-18, 0, 18]; // vertical scatter
+
+    offsets.forEach((offsetY, i) => {
+      const dot = scene.add.graphics();
+      dot.fillStyle(0xff8844, 1);
+      dot.fillCircle(0, 0, 6);
+      dot.setPosition(startX, startY);
+      dot.setDepth(20);
+
+      scene.tweens.add({
+        targets: dot,
+        x: targetX,
+        y: targetY + offsetY,
+        duration: 220,
+        delay: i * 45,
+        ease: 'Power1.In',
+        onComplete: () => {
+          // Small pop at landing
+          scene.tweens.add({
+            targets: dot,
+            alpha: 0,
+            scaleX: 3,
+            scaleY: 3,
+            duration: 130,
+            ease: 'Power2.Out',
+            onComplete: () => dot.destroy(),
+          });
+        },
+      });
+    });
+  }
+
+  /** garlic-bomb (aoe): expanding green shockwave ring */
+  private _effectAoeGarlic(scene: Phaser.Scene, targetX: number, targetY: number): void {
+    const ring = scene.add.graphics();
+    ring.lineStyle(4, 0x44ff66, 0.9);
+    ring.strokeCircle(0, 0, 10);
+    ring.setPosition(targetX, targetY);
+    ring.setDepth(20);
+
+    // Inner glow fill
+    const fill = scene.add.graphics();
+    fill.fillStyle(0x44ff66, 0.25);
+    fill.fillCircle(0, 0, 10);
+    fill.setPosition(targetX, targetY);
+    fill.setDepth(19);
+
+    scene.tweens.add({
+      targets: [ring, fill],
+      scaleX: 5.5,
+      scaleY: 5.5,
+      alpha: 0,
+      duration: 450,
+      ease: 'Power2.Out',
+      onComplete: () => {
+        ring.destroy();
+        fill.destroy();
+      },
+    });
+  }
+
+  /** cheese (tank): yellow splatter particles on impact */
+  private _effectTankCheese(scene: Phaser.Scene, targetX: number, targetY: number): void {
+    const count = 7;
+    for (let i = 0; i < count; i++) {
+      const angle = (Math.PI * 2 * i) / count + (Math.random() * 0.5 - 0.25);
+      const dist = 28 + Math.random() * 20;
+      const blob = scene.add.graphics();
+      blob.fillStyle(0xffdd00, 1);
+      blob.fillCircle(0, 0, 4 + Math.random() * 4);
+      blob.setPosition(targetX, targetY);
+      blob.setDepth(20);
+
+      scene.tweens.add({
+        targets: blob,
+        x: targetX + Math.cos(angle) * dist,
+        y: targetY + Math.sin(angle) * dist,
+        alpha: 0,
+        scaleX: 0.3,
+        scaleY: 0.3,
+        duration: 380 + Math.random() * 120,
+        ease: 'Power2.Out',
+        onComplete: () => blob.destroy(),
+      });
+    }
+  }
+
+  /** squidink (assassin): brief disappear + reappear + slash line */
+  private _effectAssassinInk(scene: Phaser.Scene, targetX: number, targetY: number): void {
+    // Blink self out
+    this.setAlpha(0);
+
+    scene.time.delayedCall(120, () => {
+      // Reappear
+      this.setAlpha(1);
+
+      // Slash line effect at target
+      const slash = scene.add.graphics();
+      slash.lineStyle(3, 0x8800cc, 0.95);
+      const slashLen = 40;
+      slash.beginPath();
+      slash.moveTo(targetX - slashLen / 2, targetY - slashLen / 3);
+      slash.lineTo(targetX + slashLen / 2, targetY + slashLen / 3);
+      slash.strokePath();
+      slash.setDepth(20);
+
+      // Second slash (cross)
+      slash.lineStyle(2, 0xcc44ff, 0.7);
+      slash.beginPath();
+      slash.moveTo(targetX + slashLen / 2, targetY - slashLen / 3);
+      slash.lineTo(targetX - slashLen / 2, targetY + slashLen / 3);
+      slash.strokePath();
+
+      scene.tweens.add({
+        targets: slash,
+        alpha: 0,
+        scaleX: 1.4,
+        scaleY: 1.4,
+        duration: 300,
+        ease: 'Power2.Out',
+        onComplete: () => slash.destroy(),
+      });
+    });
+  }
+
+  /** mala (support): red sparkles spreading outward from self */
+  private _effectSupportMala(scene: Phaser.Scene, _targetX: number, _targetY: number): void {
+    const count = 8;
+    for (let i = 0; i < count; i++) {
+      const angle = (Math.PI * 2 * i) / count;
+      const dist = 50 + Math.random() * 30;
+
+      const spark = scene.add.graphics();
+      spark.fillStyle(0xff2244, 1);
+      spark.fillCircle(0, 0, 4);
+      spark.setPosition(this.x, this.y);
+      spark.setDepth(20);
+
+      scene.tweens.add({
+        targets: spark,
+        x: this.x + Math.cos(angle) * dist,
+        y: this.y + Math.sin(angle) * dist,
+        alpha: 0,
+        scaleX: 0.4,
+        scaleY: 0.4,
+        duration: 400 + Math.random() * 100,
+        delay: i * 25,
+        ease: 'Power2.Out',
+        onComplete: () => spark.destroy(),
+      });
+    }
   }
 
   playHitAnim(): void {
@@ -121,13 +350,43 @@ export class BattleSausage extends Phaser.GameObjects.Container {
   }
 
   playDeathAnim(onComplete?: () => void): void {
+    this.playDeathEffect(this.scene, onComplete);
+  }
+
+  /**
+   * Enhanced death effect: shrink + fade + slight rotation.
+   */
+  public playDeathEffect(_scene: Phaser.Scene, onComplete?: () => void): void {
     this.stopIdleFloat();
-    // Shrink + gray out + fade
+
+    // Ghost particles bursting out
+    const count = 5;
+    for (let i = 0; i < count; i++) {
+      const angle = (Math.PI * 2 * i) / count;
+      const ghost = this.scene.add.graphics();
+      ghost.fillStyle(0xffffff, 0.6);
+      ghost.fillCircle(0, 0, 5);
+      ghost.setPosition(this.x, this.y);
+      ghost.setDepth(this.depth + 1);
+
+      this.scene.tweens.add({
+        targets: ghost,
+        x: this.x + Math.cos(angle) * 35,
+        y: this.y + Math.sin(angle) * 35,
+        alpha: 0,
+        duration: 350,
+        ease: 'Power2.Out',
+        onComplete: () => ghost.destroy(),
+      });
+    }
+
+    // Shrink + rotate + fade
     this.scene.tweens.add({
       targets: this,
       scaleX: 0.4,
       scaleY: 0.4,
       alpha: 0,
+      angle: 25,
       duration: 600,
       ease: 'Power2.In',
       onComplete: () => {

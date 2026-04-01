@@ -9,6 +9,7 @@ import { SummaryPanel } from './panels/SummaryPanel';
 import type { SummaryData } from './panels/SummaryPanel';
 import { EndingPanel } from './panels/EndingPanel';
 import type { EndingData } from './panels/EndingPanel';
+import { ShopPanel } from './panels/ShopPanel';
 import './styles/neon.css';
 
 // UIManager: controls which HTML overlay panel is shown/hidden
@@ -90,7 +91,10 @@ export class UIManager {
         return null;
       }
       case 'event':      return this.createPlaceholderPanel('📰 突發事件', 'event-done', '繼續 ▶');
-      case 'shop':       return this.createPlaceholderPanel('🏪 升級商店', 'shop-done', '繼續 ▶');
+      case 'shop': {
+        const shopPanel = new ShopPanel();
+        return shopPanel.getElement();
+      }
       default:           return null;
     }
   }

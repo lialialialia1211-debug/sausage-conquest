@@ -70,6 +70,34 @@ export class SummaryPanel {
     const reviewEl = this.buildReview(salesLog);
     this.panel.appendChild(reviewEl);
 
+    // Loan warning
+    if (gameState.loans.active) {
+      const daysLeft = gameState.loans.active.dueDay - gameState.day;
+      if (daysLeft <= 3 && daysLeft > 0) {
+        const loanWarn = document.createElement('div');
+        loanWarn.className = 'summary-bankrupt-warning';
+        loanWarn.style.borderColor = '#ff6600';
+        loanWarn.style.color = '#ff9944';
+        loanWarn.textContent = `借款還有 ${daysLeft} 天到期！應還 $${gameState.loans.active.totalOwed}`;
+        this.panel.appendChild(loanWarn);
+      } else if (daysLeft <= 0) {
+        const loanWarn = document.createElement('div');
+        loanWarn.className = 'summary-bankrupt-warning';
+        loanWarn.textContent = `借款已逾期！趕快去商店還款！`;
+        this.panel.appendChild(loanWarn);
+      }
+    }
+
+    // Low money hint
+    if (gameState.money < 200 && !gameState.loans.active) {
+      const hintEl = document.createElement('div');
+      hintEl.className = 'summary-bankrupt-warning';
+      hintEl.style.borderColor = '#4488ff';
+      hintEl.style.color = '#6699ff';
+      hintEl.textContent = '資金快見底了！去商店的「資金周轉」借點錢？';
+      this.panel.appendChild(hintEl);
+    }
+
     // Bankrupt warning
     if (isBankrupt) {
       const warnEl = document.createElement('div');

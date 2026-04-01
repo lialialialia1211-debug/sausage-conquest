@@ -4,6 +4,7 @@ import { EventBus } from '../utils/EventBus';
 import { gameState, updateGameState } from '../state/GameState';
 import { OPPONENT_MAP } from '../data/opponents';
 import { BattleSausage } from '../objects/BattleSausage';
+import { sfx } from '../utils/SoundFX';
 import {
   createBattleUnit,
   generateOpponentUnits,
@@ -167,12 +168,8 @@ export class BattleScene extends Phaser.Scene {
     // Spawn sprites
     this.spawnUnitSprites(width, height);
 
-    // Update title
-    this.titleText.setText('⚔ 地盤爭奪戰');
-
-
-    // Start playing rounds
-    this.time.delayedCall(600, () => {
+    // Show intro animation then start rounds
+    this.showIntroAnimation(() => {
       this.playNextRound();
     });
   }
@@ -243,6 +240,7 @@ export class BattleScene extends Phaser.Scene {
 
     // Play attacker dash animation
     if (attackerSprite && defenderSprite) {
+      sfx.playAttack();
       attackerSprite.playAttackAnim(defenderSprite.x, () => {
         // Defender hit
         if (defenderSprite) {
@@ -327,6 +325,91 @@ export class BattleScene extends Phaser.Scene {
     this.tweens.add({ targets: newEntry, alpha: 1, duration: 200 });
   }
 
+  // ── Intro animation ────────────────────────────────────────────────────────
+
+  private showIntroAnimation(onComplete: () => void): void {
+    const { width, height } = this.scale;
+    const opponent = OPPONENT_MAP[this.opponentId];
+    const oppLabel = opponent ? `${opponent.emoji} ${opponent.name}` : '神秘對手';
+
+    // Dark overlay
+    const overlay = this.add.graphics();
+    overlay.fillStyle(0x000000, 0.75);
+    overlay.fillRect(0, 0, width, height);
+    overlay.setDepth(10);
+
+    // Opponent name slide in from right
+    const oppNameText = this.add.text(width + 60, height * 0.38, oppLabel, {
+      fontSize: '28px',
+      fontFamily: FONT,
+      color: '#ff4455',
+      fontStyle: 'bold',
+      shadow: { blur: 14, color: '#ff0033', fill: true },
+    }).setOrigin(0.5).setDepth(11);
+
+    // Player label slide in from left
+    const playerText = this.add.text(-60, height * 0.54, '你', {
+      fontSize: '28px',
+      fontFamily: FONT,
+      color: '#4488ff',
+      fontStyle: 'bold',
+      shadow: { blur: 14, color: '#0044ff', fill: true },
+    }).setOrigin(0.5).setDepth(11);
+
+    // VS center text — starts invisible
+    const vsText = this.add.text(width / 2, height * 0.46, 'VS', {
+      fontSize: '52px',
+      fontFamily: FONT,
+      color: '#ffffff',
+      fontStyle: 'bold',
+      shadow: { blur: 20, color: '#ff1144', fill: true },
+    }).setOrigin(0.5).setAlpha(0).setDepth(11);
+
+    // Slide in both sides simultaneously
+    this.tweens.add({
+      targets: oppNameText,
+      x: width / 2,
+      duration: 400,
+      ease: 'Back.Out',
+    });
+
+    this.tweens.add({
+      targets: playerText,
+      x: width / 2,
+      duration: 400,
+      ease: 'Back.Out',
+      onComplete: () => {
+        // Flash VS text
+        this.tweens.add({
+          targets: vsText,
+          alpha: 1,
+          duration: 200,
+          yoyo: true,
+          repeat: 2,
+          onComplete: () => {
+            vsText.setAlpha(1);
+            // Hold briefly then fade everything out
+            this.time.delayedCall(600, () => {
+              this.tweens.add({
+                targets: [overlay, oppNameText, playerText, vsText],
+                alpha: 0,
+                duration: 350,
+                onComplete: () => {
+                  overlay.destroy();
+                  oppNameText.destroy();
+                  playerText.destroy();
+                  vsText.destroy();
+                  this.titleText.setText('⚔ 地盤爭奪戰');
+                  onComplete();
+                },
+              });
+            });
+          },
+        });
+      },
+    });
+  }
+
   // ── Result screen ──────────────────────────────────────────────────────────
 
   private showResult(): void {
@@ -350,9 +433,11 @@ export class BattleScene extends Phaser.Scene {
     } else if (playerWon) {
       resultMsg = '勝利！奪下地盤！';
       resultColor = '#44ff88';
+      sfx.playVictory();
     } else {
       resultMsg = '敗北⋯⋯地盤易主';
       resultColor = '#ff4466';
+      sfx.playDefeat();
     }
 
     this.resultText.setText(resultMsg).setColor(resultColor).setVisible(true);
@@ -360,24 +445,85 @@ export class BattleScene extends Phaser.Scene {
     // Fade in result
     this.tweens.add({ targets: this.resultText, alpha: 1, duration: 400 });
 
-    // Show opponent aftermath dialogue
+    // Show opponent aftermath dialogue in a styled overlay bubble
     const opponent = OPPONENT_MAP[this.opponentId];
     if (opponent) {
       const dialogue = playerWon ? opponent.dialogue.win : opponent.dialogue.lose;
-      const dialogueText = this.add.text(width / 2, height * 0.62, `${opponent.emoji} 「${dialogue}」`, {
-        fontSize: '14px',
-        fontFamily: FONT,
-        color: '#aa88bb',
-        align: 'center',
-        wordWrap: { width: width * 0.8 },
-      }).setOrigin(0.5).setAlpha(0);
-      this.tweens.add({ targets: dialogueText, alpha: 1, duration: 600, delay: 400 });
+      this.showDialogueBubble(opponent.emoji, dialogue, width, height);
     }
 
     // Show continue button
     this.time.delayedCall(800, () => {
       this.continueBtn.setVisible(true);
       this.tweens.add({ targets: this.continueBtn, alpha: 1, duration: 300 });
+    });
+  }
+
+  private showDialogueBubble(emoji: string, dialogue: string, width: number, height: number): void {
+    const bubbleY = height * 0.63;
+    const bubbleW = width * 0.78;
+    const bubblePadH = 12;
+    const bubblePadW = 18;
+
+    // Background pill for speech bubble
+    const bubbleBg = this.add.graphics();
+    bubbleBg.fillStyle(0x110022, 0.92);
+    bubbleBg.lineStyle(1, 0xaa44cc, 0.8);
+    bubbleBg.fillRoundedRect(
+      width / 2 - bubbleW / 2,
+      bubbleY - 22,
+      bubbleW,
+      56,
+      10,
+    );
+    bubbleBg.strokeRoundedRect(
+      width / 2 - bubbleW / 2,
+      bubbleY - 22,
+      bubbleW,
+      56,
+      10,
+    );
+    bubbleBg.setAlpha(0).setDepth(5);
+
+    // Emoji label
+    const emojiText = this.add.text(
+      width / 2 - bubbleW / 2 + bubblePadW,
+      bubbleY + 6,
+      emoji,
+      { fontSize: '20px', fontFamily: FONT },
+    ).setOrigin(0, 0.5).setAlpha(0).setDepth(6);
+
+    // Dialogue text
+    const dialogueText = this.add.text(
+      width / 2 - bubbleW / 2 + bubblePadW + 30,
+      bubbleY + 6,
+      `「${dialogue}」`,
+      {
+        fontSize: '13px',
+        fontFamily: FONT,
+        color: '#cc99ee',
+        align: 'left',
+        wordWrap: { width: bubbleW - bubblePadW * 2 - 34 },
+      },
+    ).setOrigin(0, 0.5).setAlpha(0).setDepth(6);
+
+    // Resize bubble to fit text height
+    const textH = dialogueText.height;
+    if (textH > 30) {
+      bubbleBg.clear();
+      bubbleBg.fillStyle(0x110022, 0.92);
+      bubbleBg.lineStyle(1, 0xaa44cc, 0.8);
+      const newH = textH + bubblePadH * 2;
+      bubbleBg.fillRoundedRect(width / 2 - bubbleW / 2, bubbleY - newH / 2, bubbleW, newH, 10);
+      bubbleBg.strokeRoundedRect(width / 2 - bubbleW / 2, bubbleY - newH / 2, bubbleW, newH, 10);
+    }
+
+    // Fade in
+    this.tweens.add({
+      targets: [bubbleBg, emojiText, dialogueText],
+      alpha: 1,
+      duration: 500,
+      delay: 400,
     });
   }
 

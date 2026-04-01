@@ -19,6 +19,8 @@ export const gameState = {
     totalSausagesSold: 0,
     totalRevenue: 0,
     totalExpenses: 0,
+    battlesWon: 0,
+    battlesLost: 0,
   } as Record<string, number>,
   dailyExpenses: 0,
   selectedSlot: -1 as number,
@@ -27,6 +29,11 @@ export const gameState = {
   dailySalesLog: [] as SaleRecord[],
   // Temporary grill stats for today — GrillScene writes, SummaryScene reads
   dailyGrillStats: { perfect: 0, ok: 0, raw: 0, burnt: 0 } as { perfect: number; ok: number; raw: number; burnt: number },
+  // Unlocked sausage types (starts with 3 base types)
+  unlockedSausages: ['black-pig', 'flying-fish-roe', 'garlic-bomb'] as string[],
+  // AI opponent tracking
+  activeOpponents: [] as string[],
+  defeatedOpponents: [] as string[],
 };
 
 // Update state and notify UI via EventBus

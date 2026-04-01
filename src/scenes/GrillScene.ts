@@ -18,6 +18,7 @@ import { sellSausage } from '../systems/EconomyEngine';
 import { SausageSprite } from '../objects/SausageSprite';
 import { CustomerQueue } from '../objects/CustomerQueue';
 import type { SaleRecord, Customer } from '../types';
+import { sfx } from '../utils/SoundFX';
 
 // ── Layout constants ────────────────────────────────────────────────────────
 const GAME_DURATION = 60;      // seconds
@@ -168,6 +169,7 @@ export class GrillScene extends Phaser.Scene {
 
         this.grillStats.burnt++;
         changeReputation(-2);
+        sfx.playBurnt();
         this.showFeedback('燒焦了！-2 聲望', slot.x, slot.y - 50, '#ff3300');
 
         this.time.delayedCall(1200, () => {
@@ -580,6 +582,7 @@ export class GrillScene extends Phaser.Scene {
       if (currentSlot?.sausage) {
         currentSlot.sausage = flipSausage(currentSlot.sausage);
         sprite.updateData(currentSlot.sausage);
+        sfx.playFlip();
       }
     });
 
@@ -647,8 +650,10 @@ export class GrillScene extends Phaser.Scene {
         if (isPerfect) {
           this.grillStats.perfect++;
           changeReputation(1);
+          sfx.playPerfect();
         } else {
           this.grillStats.ok++;
+          sfx.playCashRegister();
         }
 
         this.sessionRevenue += price;
@@ -682,6 +687,7 @@ export class GrillScene extends Phaser.Scene {
   }
 
   private onCustomerTimeout(customerId: string): void {
+    sfx.playCustomerLeave();
     changeReputation(-1);
     this.customers = this.customers.filter(c => c.id !== customerId);
     this.showFeedback('-1 聲望', 80, this.scale.height * 0.13, '#ff4444');
@@ -782,11 +788,8 @@ export class GrillScene extends Phaser.Scene {
 
     this.cameras.main.fadeOut(600, 0, 0, 0);
     this.cameras.main.once('camerafadeoutcomplete', () => {
-      if (gameState.day % 3 === 0) {
-        this.scene.start('BattleScene');
-      } else {
-        this.scene.start('SummaryScene');
-      }
+      // Events happen after grilling, then battle check, then summary
+      this.scene.start('EventScene');
     });
   }
 

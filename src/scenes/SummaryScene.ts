@@ -5,6 +5,8 @@ import { EventBus } from '../utils/EventBus';
 import { gameState, advanceDay } from '../state/GameState';
 import { calculateDailyReport } from '../systems/EconomyEngine';
 import { processDaily } from '../systems/LoanEngine';
+import { checkAchievements } from '../systems/AchievementEngine';
+import { sfx } from '../utils/SoundFX';
 import { GRID_SLOTS } from '../data/map';
 import type { SaleRecord } from '../types';
 
@@ -71,7 +73,14 @@ export class SummaryScene extends Phaser.Scene {
       return;
     }
 
-    // No game over — show summary panel
+    // No game over — check achievements
+    const newAchievements = checkAchievements();
+    if (newAchievements.length > 0) {
+      sfx.playAchievement();
+      this.showAchievementToasts(newAchievements);
+    }
+
+    // Show summary panel
     const grillStats = gameState.dailyGrillStats ?? { perfect: 0, ok: 0, raw: 0, burnt: 0 };
 
     EventBus.emit('show-panel', 'summary', {
@@ -112,10 +121,43 @@ export class SummaryScene extends Phaser.Scene {
     EventBus.emit('hide-panel');
     this.cameras.main.fadeOut(400, 0, 0, 0);
     this.cameras.main.once('camerafadeoutcomplete', () => {
-      // Loop back to Morning for the new day
-      this.scene.start('MorningScene');
+      // Go to shop first, then morning
+      this.scene.start('ShopScene');
     });
   };
+
+  private showAchievementToasts(achievements: Array<{ emoji: string; name: string; joke: string }>): void {
+    const { width } = this.scale;
+    achievements.forEach((ach, i) => {
+      const y = 40 + i * 50;
+      const text = this.add.text(width + 10, y, `${ach.emoji} ${ach.name} — ${ach.joke}`, {
+        fontSize: '14px',
+        fontFamily: 'Microsoft JhengHei, PingFang TC, sans-serif',
+        color: '#ffcc00',
+        backgroundColor: '#000000cc',
+        padding: { x: 12, y: 6 },
+      }).setOrigin(1, 0).setDepth(100);
+
+      // Slide in from right
+      this.tweens.add({
+        targets: text,
+        x: width - 10,
+        duration: 400,
+        ease: 'Back.easeOut',
+        delay: i * 300,
+      });
+
+      // Slide out after 3s
+      this.tweens.add({
+        targets: text,
+        x: width + 300,
+        alpha: 0,
+        duration: 400,
+        delay: 3000 + i * 300,
+        onComplete: () => { if (text.active) text.destroy(); },
+      });
+    });
+  }
 
   shutdown(): void {
     EventBus.off('summary-done', this.onSummaryDone, this);

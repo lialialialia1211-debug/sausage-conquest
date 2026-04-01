@@ -1,6 +1,7 @@
 // BattlePrepPanel — Pre-battle sausage selection overlay
 import { EventBus } from '../../utils/EventBus';
 import { SAUSAGE_MAP } from '../../data/sausages';
+import { OPPONENT_MAP } from '../../data/opponents';
 
 export interface BattlePrepData {
   opponentId: string;
@@ -9,6 +10,7 @@ export interface BattlePrepData {
   opponentDialogue: string;
   difficulty: number;
   inventoryEntries: Array<[string, number]>;
+  opponentDescription?: string;
 }
 
 export class BattlePrepPanel {
@@ -52,20 +54,43 @@ export class BattlePrepPanel {
     nameDiv.className = 'opp-name';
     nameDiv.textContent = data.opponentName;
 
-    const dialogueDiv = document.createElement('div');
-    dialogueDiv.className = 'opp-dialogue';
-    dialogueDiv.textContent = `「${data.opponentDialogue}」`;
-
     const difficultyDiv = document.createElement('div');
     difficultyDiv.className = 'opp-difficulty';
     difficultyDiv.textContent = `難度：${'★'.repeat(data.difficulty)}${'☆'.repeat(5 - data.difficulty)}`;
 
-    detailsDiv.appendChild(nameDiv);
-    detailsDiv.appendChild(dialogueDiv);
-    detailsDiv.appendChild(difficultyDiv);
+    // Opponent description (flavor text)
+    const opponent = OPPONENT_MAP[data.opponentId];
+    const descriptionText = data.opponentDescription ?? opponent?.description ?? '';
+    if (descriptionText) {
+      const descDiv = document.createElement('div');
+      descDiv.className = 'opp-description';
+      descDiv.textContent = descriptionText;
+      detailsDiv.appendChild(nameDiv);
+      detailsDiv.appendChild(descDiv);
+      detailsDiv.appendChild(difficultyDiv);
+    } else {
+      detailsDiv.appendChild(nameDiv);
+      detailsDiv.appendChild(difficultyDiv);
+    }
+
     opponentBox.appendChild(emojiSpan);
     opponentBox.appendChild(detailsDiv);
     panel.appendChild(opponentBox);
+
+    // Speech bubble — beforeBattle dialogue
+    const bubbleWrapper = document.createElement('div');
+    bubbleWrapper.className = 'opp-speech-bubble-wrapper';
+
+    const bubble = document.createElement('div');
+    bubble.className = 'opp-speech-bubble';
+    bubble.textContent = `「${data.opponentDialogue}」`;
+
+    const bubbleTail = document.createElement('div');
+    bubbleTail.className = 'opp-speech-bubble-tail';
+
+    bubbleWrapper.appendChild(bubble);
+    bubbleWrapper.appendChild(bubbleTail);
+    panel.appendChild(bubbleWrapper);
 
     // Selection instruction
     const hint = document.createElement('div');

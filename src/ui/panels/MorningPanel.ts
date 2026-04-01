@@ -32,10 +32,11 @@ export class MorningPanel {
     titleEl.textContent = '🌅 早上 — 進貨備料';
     this.panel.appendChild(titleEl);
 
-    // Sausage cards container
+    // Sausage cards container (only show unlocked types)
     const cardsEl = document.createElement('div');
     cardsEl.className = 'sausage-cards';
-    for (const sausage of SAUSAGE_TYPES) {
+    const unlockedTypes = SAUSAGE_TYPES.filter(s => gameState.unlockedSausages.includes(s.id));
+    for (const sausage of unlockedTypes) {
       const card = this.buildSausageCard(sausage, spoilageInfo);
       cardsEl.appendChild(card);
     }
