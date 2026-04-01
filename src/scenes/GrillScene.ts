@@ -124,6 +124,11 @@ export class GrillScene extends Phaser.Scene {
 
     this.cameras.main.fadeIn(400, 0, 0, 0);
     EventBus.emit('scene-ready', 'GrillScene');
+
+    // Show tutorial on Day 1
+    if (gameState.day === 1) {
+      this.showTutorialOverlay(width, height);
+    }
   }
 
   update(_time: number, delta: number): void {
@@ -790,6 +795,53 @@ export class GrillScene extends Phaser.Scene {
     this.cameras.main.once('camerafadeoutcomplete', () => {
       // Events happen after grilling, then battle check, then summary
       this.scene.start('EventScene');
+    });
+  }
+
+  // ── Tutorial ──────────────────────────────────────────────────────────────
+
+  private showTutorialOverlay(width: number, height: number): void {
+    const overlay = this.add.graphics();
+    overlay.fillStyle(0x000000, 0.75);
+    overlay.fillRect(0, 0, width, height);
+    overlay.setDepth(200);
+
+    const lines = [
+      '== 烤制教學 ==',
+      '',
+      '點擊香腸 = 翻面（兩面都要烤）',
+      '雙擊香腸 = 出餐給客人',
+      '',
+      '每根香腸下方有兩條熟度條（上面/下面）',
+      '藍色標記 = 完美區間，烤到那裡再出餐',
+      '',
+      '底部三個按鈕切換火力：小/中/大',
+      '大火烤快但容易焦，小心控制！',
+      '',
+      '右邊排隊的是客人，頭上綠條是耐心',
+      '耐心歸零客人會走，聲望 -1',
+      '',
+      '60 秒營業時間，盡量多賣！',
+      '',
+      '[ 點擊任意處開始 ]',
+    ];
+
+    const tutText = this.add.text(width / 2, height / 2, lines.join('\n'), {
+      fontSize: '15px',
+      fontFamily: 'Microsoft JhengHei, PingFang TC, sans-serif',
+      color: '#ffcc00',
+      align: 'center',
+      lineSpacing: 6,
+      wordWrap: { width: width * 0.8 },
+    }).setOrigin(0.5).setDepth(201);
+
+    overlay.setInteractive(
+      new Phaser.Geom.Rectangle(0, 0, width, height),
+      Phaser.Geom.Rectangle.Contains
+    );
+    overlay.once('pointerdown', () => {
+      overlay.destroy();
+      tutText.destroy();
     });
   }
 

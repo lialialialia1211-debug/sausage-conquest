@@ -15,7 +15,9 @@ export class MorningPanel {
   private summarySpend: HTMLElement;
   private summaryRemain: HTMLElement;
   private confirmBtn: HTMLButtonElement;
-  private cardPlusButtons: Map<string, HTMLButtonElement> = new Map();
+  private qtyDisplays: Map<string, HTMLElement> = new Map();
+  private subtotalEls: Map<string, HTMLElement> = new Map();
+  private cardRefs: Map<string, { sausage: SausageType }> = new Map();
 
   constructor(spoilageInfo?: SpoilageInfo) {
     // Init quantities to 0 for each sausage type
@@ -139,52 +141,96 @@ export class MorningPanel {
     const qtyRowEl = document.createElement('div');
     qtyRowEl.className = 'qty-row';
 
-    const minusBtn = document.createElement('button');
-    minusBtn.className = 'qty-btn btn-neon-red';
-    minusBtn.textContent = '－';
-    minusBtn.addEventListener('click', () => {
-      if (this.quantities[sausage.id] > 0) {
-        this.quantities[sausage.id] -= 1;
-        qtyDisplay.textContent = String(this.quantities[sausage.id]);
-        subtotalEl.textContent = `小計 $${this.quantities[sausage.id] * sausage.cost}`;
-        this.updateSummary();
-      }
-    });
-
-    const qtyDisplay = document.createElement('span');
-    qtyDisplay.className = 'qty-display';
-    qtyDisplay.textContent = '0';
-
-    const plusBtn = document.createElement('button');
-    plusBtn.className = 'qty-btn btn-neon-cyan';
-    plusBtn.textContent = '＋';
-    plusBtn.addEventListener('click', () => {
-      const totalSpend = this.calcTotalCost();
-      const canAffordOne = gameState.money - totalSpend >= sausage.cost;
-      if (canAffordOne) {
-        this.quantities[sausage.id] += 1;
-        qtyDisplay.textContent = String(this.quantities[sausage.id]);
-        subtotalEl.textContent = `小計 $${this.quantities[sausage.id] * sausage.cost}`;
-        this.updateSummary();
-      }
-    });
-    this.cardPlusButtons.set(sausage.id, plusBtn);
+    // Quick-add buttons row: -10, -5, -1, [input], +1, +5, +10
+    const qtyControl = document.createElement('div');
+    qtyControl.className = 'qty-control';
+    qtyControl.style.display = 'flex';
+    qtyControl.style.alignItems = 'center';
+    qtyControl.style.gap = '4px';
+    qtyControl.style.flexWrap = 'wrap';
 
     const subtotalEl = document.createElement('span');
     subtotalEl.className = 'sausage-subtotal';
     subtotalEl.textContent = `小計 $0`;
+    this.subtotalEls.set(sausage.id, subtotalEl);
 
-    const qtyControl = document.createElement('div');
-    qtyControl.className = 'qty-control';
-    qtyControl.appendChild(minusBtn);
-    qtyControl.appendChild(qtyDisplay);
-    qtyControl.appendChild(plusBtn);
+    // Editable input for direct number entry
+    const qtyInput = document.createElement('input');
+    qtyInput.type = 'number';
+    qtyInput.className = 'qty-input';
+    qtyInput.value = '0';
+    qtyInput.min = '0';
+    qtyInput.style.width = '48px';
+    qtyInput.style.textAlign = 'center';
+    qtyInput.style.fontSize = '16px';
+    qtyInput.style.fontWeight = 'bold';
+    qtyInput.style.background = '#111';
+    qtyInput.style.color = '#fff';
+    qtyInput.style.border = '1px solid #444';
+    qtyInput.style.borderRadius = '4px';
+    qtyInput.style.padding = '4px 2px';
+    qtyInput.style.appearance = 'textfield';
+    qtyInput.addEventListener('input', () => {
+      const val = Math.max(0, parseInt(qtyInput.value) || 0);
+      this.setQuantity(sausage, val, qtyInput, subtotalEl);
+    });
+    this.qtyDisplays.set(sausage.id, qtyInput);
+    this.cardRefs.set(sausage.id, { sausage });
+
+    const makeBtn = (label: string, delta: number): HTMLButtonElement => {
+      const btn = document.createElement('button');
+      btn.className = delta > 0 ? 'qty-btn btn-neon-cyan' : 'qty-btn btn-neon-red';
+      btn.textContent = label;
+      btn.style.minWidth = '36px';
+      btn.style.padding = '4px 6px';
+      btn.style.fontSize = '13px';
+      btn.addEventListener('click', () => {
+        const newVal = Math.max(0, this.quantities[sausage.id] + delta);
+        this.setQuantity(sausage, newVal, qtyInput, subtotalEl);
+      });
+      return btn;
+    };
+
+    qtyControl.appendChild(makeBtn('-10', -10));
+    qtyControl.appendChild(makeBtn('-5', -5));
+    qtyControl.appendChild(makeBtn('-1', -1));
+    qtyControl.appendChild(qtyInput);
+    qtyControl.appendChild(makeBtn('+1', +1));
+    qtyControl.appendChild(makeBtn('+5', +5));
+    qtyControl.appendChild(makeBtn('+10', +10));
+
+    // "Max buy" button
+    const maxBtn = document.createElement('button');
+    maxBtn.className = 'qty-btn btn-neon-cyan';
+    maxBtn.textContent = '最大';
+    maxBtn.style.minWidth = '42px';
+    maxBtn.style.padding = '4px 6px';
+    maxBtn.style.fontSize = '13px';
+    maxBtn.addEventListener('click', () => {
+      const remaining = gameState.money - this.calcTotalCost() + this.quantities[sausage.id] * sausage.cost;
+      const maxQty = Math.floor(remaining / sausage.cost);
+      this.setQuantity(sausage, maxQty, qtyInput, subtotalEl);
+    });
+    qtyControl.appendChild(maxBtn);
 
     qtyRowEl.appendChild(qtyControl);
     qtyRowEl.appendChild(subtotalEl);
     card.appendChild(qtyRowEl);
 
     return card;
+  }
+
+  private setQuantity(sausage: SausageType, qty: number, input: HTMLInputElement, subtotalEl: HTMLElement): void {
+    // Clamp: can't go below 0, can't exceed what we can afford
+    const otherSpend = this.calcTotalCost() - this.quantities[sausage.id] * sausage.cost;
+    const remaining = gameState.money - otherSpend;
+    const maxAffordable = Math.floor(remaining / sausage.cost);
+    const clamped = Math.max(0, Math.min(qty, maxAffordable));
+
+    this.quantities[sausage.id] = clamped;
+    input.value = String(clamped);
+    subtotalEl.textContent = `小計 $${clamped * sausage.cost}`;
+    this.updateSummary();
   }
 
   private calcTotalCost(): number {
@@ -201,17 +247,6 @@ export class MorningPanel {
 
     this.summarySpend.textContent = `$${totalSpend}`;
     this.summaryRemain.textContent = `$${remaining}`;
-
-    // Update plus buttons: disable if remaining < each sausage cost
-    for (const sausage of SAUSAGE_TYPES) {
-      const btn = this.cardPlusButtons.get(sausage.id);
-      if (btn) {
-        const canBuyOne = remaining >= sausage.cost;
-        btn.disabled = !canBuyOne;
-        btn.style.opacity = canBuyOne ? '1' : '0.3';
-        btn.style.cursor = canBuyOne ? 'pointer' : 'not-allowed';
-      }
-    }
 
     // Enable confirm if player has new purchases OR existing inventory
     const hasNewPurchases = Object.values(this.quantities).some(q => q > 0);
