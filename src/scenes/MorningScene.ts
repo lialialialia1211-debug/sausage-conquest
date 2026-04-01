@@ -1,9 +1,10 @@
 import Phaser from 'phaser';
 import { EventBus } from '../utils/EventBus';
-import { gameState } from '../state/GameState';
+import { gameState, updateGameState } from '../state/GameState';
+import { spoilOvernight } from '../systems/EconomyEngine';
 
-// MorningScene: placeholder — procurement phase
-// Triggers HTML overlay panel, waits for morning-done event
+// MorningScene: procurement phase
+// Calls spoilOvernight() first, then triggers HTML overlay panel
 export class MorningScene extends Phaser.Scene {
   private readyForNext = false;
 
@@ -16,26 +17,38 @@ export class MorningScene extends Phaser.Scene {
     const cx = width / 2;
     const cy = height / 2;
 
-    // Phaser background for this scene
+    // Reset daily expenses at start of each morning
+    updateGameState({ dailyExpenses: 0 });
+
+    // Apply overnight spoilage before showing panel
+    // Only spoil on day 2+ (day 1 starts with empty inventory)
+    const spoilage = gameState.day > 1 ? spoilOvernight() : {};
+
+    // Phaser background: morning sky gradient
     const bg = this.add.graphics();
-    bg.fillGradientStyle(0x0f0f1a, 0x0f0f1a, 0x1a1a2e, 0x1a1a2e, 1);
+    bg.fillGradientStyle(0x0a0a1a, 0x0a0a1a, 0x1a1a3e, 0x101030, 1);
     bg.fillRect(0, 0, width, height);
 
-    // Scene label (behind the overlay panel)
-    this.add.text(cx, cy, '🌅', {
-      fontSize: '80px',
-    }).setOrigin(0.5).setAlpha(0.15);
+    // Subtle morning glow at the top
+    const glow = this.add.graphics();
+    glow.fillGradientStyle(0x221100, 0x221100, 0x0a0a1a, 0x0a0a1a, 0.6);
+    glow.fillRect(0, 0, width, height * 0.4);
 
-    this.add.text(cx, cy + 70, `Day ${gameState.day} 早上`, {
+    // Background scene label
+    this.add.text(cx, cy - 20, '🌅', {
+      fontSize: '80px',
+    }).setOrigin(0.5).setAlpha(0.12);
+
+    this.add.text(cx, cy + 60, `Day ${gameState.day} 早上`, {
       fontSize: '20px',
       fontFamily: 'Microsoft JhengHei, PingFang TC, sans-serif',
-      color: '#333355',
+      color: '#2a2a55',
     }).setOrigin(0.5);
 
     this.cameras.main.fadeIn(400, 0, 0, 0);
 
-    // Show HTML overlay panel
-    EventBus.emit('show-panel', 'morning');
+    // Show HTML overlay panel, passing spoilage data
+    EventBus.emit('show-panel', 'morning', { spoilage });
     EventBus.emit('scene-ready', 'MorningScene');
 
     // Wait for HTML panel to emit morning-done

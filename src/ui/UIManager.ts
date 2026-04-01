@@ -1,5 +1,14 @@
 import { EventBus } from '../utils/EventBus';
 import { StatusBar } from './panels/StatusBar';
+import { MorningPanel } from './panels/MorningPanel';
+import type { SpoilageInfo } from './panels/MorningPanel';
+import { MapPanel } from './panels/MapPanel';
+import { BattlePrepPanel } from './panels/BattlePrepPanel';
+import type { BattlePrepData } from './panels/BattlePrepPanel';
+import { SummaryPanel } from './panels/SummaryPanel';
+import type { SummaryData } from './panels/SummaryPanel';
+import { EndingPanel } from './panels/EndingPanel';
+import type { EndingData } from './panels/EndingPanel';
 import './styles/neon.css';
 
 // UIManager: controls which HTML overlay panel is shown/hidden
@@ -31,10 +40,10 @@ export class UIManager {
     EventBus.on('hide-panel', this.hideCurrentPanel, this);
   }
 
-  private onShowPanel = (panelName: string): void => {
+  private onShowPanel = (panelName: string, data?: unknown): void => {
     this.hideCurrentPanel();
 
-    const panel = this.createPanelByName(panelName);
+    const panel = this.createPanelByName(panelName, data);
     if (panel) {
       panel.classList.add('fade-in');
       this.panelArea.appendChild(panel);
@@ -49,11 +58,37 @@ export class UIManager {
     }
   };
 
-  private createPanelByName(name: string): HTMLElement | null {
+  private createPanelByName(name: string, data?: unknown): HTMLElement | null {
     switch (name) {
-      case 'morning':    return this.createPlaceholderPanel('🌅 早上 — 進貨備料', 'morning-done', '繼續 ▶');
-      case 'evening':    return this.createPlaceholderPanel('🌆 傍晚 — 選位訂價', 'evening-done', '繼續 ▶');
-      case 'summary':    return this.createSummaryPanel();
+      case 'morning': {
+        const spoilageInfo = data as SpoilageInfo | undefined;
+        const morningPanel = new MorningPanel(spoilageInfo);
+        return morningPanel.getElement();
+      }
+      case 'evening': {
+        const mapPanel = new MapPanel();
+        return mapPanel.getElement();
+      }
+      case 'battle-prep': {
+        const prepPanel = new BattlePrepPanel(data as BattlePrepData);
+        return prepPanel.getElement();
+      }
+      case 'summary': {
+        const summaryData = data as SummaryData | undefined;
+        if (summaryData) {
+          const summaryPanel = new SummaryPanel(summaryData);
+          return summaryPanel.getElement();
+        }
+        return this.createSummaryPanel();
+      }
+      case 'ending': {
+        const endingData = data as EndingData | undefined;
+        if (endingData) {
+          const endingPanel = new EndingPanel(endingData);
+          return endingPanel.getElement();
+        }
+        return null;
+      }
       case 'event':      return this.createPlaceholderPanel('📰 突發事件', 'event-done', '繼續 ▶');
       case 'shop':       return this.createPlaceholderPanel('🏪 升級商店', 'shop-done', '繼續 ▶');
       default:           return null;

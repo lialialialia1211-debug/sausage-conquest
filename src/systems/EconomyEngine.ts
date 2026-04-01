@@ -24,9 +24,9 @@ export function buyStock(sausageId: string, quantity: number): boolean {
     },
   });
 
-  // Track expenses in stats
+  // Track expenses in stats (cumulative) and daily
   const stats = { ...gameState.stats, totalExpenses: (gameState.stats['totalExpenses'] ?? 0) + totalCost };
-  updateGameState({ stats });
+  updateGameState({ stats, dailyExpenses: (gameState.dailyExpenses ?? 0) + totalCost });
 
   return true;
 }
@@ -65,8 +65,8 @@ export function calculateDailyReport(salesLog: SaleRecord[]): DailySummary {
     totalSatisfaction += sale.customerSatisfaction;
   }
 
-  // Expenses already tracked in stats during buyStock
-  const expenses = gameState.stats['totalExpenses'] ?? 0;
+  // Use today's expenses only (reset each morning)
+  const expenses = gameState.dailyExpenses ?? 0;
   const profit = revenue - expenses;
 
   // Reputation change: satisfaction > 0.7 => +1 rep per 5 happy customers

@@ -1,5 +1,7 @@
 import Phaser from 'phaser';
 import { EventBus } from '../utils/EventBus';
+import { updateGameState } from '../state/GameState';
+import { GRID_SLOTS } from '../data/map';
 
 // BootScene: opening title + story + start button
 // Transitions to MorningScene when player clicks start
@@ -136,6 +138,15 @@ export class BootScene extends Phaser.Scene {
     });
 
     hitZone.on('pointerdown', () => {
+      // Initialize map state from static grid data
+      const initialMap: Record<number, string> = {};
+      for (const slot of GRID_SLOTS) {
+        if (slot.owner === 'opponent' && slot.opponentId) {
+          initialMap[slot.id] = slot.opponentId;
+        }
+      }
+      updateGameState({ map: initialMap });
+
       this.cameras.main.fadeOut(500, 0, 0, 0);
       this.cameras.main.once('camerafadeoutcomplete', () => {
         this.scene.start('MorningScene');

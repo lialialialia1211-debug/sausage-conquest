@@ -1,5 +1,5 @@
 import { EventBus } from '../utils/EventBus';
-import type { GamePhase, LoanState } from '../types';
+import type { GamePhase, LoanState, SaleRecord } from '../types';
 
 // Single source of truth for all game state
 // Always create new objects rather than mutating (immutability principle)
@@ -20,6 +20,13 @@ export const gameState = {
     totalRevenue: 0,
     totalExpenses: 0,
   } as Record<string, number>,
+  dailyExpenses: 0,
+  selectedSlot: -1 as number,
+  prices: {} as Record<string, number>,
+  // Temporary daily sales log — GrillScene writes, SummaryScene reads
+  dailySalesLog: [] as SaleRecord[],
+  // Temporary grill stats for today — GrillScene writes, SummaryScene reads
+  dailyGrillStats: { perfect: 0, ok: 0, raw: 0, burnt: 0 } as { perfect: number; ok: number; raw: number; burnt: number },
 };
 
 // Update state and notify UI via EventBus

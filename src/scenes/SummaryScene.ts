@@ -1,9 +1,16 @@
+// SummaryScene: daily summary — triggers HTML overlay
+// Handles game-over checks, loan processing, and day advancement
 import Phaser from 'phaser';
 import { EventBus } from '../utils/EventBus';
 import { gameState, advanceDay } from '../state/GameState';
+import { calculateDailyReport } from '../systems/EconomyEngine';
+import { processDaily } from '../systems/LoanEngine';
+import { GRID_SLOTS } from '../data/map';
+import type { SaleRecord } from '../types';
 
-// SummaryScene: daily summary — triggers HTML overlay
-// After confirmation, advances to next day Morning
+const TOTAL_SLOTS = GRID_SLOTS.length; // 10
+const MAX_DAYS = 30;
+
 export class SummaryScene extends Phaser.Scene {
   private readyForNext = false;
 
@@ -32,10 +39,67 @@ export class SummaryScene extends Phaser.Scene {
 
     this.cameras.main.fadeIn(400, 0, 0, 0);
 
-    EventBus.emit('show-panel', 'summary');
+    // Process end-of-day logic
+    const salesLog: SaleRecord[] = gameState.dailySalesLog ?? [];
+    const dailyReport = calculateDailyReport(salesLog);
+    const loanResult = processDaily();
+
+    // Determine if game over
+    const playerSlots = GRID_SLOTS.filter(s => gameState.map[s.id] === 'player').length;
+
+    // Check: loan shark game over
+    if (loanResult.gameOver) {
+      this.triggerEnding('loan-shark');
+      return;
+    }
+
+    // Check: bankrupt (money <= 0 and no active loan available)
+    if (gameState.money <= 0) {
+      this.triggerEnding('bankrupt');
+      return;
+    }
+
+    // Check: territory win
+    if (playerSlots >= TOTAL_SLOTS) {
+      this.triggerEnding('territory-win');
+      return;
+    }
+
+    // Check: Day 30 reached
+    if (gameState.day >= MAX_DAYS) {
+      this.triggerEnding('day30');
+      return;
+    }
+
+    // No game over — show summary panel
+    const grillStats = gameState.dailyGrillStats ?? { perfect: 0, ok: 0, raw: 0, burnt: 0 };
+
+    EventBus.emit('show-panel', 'summary', {
+      salesLog,
+      dailyReport,
+      grillStats,
+    });
     EventBus.emit('scene-ready', 'SummaryScene');
 
     EventBus.once('summary-done', this.onSummaryDone, this);
+  }
+
+  private triggerEnding(type: string): void {
+    EventBus.emit('show-panel', 'ending', {
+      type,
+      dayssurvived: gameState.day,
+      totalRevenue: gameState.stats['totalRevenue'] ?? 0,
+    });
+    EventBus.emit('scene-ready', 'SummaryScene');
+
+    // Listen for restart
+    EventBus.once('restart-game', () => {
+      EventBus.emit('hide-panel');
+      this.cameras.main.fadeOut(400, 0, 0, 0);
+      this.cameras.main.once('camerafadeoutcomplete', () => {
+        this.scene.start('BootScene');
+      });
+    }, this);
   }
 
   private onSummaryDone = (): void => {
