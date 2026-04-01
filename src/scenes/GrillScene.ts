@@ -53,6 +53,7 @@ export class GrillScene extends Phaser.Scene {
   private readonly customerArrivalInterval = 8; // seconds between batches
   private isDone = false;
   private sessionRevenue = 0;
+  private paused = true; // Start paused until player clicks "開始營業"
 
   // ── Grill slots ─────────────────────────────────────────────────────────
   private grillSlots: GrillSlot[] = [];
@@ -96,6 +97,7 @@ export class GrillScene extends Phaser.Scene {
     this.pendingCustomerQueue = [];
     this.customerArrivalTimer = 0;
     this.isDone = false;
+    this.paused = true;
     this.sessionRevenue = 0;
     this.grillSlots = [];
     this.heatButtons = [];
@@ -125,14 +127,12 @@ export class GrillScene extends Phaser.Scene {
     this.cameras.main.fadeIn(400, 0, 0, 0);
     EventBus.emit('scene-ready', 'GrillScene');
 
-    // Show tutorial on Day 1
-    if (gameState.day === 1) {
-      this.showTutorialOverlay(width, height);
-    }
+    // Show ready overlay (paused until player clicks start)
+    this.showReadyOverlay(width, height);
   }
 
   update(_time: number, delta: number): void {
-    if (this.isDone) return;
+    if (this.isDone || this.paused) return;
 
     const dt = (delta / 1000) * this.speedMultiplier;
 
@@ -798,41 +798,74 @@ export class GrillScene extends Phaser.Scene {
     });
   }
 
-  // ── Tutorial ──────────────────────────────────────────────────────────────
+  // ── Ready / Tutorial overlay ──────────────────────────────────────────────
 
-  private showTutorialOverlay(width: number, height: number): void {
+  private showReadyOverlay(width: number, height: number): void {
     const overlay = this.add.graphics();
-    overlay.fillStyle(0x000000, 0.75);
+    overlay.fillStyle(0x000000, 0.8);
     overlay.fillRect(0, 0, width, height);
     overlay.setDepth(200);
 
-    const lines = [
-      '== 烤制教學 ==',
+    const isFirstDay = gameState.day === 1;
+    const inventorySummary = Object.entries(this.inventoryCopy)
+      .filter(([, qty]) => qty > 0)
+      .map(([id, qty]) => {
+        const info = SAUSAGE_MAP[id];
+        return info ? `${info.emoji} ${info.name} x${qty}` : `${id} x${qty}`;
+      })
+      .join('   ');
+
+    const lines: string[] = [
+      `Day ${gameState.day} — 準備營業`,
       '',
-      '點擊香腸 = 翻面（兩面都要烤）',
-      '雙擊香腸 = 出餐給客人',
+      `今日庫存：${inventorySummary || '（空）'}`,
+      `營業時間：60 秒`,
       '',
-      '每根香腸下方有兩條熟度條（上面/下面）',
-      '藍色標記 = 完美區間，烤到那裡再出餐',
-      '',
-      '底部三個按鈕切換火力：小/中/大',
-      '大火烤快但容易焦，小心控制！',
-      '',
-      '右邊排隊的是客人，頭上綠條是耐心',
-      '耐心歸零客人會走，聲望 -1',
-      '',
-      '60 秒營業時間，盡量多賣！',
-      '',
-      '[ 點擊任意處開始 ]',
     ];
 
-    const tutText = this.add.text(width / 2, height / 2, lines.join('\n'), {
+    if (isFirstDay) {
+      lines.push(
+        '── 操作說明 ──',
+        '',
+        '點擊香腸 = 翻面（兩面都要烤熟）',
+        '雙擊香腸 = 出餐給排隊的客人',
+        '',
+        '香腸下方有兩條熟度條（上面/下面各一條）',
+        '藍色區間 = 完美熟度，烤進去再出餐拿高分',
+        '',
+        '底部按鈕切換火力：小火/中火/大火',
+        '大火烤更快但容易焦，注意控制！',
+        '',
+        '右邊是客人隊伍，頭上綠條是耐心',
+        '耐心歸零客人會走掉，聲望 -1',
+        '',
+      );
+    }
+
+    // Start button text
+    const btnText = this.add.text(width / 2, height * 0.88, '[ 開始營業！ ]', {
+      fontSize: '22px',
+      fontFamily: 'Microsoft JhengHei, PingFang TC, sans-serif',
+      color: '#39ff14',
+      fontStyle: 'bold',
+    }).setOrigin(0.5).setDepth(202);
+
+    // Pulse animation on the start button
+    this.tweens.add({
+      targets: btnText,
+      alpha: 0.5,
+      duration: 600,
+      yoyo: true,
+      repeat: -1,
+    });
+
+    const infoText = this.add.text(width / 2, isFirstDay ? height * 0.45 : height * 0.38, lines.join('\n'), {
       fontSize: '15px',
       fontFamily: 'Microsoft JhengHei, PingFang TC, sans-serif',
       color: '#ffcc00',
       align: 'center',
-      lineSpacing: 6,
-      wordWrap: { width: width * 0.8 },
+      lineSpacing: 5,
+      wordWrap: { width: width * 0.85 },
     }).setOrigin(0.5).setDepth(201);
 
     overlay.setInteractive(
@@ -841,7 +874,9 @@ export class GrillScene extends Phaser.Scene {
     );
     overlay.once('pointerdown', () => {
       overlay.destroy();
-      tutText.destroy();
+      infoText.destroy();
+      btnText.destroy();
+      this.paused = false;
     });
   }
 
