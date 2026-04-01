@@ -1,0 +1,260 @@
+/* Night market neon theme styles */
+
+:root {
+  --bg-dark: #0a0a0f;
+  --bg-panel: #12121a;
+  --bg-card: #1a1a2e;
+  --neon-yellow: #ffe600;
+  --neon-red: #ff2d55;
+  --neon-cyan: #00f5ff;
+  --neon-green: #39ff14;
+  --neon-orange: #ff6b00;
+  --neon-pink: #ff00aa;
+  --text-primary: #ffffff;
+  --text-secondary: #aaaacc;
+  --text-dim: #666688;
+  --border-neon: 1px solid var(--neon-yellow);
+  --glow-yellow: 0 0 8px var(--neon-yellow), 0 0 16px rgba(255, 230, 0, 0.3);
+  --glow-red: 0 0 8px var(--neon-red), 0 0 16px rgba(255, 45, 85, 0.3);
+  --glow-cyan: 0 0 8px var(--neon-cyan), 0 0 16px rgba(0, 245, 255, 0.3);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--bg-dark);
+  color: var(--text-primary);
+  font-family: 'Microsoft JhengHei', 'PingFang TC', '微軟正黑體', sans-serif;
+  overflow: hidden;
+  width: 100vw;
+  height: 100vh;
+}
+
+/* Game container: Phaser canvas + HTML overlay stacked */
+#game-container {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+}
+
+/* Phaser canvas sits at the bottom */
+#game-container canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: block;
+}
+
+/* HTML overlay sits above canvas, passes pointer events through by default */
+#ui-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 10;
+}
+
+/* Interactive UI elements must re-enable pointer events */
+.ui-interactive {
+  pointer-events: auto;
+}
+
+/* Status bar at the top */
+#status-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 48px;
+  background: rgba(10, 10, 15, 0.9);
+  border-bottom: 1px solid var(--neon-yellow);
+  box-shadow: var(--glow-yellow);
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  padding: 0 16px;
+  pointer-events: none;
+  z-index: 20;
+}
+
+.status-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 16px;
+  font-weight: bold;
+  color: var(--neon-yellow);
+  text-shadow: var(--glow-yellow);
+  letter-spacing: 0.5px;
+}
+
+.status-item .emoji {
+  font-size: 18px;
+}
+
+.status-item .value {
+  color: #ffffff;
+}
+
+/* Panel area below status bar */
+#panel-area {
+  position: absolute;
+  top: 48px;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+/* Base panel style */
+.game-panel {
+  background: var(--bg-panel);
+  border: 2px solid var(--neon-yellow);
+  box-shadow: var(--glow-yellow), inset 0 0 20px rgba(255, 230, 0, 0.05);
+  border-radius: 8px;
+  padding: 24px;
+  min-width: 320px;
+  max-width: 600px;
+  width: 90%;
+  pointer-events: auto;
+}
+
+.panel-title {
+  font-size: 24px;
+  font-weight: bold;
+  color: var(--neon-yellow);
+  text-shadow: var(--glow-yellow);
+  text-align: center;
+  margin-bottom: 16px;
+  letter-spacing: 2px;
+}
+
+.panel-body {
+  font-size: 15px;
+  color: var(--text-secondary);
+  line-height: 1.8;
+  margin-bottom: 20px;
+}
+
+/* Neon button */
+.btn-neon {
+  display: inline-block;
+  padding: 10px 28px;
+  background: transparent;
+  border: 2px solid var(--neon-yellow);
+  color: var(--neon-yellow);
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: bold;
+  letter-spacing: 2px;
+  cursor: pointer;
+  text-shadow: var(--glow-yellow);
+  box-shadow: var(--glow-yellow);
+  border-radius: 4px;
+  transition: all 0.2s ease;
+  pointer-events: auto;
+}
+
+.btn-neon:hover {
+  background: rgba(255, 230, 0, 0.15);
+  box-shadow: 0 0 16px var(--neon-yellow), 0 0 32px rgba(255, 230, 0, 0.4);
+  transform: scale(1.03);
+}
+
+.btn-neon:active {
+  transform: scale(0.98);
+}
+
+.btn-neon-red {
+  border-color: var(--neon-red);
+  color: var(--neon-red);
+  text-shadow: var(--glow-red);
+  box-shadow: var(--glow-red);
+}
+
+.btn-neon-red:hover {
+  background: rgba(255, 45, 85, 0.15);
+  box-shadow: 0 0 16px var(--neon-red), 0 0 32px rgba(255, 45, 85, 0.4);
+}
+
+.btn-neon-cyan {
+  border-color: var(--neon-cyan);
+  color: var(--neon-cyan);
+  text-shadow: var(--glow-cyan);
+  box-shadow: var(--glow-cyan);
+}
+
+.btn-center {
+  display: flex;
+  justify-content: center;
+}
+
+/* Story text style */
+.story-text {
+  font-size: 16px;
+  color: var(--text-primary);
+  line-height: 2;
+  text-align: center;
+  padding: 12px;
+  background: rgba(255, 230, 0, 0.04);
+  border-radius: 4px;
+  border-left: 3px solid var(--neon-yellow);
+  margin-bottom: 16px;
+}
+
+/* Placeholder scene notice */
+.placeholder-notice {
+  font-size: 13px;
+  color: var(--text-dim);
+  text-align: center;
+  margin-top: 12px;
+}
+
+/* Flicker animation for neon effect */
+@keyframes neon-flicker {
+  0%, 95%, 100% { opacity: 1; }
+  96% { opacity: 0.8; }
+  97% { opacity: 1; }
+  98% { opacity: 0.7; }
+}
+
+.neon-flicker {
+  animation: neon-flicker 4s infinite;
+}
+
+/* Fade in animation */
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.fade-in {
+  animation: fade-in 0.4s ease forwards;
+}
+
+/* Day advance notification */
+.day-notice {
+  position: absolute;
+  top: 60px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.8);
+  border: 1px solid var(--neon-cyan);
+  color: var(--neon-cyan);
+  padding: 6px 20px;
+  border-radius: 20px;
+  font-size: 14px;
+  text-shadow: var(--glow-cyan);
+  pointer-events: none;
+  z-index: 30;
+  animation: fade-in 0.3s ease;
+}
