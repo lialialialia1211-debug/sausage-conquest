@@ -19,20 +19,19 @@ import { SausageSprite } from '../objects/SausageSprite';
 import { CustomerQueue } from '../objects/CustomerQueue';
 import type { SaleRecord, Customer } from '../types';
 
-// Layout constants
-const GAME_DURATION = 60; // seconds
-const MAX_GRILL_SLOTS = 4;
+// ── Layout constants ────────────────────────────────────────────────────────
+const GAME_DURATION = 60;      // seconds
+const MAX_GRILL_SLOTS = 4;     // 6 if grill-expand upgrade
+const GRILL_Y_FRAC = 0.48;    // grill vertical position as fraction of screen height
 
-// Grill row Y position (as fraction of canvas height)
-const GRILL_Y_FRAC = 0.5;
-
-// UI colors
+// ── Colors / fonts ──────────────────────────────────────────────────────────
 const COLOR_BG_TOP = 0x100500;
 const COLOR_BG_BTM = 0x1a0800;
 const COLOR_ORANGE = '#ff6b00';
 const COLOR_DIM = '#664422';
 const FONT = 'Microsoft JhengHei, PingFang TC, sans-serif';
 
+// ── Internal types ───────────────────────────────────────────────────────────
 interface GrillSlot {
   sprite: SausageSprite | null;
   sausage: GrillingSausage | null;
@@ -41,7 +40,7 @@ interface GrillSlot {
 }
 
 export class GrillScene extends Phaser.Scene {
-  // State
+  // ── Session state ───────────────────────────────────────────────────────
   private heatLevel: HeatLevel = 'medium';
   private timeLeft = GAME_DURATION;
   private speedMultiplier = 1;
@@ -50,61 +49,77 @@ export class GrillScene extends Phaser.Scene {
   private customers: Customer[] = [];
   private pendingCustomerQueue: Customer[] = [];
   private customerArrivalTimer = 0;
-  private customerArrivalInterval = 8; // seconds between batches
+  private readonly customerArrivalInterval = 8; // seconds between batches
   private isDone = false;
+  private sessionRevenue = 0;
 
-  // Grill slots
+  // ── Grill slots ─────────────────────────────────────────────────────────
   private grillSlots: GrillSlot[] = [];
+  private inventoryCopy: Record<string, number> = {};
+  // Round-robin index so slot-filling cycles through sausage types
+  private inventoryRoundRobinIndex = 0;
 
-  // Phaser objects
+  // ── Phaser objects ──────────────────────────────────────────────────────
   private customerQueue!: CustomerQueue;
   private timerText!: Phaser.GameObjects.Text;
   private revenueText!: Phaser.GameObjects.Text;
-  private soldText!: Phaser.GameObjects.Text;
+  private statsText!: Phaser.GameObjects.Text;
   private heatButtons: Phaser.GameObjects.Container[] = [];
   private speedButtons: Phaser.GameObjects.Container[] = [];
-  private grillRackGfx!: Phaser.GameObjects.Graphics;
   private feedbackTexts: Phaser.GameObjects.Text[] = [];
-
-  // Track slot inventory to refill
-  private inventoryCopy: Record<string, number> = {};
+  // Fire emoji particles floating upward
+  private fireParticles: Phaser.GameObjects.Text[] = [];
+  private fireParticleTimer = 0;
+  private fireGlowGfx!: Phaser.GameObjects.Graphics;
+  private timerFlashTween: Phaser.Tweens.Tween | null = null;
 
   constructor() {
     super({ key: 'GrillScene' });
   }
 
+  // ── Scene lifecycle ──────────────────────────────────────────────────────
+
   create(): void {
     const { width, height } = this.scale;
 
-    // Copy inventory for use during grilling
+    // Copy inventory snapshot (actual deduction happens in sellSausage)
     this.inventoryCopy = { ...gameState.inventory };
 
-    // Reset state
+    // Reset session state
     this.heatLevel = 'medium';
     this.timeLeft = GAME_DURATION;
     this.speedMultiplier = 1;
     this.salesLog = [];
     this.grillStats = { perfect: 0, ok: 0, raw: 0, burnt: 0 };
+    this.customers = [];
     this.pendingCustomerQueue = [];
     this.customerArrivalTimer = 0;
     this.isDone = false;
+    this.sessionRevenue = 0;
     this.grillSlots = [];
     this.heatButtons = [];
     this.speedButtons = [];
     this.feedbackTexts = [];
+    this.fireParticles = [];
+    this.fireParticleTimer = 0;
+    this.inventoryRoundRobinIndex = 0;
+
+    const maxSlots = gameState.upgrades['grill-expand'] ? 6 : MAX_GRILL_SLOTS;
 
     this.drawBackground(width, height);
     this.drawGrillRack(width, height);
-    this.setupGrillSlots(width, height);
+    this.setupGrillSlots(width, height, maxSlots);
     this.setupCustomerQueue(width, height);
     this.setupHeatButtons(width, height);
     this.setupSpeedButtons(width, height);
-    this.setupStatsBar(width, height);
+    this.setupHUD(width, height);
     this.setupEndButton(width, height);
-    this.generateCustomerPool();
 
-    // Place initial sausages
+    this.generateCustomerPool();
     this.fillGrillFromInventory();
+
+    // Trigger first customer batch immediately
+    this.customerArrivalTimer = this.customerArrivalInterval;
 
     this.cameras.main.fadeIn(400, 0, 0, 0);
     EventBus.emit('scene-ready', 'GrillScene');
@@ -115,15 +130,17 @@ export class GrillScene extends Phaser.Scene {
 
     const dt = (delta / 1000) * this.speedMultiplier;
 
-    // Tick customers
+    // Tick customer patience
     this.customerQueue.tick(dt);
 
-    // Tick customer arrival
+    // Tick customer arrivals
     this.customerArrivalTimer += dt;
-    if (this.customerArrivalTimer >= this.customerArrivalInterval && this.pendingCustomerQueue.length > 0) {
+    if (
+      this.customerArrivalTimer >= this.customerArrivalInterval &&
+      this.pendingCustomerQueue.length > 0
+    ) {
       this.customerArrivalTimer = 0;
-      // Arrive 1-2 customers at a time
-      const batch = Math.min(2, this.pendingCustomerQueue.length);
+      const batch = Math.min(Phaser.Math.Between(1, 3), this.pendingCustomerQueue.length);
       for (let i = 0; i < batch; i++) {
         const c = this.pendingCustomerQueue.shift();
         if (c) {
@@ -133,7 +150,7 @@ export class GrillScene extends Phaser.Scene {
       }
     }
 
-    // Update sausages
+    // Tick sausages
     for (const slot of this.grillSlots) {
       if (!slot.sausage || !slot.sprite || slot.sausage.served) continue;
 
@@ -141,26 +158,30 @@ export class GrillScene extends Phaser.Scene {
       slot.sausage = updated;
       slot.sprite.updateData(updated);
 
-      // Auto-handle burnt sausages
-      const quality = judgeQuality(updated);
-      if (quality === 'burnt') {
+      // Auto-remove burnt sausages
+      if (judgeQuality(updated) === 'burnt') {
         slot.sausage = { ...updated, served: true };
-        slot.sprite.updateData(slot.sausage);
         const capturedSlot = slot;
-        slot.sprite.playBurntAnimation();
+        const capturedSprite = slot.sprite;
         slot.sprite = null;
+        capturedSprite.playBurntAnimation();
+
         this.grillStats.burnt++;
         changeReputation(-2);
-        this.showFeedback('燒焦了！-2 聲望', slot.x, slot.y, '#ff3300');
-        // Schedule refill after animation
+        this.showFeedback('燒焦了！-2 聲望', slot.x, slot.y - 50, '#ff3300');
+
         this.time.delayedCall(1200, () => {
           capturedSlot.sausage = null;
           this.fillSlot(capturedSlot);
+          this.updateStatsDisplay();
         });
       }
     }
 
-    // Countdown timer
+    // Fire particle emitter (scales with heat)
+    this.tickFireParticles(dt);
+
+    // Countdown
     this.timeLeft -= dt;
     if (this.timeLeft <= 0) {
       this.timeLeft = 0;
@@ -168,127 +189,203 @@ export class GrillScene extends Phaser.Scene {
     }
 
     this.updateTimerDisplay();
-    this.updateRevenueDisplay();
+
+    // Auto-end if no pending customers and nobody waiting
+    if (
+      this.pendingCustomerQueue.length === 0 &&
+      this.customerQueue.getWaitingCount() === 0 &&
+      this.salesLog.length > 0
+    ) {
+      this.endGrilling();
+    }
   }
 
-  // ── Setup methods ──────────────────────────────────────────────────────────
+  // ── Draw helpers ─────────────────────────────────────────────────────────
 
   private drawBackground(width: number, height: number): void {
     const bg = this.add.graphics();
     bg.fillGradientStyle(COLOR_BG_TOP, COLOR_BG_TOP, COLOR_BG_BTM, COLOR_BG_BTM, 1);
     bg.fillRect(0, 0, width, height);
 
-    // Subtle warm glow in grill area
+    // Warm glow around grill area
     const glowY = height * GRILL_Y_FRAC;
     const glow = this.add.graphics();
-    glow.fillStyle(0xff4400, 0.04);
-    glow.fillEllipse(width / 2, glowY, width * 0.9, 120);
+    glow.fillStyle(0xff4400, 0.05);
+    glow.fillEllipse(width / 2, glowY, width * 0.85, 130);
   }
 
   private drawGrillRack(width: number, height: number): void {
-    this.grillRackGfx = this.add.graphics();
-    const grillY = height * GRILL_Y_FRAC + 30;
+    const grillY = height * GRILL_Y_FRAC + 34;
+    const barStartX = width * 0.08;
+    const barEndX = width * 0.92;
+    const barCount = 7;
+    const barSpacing = 13;
 
-    // Grill bars (decorative horizontal lines)
-    this.grillRackGfx.lineStyle(3, 0x555555, 1);
-    const barCount = 8;
-    const barStartX = width * 0.1;
-    const barEndX = width * 0.9;
-    const barSpacing = 14;
+    const rack = this.add.graphics();
 
+    // Fire glow below rack (stored for update)
+    this.fireGlowGfx = this.add.graphics();
+    this.redrawFireGlow(barStartX, grillY + barCount * barSpacing, barEndX - barStartX);
+
+    // Horizontal grill bars
+    rack.lineStyle(3, 0x666666, 1);
     for (let i = 0; i < barCount; i++) {
       const y = grillY + i * barSpacing;
-      this.grillRackGfx.beginPath();
-      this.grillRackGfx.moveTo(barStartX, y);
-      this.grillRackGfx.lineTo(barEndX, y);
-      this.grillRackGfx.strokePath();
+      rack.beginPath();
+      rack.moveTo(barStartX, y);
+      rack.lineTo(barEndX, y);
+      rack.strokePath();
     }
 
     // Side rails
-    this.grillRackGfx.lineStyle(4, 0x444444, 1);
-    this.grillRackGfx.beginPath();
-    this.grillRackGfx.moveTo(barStartX, grillY);
-    this.grillRackGfx.lineTo(barStartX, grillY + (barCount - 1) * barSpacing);
-    this.grillRackGfx.strokePath();
+    rack.lineStyle(5, 0x555555, 1);
+    rack.beginPath();
+    rack.moveTo(barStartX, grillY);
+    rack.lineTo(barStartX, grillY + (barCount - 1) * barSpacing);
+    rack.strokePath();
 
-    this.grillRackGfx.beginPath();
-    this.grillRackGfx.moveTo(barEndX, grillY);
-    this.grillRackGfx.lineTo(barEndX, grillY + (barCount - 1) * barSpacing);
-    this.grillRackGfx.strokePath();
+    rack.beginPath();
+    rack.moveTo(barEndX, grillY);
+    rack.lineTo(barEndX, grillY + (barCount - 1) * barSpacing);
+    rack.strokePath();
 
-    // Fire glow below rack
-    const fireGlow = this.add.graphics();
-    fireGlow.fillStyle(0xff2200, 0.06);
-    fireGlow.fillRect(barStartX, grillY + barCount * barSpacing, barEndX - barStartX, 30);
+    // Metallic sheen on top rail
+    rack.lineStyle(2, 0x999999, 0.4);
+    rack.beginPath();
+    rack.moveTo(barStartX + 4, grillY);
+    rack.lineTo(barEndX - 4, grillY);
+    rack.strokePath();
   }
 
-  private setupGrillSlots(width: number, height: number): void {
-    const grillY = height * GRILL_Y_FRAC - 15;
-    const totalW = width * 0.72;
+  private redrawFireGlow(x: number, y: number, w: number): void {
+    this.fireGlowGfx.clear();
+
+    // Intensity scales with heat
+    const alpha = this.heatLevel === 'low' ? 0.06 : this.heatLevel === 'medium' ? 0.12 : 0.20;
+    this.fireGlowGfx.fillStyle(0xff2200, alpha);
+    this.fireGlowGfx.fillRect(x, y, w, 28);
+  }
+
+  private tickFireParticles(dt: number): void {
+    // Spawn rate based on heat level
+    const spawnInterval = this.heatLevel === 'low' ? 0.8 : this.heatLevel === 'medium' ? 0.4 : 0.2;
+    this.fireParticleTimer += dt;
+
+    if (this.fireParticleTimer >= spawnInterval) {
+      this.fireParticleTimer = 0;
+      this.spawnFireParticle();
+    }
+  }
+
+  private spawnFireParticle(): void {
+    const { width, height } = this.scale;
+    const fireBaseY = height * GRILL_Y_FRAC + 34 + 7 * 13; // bottom of rack
+    const spawnX = width * 0.08 + Math.random() * (width * 0.84);
+    const fireEmojis = ['🔥', '🔥', '🔥', '✨'];
+    const emoji = fireEmojis[Math.floor(Math.random() * fireEmojis.length)];
+
+    const particle = this.add.text(spawnX, fireBaseY, emoji, {
+      fontSize: '14px',
+    }).setOrigin(0.5).setAlpha(0.7).setDepth(1);
+
+    this.fireParticles.push(particle);
+
+    this.tweens.add({
+      targets: particle,
+      y: fireBaseY - Phaser.Math.Between(30, 55),
+      alpha: 0,
+      duration: Phaser.Math.Between(500, 900),
+      ease: 'Power1',
+      onComplete: () => {
+        particle.destroy();
+        const idx = this.fireParticles.indexOf(particle);
+        if (idx >= 0) this.fireParticles.splice(idx, 1);
+      },
+    });
+  }
+
+  // ── UI setup ─────────────────────────────────────────────────────────────
+
+  private setupGrillSlots(width: number, height: number, slotCount: number): void {
+    const grillY = height * GRILL_Y_FRAC - 10;
+    const totalW = width * 0.78;
     const startX = (width - totalW) / 2;
 
-    for (let i = 0; i < MAX_GRILL_SLOTS; i++) {
-      const x = startX + (i + 0.5) * (totalW / MAX_GRILL_SLOTS);
+    for (let i = 0; i < slotCount; i++) {
+      const x = startX + (i + 0.5) * (totalW / slotCount);
       this.grillSlots.push({ sprite: null, sausage: null, x, y: grillY });
     }
   }
 
-  private setupCustomerQueue(_width: number, height: number): void {
-    const queueY = height * 0.12;
+  private setupCustomerQueue(width: number, _height: number): void {
+    const queueY = this.scale.height * 0.13;
     this.customerQueue = new CustomerQueue(this, 28, queueY);
     this.customerQueue.onTimeout((customerId: string) => {
       this.onCustomerTimeout(customerId);
     });
 
-    // Queue label
-    this.add.text(12, queueY - 22, '客人佇列', {
-      fontSize: '13px',
+    // Label
+    this.add.text(12, queueY - 22, '排隊客人', {
+      fontSize: '12px',
       fontFamily: FONT,
       color: COLOR_DIM,
     });
+
+    // Pending queue count indicator (right side)
+    this.add.text(width - 12, queueY - 22, '（候補）', {
+      fontSize: '12px',
+      fontFamily: FONT,
+      color: COLOR_DIM,
+    }).setOrigin(1, 0);
   }
 
   private setupHeatButtons(width: number, height: number): void {
-    const btnY = height * GRILL_Y_FRAC + 135;
-    const levels: { level: HeatLevel; label: string; emoji: string }[] = [
-      { level: 'low',    label: '小火', emoji: '🔥' },
-      { level: 'medium', label: '中火', emoji: '🔥🔥' },
-      { level: 'high',   label: '大火', emoji: '🔥🔥🔥' },
+    const btnY = height * GRILL_Y_FRAC + 130;
+    const levels: { level: HeatLevel; label: string; icon: string }[] = [
+      { level: 'low',    label: '小火', icon: '🔥' },
+      { level: 'medium', label: '中火', icon: '🔥🔥' },
+      { level: 'high',   label: '大火', icon: '🔥🔥🔥' },
     ];
 
-    const totalW = 260;
+    const btnW = 80;
+    const btnH = 44;
+    const gap = 14;
+    const totalW = levels.length * btnW + (levels.length - 1) * gap;
     const startX = width / 2 - totalW / 2;
-    const btnW = 78;
-    const btnH = 42;
 
     levels.forEach((item, i) => {
-      const bx = startX + i * (btnW + 13) + btnW / 2;
-      const btn = this.createButton(bx, btnY, btnW, btnH, `${item.emoji}\n${item.label}`, () => {
+      const bx = startX + i * (btnW + gap) + btnW / 2;
+      const btn = this.createButton(bx, btnY, btnW, btnH, `${item.icon}\n${item.label}`, () => {
         this.heatLevel = item.level;
         this.updateHeatButtonStyles();
+        // Update fire glow intensity
+        const { width: w, height: h } = this.scale;
+        const barStartX = w * 0.08;
+        const grillY = h * GRILL_Y_FRAC + 34;
+        this.redrawFireGlow(barStartX, grillY + 7 * 13, w * 0.84);
       });
       this.heatButtons.push(btn);
     });
 
     this.updateHeatButtonStyles();
 
-    // Label above
-    this.add.text(width / 2, btnY - 28, '火力控制', {
-      fontSize: '13px',
+    this.add.text(width / 2, btnY - 26, '火力控制', {
+      fontSize: '12px',
       fontFamily: FONT,
       color: COLOR_DIM,
     }).setOrigin(0.5);
   }
 
   private setupSpeedButtons(width: number, height: number): void {
-    const btnY = height * GRILL_Y_FRAC + 135;
+    const btnY = height * GRILL_Y_FRAC + 130;
     const speeds = [1, 2, 3];
-    const btnW = 38;
-    const btnH = 28;
-    const startX = width - 130;
+    const btnW = 40;
+    const btnH = 30;
+    const gap = 6;
+    const startX = width - 20 - (speeds.length * btnW + (speeds.length - 1) * gap);
 
     speeds.forEach((spd, i) => {
-      const bx = startX + i * (btnW + 6);
+      const bx = startX + i * (btnW + gap) + btnW / 2;
       const btn = this.createButton(bx, btnY, btnW, btnH, `${spd}x`, () => {
         this.speedMultiplier = spd;
         this.updateSpeedButtonStyles();
@@ -298,54 +395,65 @@ export class GrillScene extends Phaser.Scene {
 
     this.updateSpeedButtonStyles();
 
-    this.add.text(startX + (btnW * 3 + 12) / 2 - 6, btnY - 22, '速度', {
+    const centerX = startX + (speeds.length * btnW + (speeds.length - 1) * gap) / 2;
+    this.add.text(centerX, btnY - 22, '速度', {
       fontSize: '12px',
       fontFamily: FONT,
       color: COLOR_DIM,
     }).setOrigin(0.5);
   }
 
-  private setupStatsBar(width: number, height: number): void {
-    const statsY = height - 50;
+  private setupHUD(width: number, height: number): void {
+    // ── Top left: timer ──────────────────────────────────────────────────
+    this.timerText = this.add.text(16, 14, '⏱ 60s', {
+      fontSize: '18px',
+      fontFamily: FONT,
+      color: '#ffcc44',
+      stroke: '#000000',
+      strokeThickness: 3,
+    }).setDepth(10);
 
-    this.add.text(20, statsY, '營收:', {
-      fontSize: '14px', fontFamily: FONT, color: COLOR_DIM,
-    });
-    this.revenueText = this.add.text(68, statsY, '$0', {
-      fontSize: '14px', fontFamily: FONT, color: COLOR_ORANGE,
+    // ── Top right: day / status ──────────────────────────────────────────
+    this.add.text(width - 14, 14, `🔥營業中 Day ${gameState.day}`, {
+      fontSize: '15px',
+      fontFamily: FONT,
+      color: COLOR_ORANGE,
+    }).setOrigin(1, 0).setDepth(10);
+
+    // ── Bottom stats bar ─────────────────────────────────────────────────
+    const statsY = height - 42;
+
+    this.statsText = this.add.text(16, statsY, '完美:0 | 普通:0 | 焦:0', {
+      fontSize: '13px',
+      fontFamily: FONT,
+      color: COLOR_DIM,
     });
 
-    this.add.text(width / 2 - 50, statsY, '已售:', {
-      fontSize: '14px', fontFamily: FONT, color: COLOR_DIM,
-    });
-    this.soldText = this.add.text(width / 2 - 2, statsY, '0', {
-      fontSize: '14px', fontFamily: FONT, color: COLOR_ORANGE,
-    });
-
-    this.add.text(20, statsY + 20, '⏱ 剩餘:', {
-      fontSize: '13px', fontFamily: FONT, color: COLOR_DIM,
-    });
-    this.timerText = this.add.text(76, statsY + 20, '60s', {
-      fontSize: '13px', fontFamily: FONT, color: '#ff9900',
-    });
+    this.revenueText = this.add.text(width / 2, statsY, '💰 $0', {
+      fontSize: '14px',
+      fontFamily: FONT,
+      color: COLOR_ORANGE,
+    }).setOrigin(0.5, 0).setDepth(10);
   }
 
-  private setupEndButton(_width: number, height: number): void {
-    const btnW = 120;
-    const btnH = 36;
-    const bx = this.scale.width - 80;
-    const by = height - 30;
+  private setupEndButton(width: number, height: number): void {
+    const btnW = 110;
+    const btnH = 34;
+    const bx = width - btnW / 2 - 16;
+    const by = height - 22;
 
-    const btn = this.createButton(bx, by, btnW, btnH, '結束營業', () => {
+    this.createButton(bx, by, btnW, btnH, '結束營業', () => {
       this.endGrilling();
     });
-    this.add.existing(btn);
   }
 
-  // ── Button factory ─────────────────────────────────────────────────────────
+  // ── Button factory ────────────────────────────────────────────────────────
 
   private createButton(
-    x: number, y: number, w: number, h: number,
+    x: number,
+    y: number,
+    w: number,
+    h: number,
     label: string,
     onPress: () => void,
   ): Phaser.GameObjects.Container {
@@ -354,8 +462,9 @@ export class GrillScene extends Phaser.Scene {
     const bg = this.add.graphics();
     this.drawButtonBg(bg, w, h, false);
 
+    const fontSize = label.includes('\n') ? '11px' : '13px';
     const txt = this.add.text(0, 0, label, {
-      fontSize: label.includes('\n') ? '11px' : '13px',
+      fontSize,
       fontFamily: FONT,
       color: COLOR_ORANGE,
       align: 'center',
@@ -373,8 +482,8 @@ export class GrillScene extends Phaser.Scene {
 
   private drawButtonBg(g: Phaser.GameObjects.Graphics, w: number, h: number, hover: boolean): void {
     g.clear();
-    g.fillStyle(hover ? 0xff6b00 : 0x100500, hover ? 0.18 : 0.95);
-    g.lineStyle(1, 0xff6b00, hover ? 1 : 0.5);
+    g.fillStyle(hover ? 0xff6b00 : 0x100500, hover ? 0.2 : 0.92);
+    g.lineStyle(1, 0xff6b00, hover ? 1.0 : 0.5);
     g.fillRoundedRect(-w / 2, -h / 2, w, h, 4);
     g.strokeRoundedRect(-w / 2, -h / 2, w, h, 4);
   }
@@ -385,25 +494,29 @@ export class GrillScene extends Phaser.Scene {
       const isActive = levels[i] === this.heatLevel;
       const bg = btn.list[0] as Phaser.GameObjects.Graphics;
       const txt = btn.list[1] as Phaser.GameObjects.Text;
+      const btnW = 80;
+      const btnH = 44;
       bg.clear();
       if (isActive) {
-        bg.fillStyle(0xff6b00, 0.35);
-        bg.lineStyle(2, 0xff6b00, 1);
-        bg.fillRoundedRect(-39, -21, 78, 42, 4);
-        bg.strokeRoundedRect(-39, -21, 78, 42, 4);
+        bg.fillStyle(0xff6b00, 0.38);
+        bg.lineStyle(2, 0xff9900, 1);
+        bg.fillRoundedRect(-btnW / 2, -btnH / 2, btnW, btnH, 4);
+        bg.strokeRoundedRect(-btnW / 2, -btnH / 2, btnW, btnH, 4);
         txt.setColor('#ffffff');
       } else {
-        bg.fillStyle(0x100500, 0.95);
+        bg.fillStyle(0x100500, 0.92);
         bg.lineStyle(1, 0xff6b00, 0.35);
-        bg.fillRoundedRect(-39, -21, 78, 42, 4);
-        bg.strokeRoundedRect(-39, -21, 78, 42, 4);
-        txt.setColor(COLOR_ORANGE);
+        bg.fillRoundedRect(-btnW / 2, -btnH / 2, btnW, btnH, 4);
+        bg.strokeRoundedRect(-btnW / 2, -btnH / 2, btnW, btnH, 4);
+        txt.setColor(COLOR_DIM);
       }
     });
   }
 
   private updateSpeedButtonStyles(): void {
     const speeds = [1, 2, 3];
+    const btnW = 40;
+    const btnH = 30;
     this.speedButtons.forEach((btn, i) => {
       const isActive = speeds[i] === this.speedMultiplier;
       const bg = btn.list[0] as Phaser.GameObjects.Graphics;
@@ -412,15 +525,15 @@ export class GrillScene extends Phaser.Scene {
       if (isActive) {
         bg.fillStyle(0xff6b00, 0.35);
         bg.lineStyle(2, 0xff6b00, 1);
-        bg.fillRoundedRect(-19, -14, 38, 28, 4);
-        bg.strokeRoundedRect(-19, -14, 38, 28, 4);
+        bg.fillRoundedRect(-btnW / 2, -btnH / 2, btnW, btnH, 4);
+        bg.strokeRoundedRect(-btnW / 2, -btnH / 2, btnW, btnH, 4);
         txt.setColor('#ffffff');
       } else {
-        bg.fillStyle(0x100500, 0.95);
+        bg.fillStyle(0x100500, 0.92);
         bg.lineStyle(1, 0xff6b00, 0.35);
-        bg.fillRoundedRect(-19, -14, 38, 28, 4);
-        bg.strokeRoundedRect(-19, -14, 38, 28, 4);
-        txt.setColor(COLOR_ORANGE);
+        bg.fillRoundedRect(-btnW / 2, -btnH / 2, btnW, btnH, 4);
+        bg.strokeRoundedRect(-btnW / 2, -btnH / 2, btnW, btnH, 4);
+        txt.setColor(COLOR_DIM);
       }
     });
   }
@@ -430,16 +543,15 @@ export class GrillScene extends Phaser.Scene {
   private generateCustomerPool(): void {
     const slotId = gameState.selectedSlot;
     const gridSlot = GRID_SLOTS.find(s => s.id === slotId);
-    const baseTraffic = gridSlot ? gridSlot.baseTraffic / 20 : 3; // normalize to 1-5 range
-    const trafficNorm = Math.max(1, Math.min(5, baseTraffic));
+    // baseTraffic 30-80 → divide by 20 → 1.5-4.0 range
+    const rawTraffic = gridSlot ? gridSlot.baseTraffic / 20 : 2.5;
+    const trafficNorm = Math.max(1, Math.min(5, rawTraffic));
 
-    this.pendingCustomerQueue = generateCustomers(trafficNorm, 0);
-    // Limit to a reasonable batch for 60 seconds
-    if (this.pendingCustomerQueue.length > 20) {
-      this.pendingCustomerQueue = this.pendingCustomerQueue.slice(0, 20);
-    }
-    // Add first batch immediately
-    this.customerArrivalTimer = this.customerArrivalInterval; // trigger first arrival right away
+    let pool = generateCustomers(trafficNorm, 0);
+    // Cap at ~20 customers for a 60-second session
+    if (pool.length > 20) pool = pool.slice(0, 20);
+
+    this.pendingCustomerQueue = pool;
   }
 
   private fillGrillFromInventory(): void {
@@ -451,10 +563,10 @@ export class GrillScene extends Phaser.Scene {
   private fillSlot(slot: GrillSlot): void {
     if (slot.sprite) return; // already occupied
 
-    // Pick a sausage from inventory
     const sausageId = this.pickFromInventory();
     if (!sausageId) return;
 
+    // Deduct from inventory copy
     this.inventoryCopy[sausageId]--;
     if (this.inventoryCopy[sausageId] <= 0) {
       delete this.inventoryCopy[sausageId];
@@ -465,7 +577,7 @@ export class GrillScene extends Phaser.Scene {
 
     sprite.onFlip(() => {
       const currentSlot = this.grillSlots.find(s => s.sprite === sprite);
-      if (currentSlot && currentSlot.sausage) {
+      if (currentSlot?.sausage) {
         currentSlot.sausage = flipSausage(currentSlot.sausage);
         sprite.updateData(currentSlot.sausage);
       }
@@ -479,10 +591,14 @@ export class GrillScene extends Phaser.Scene {
     slot.sprite = sprite;
   }
 
+  // Round-robin through available sausage types for even distribution
   private pickFromInventory(): string | null {
     const available = Object.entries(this.inventoryCopy).filter(([, qty]) => qty > 0);
     if (available.length === 0) return null;
-    const [id] = available[Math.floor(Math.random() * available.length)];
+
+    this.inventoryRoundRobinIndex = this.inventoryRoundRobinIndex % available.length;
+    const [id] = available[this.inventoryRoundRobinIndex];
+    this.inventoryRoundRobinIndex++;
     return id;
   }
 
@@ -494,18 +610,18 @@ export class GrillScene extends Phaser.Scene {
     if (quality === 'raw') {
       this.grillStats.raw++;
       this.showFeedback('還沒熟！', slot.x, slot.y - 50, '#ffaa00');
-      // Flip it automatically for the player
+      // Auto-flip for player
       sprite.triggerFlip();
       const currentSlot = this.grillSlots.find(s => s.sprite === sprite);
-      if (currentSlot && currentSlot.sausage) {
+      if (currentSlot?.sausage) {
         currentSlot.sausage = flipSausage(currentSlot.sausage);
       }
+      this.updateStatsDisplay();
       return;
     }
 
-    if (quality === 'burnt') return; // handled elsewhere
+    if (quality === 'burnt') return; // handled by auto-remove
 
-    // Find next waiting customer
     const nextCustomer = this.customerQueue.getNextCustomer();
     if (!nextCustomer) {
       this.showFeedback('沒有客人等待！', slot.x, slot.y - 50, '#888888');
@@ -516,10 +632,9 @@ export class GrillScene extends Phaser.Scene {
     const price = gameState.prices[sausageId] ?? SAUSAGE_MAP[sausageId]?.suggestedPrice ?? 35;
     const qualityScore = getQualityScore(quality);
 
-    // Check if customer will buy
     const slotId = gameState.selectedSlot;
     const gridSlot = GRID_SLOTS.find(s => s.id === slotId);
-    const trafficNorm = gridSlot ? Math.max(1, Math.min(5, gridSlot.baseTraffic / 20)) : 3;
+    const trafficNorm = gridSlot ? Math.max(1, Math.min(5, gridSlot.baseTraffic / 20)) : 2.5;
 
     const bought = willBuy(nextCustomer, sausageId, price, qualityScore, trafficNorm);
 
@@ -528,6 +643,7 @@ export class GrillScene extends Phaser.Scene {
       if (record) {
         this.salesLog.push(record);
         const isPerfect = quality === 'perfect';
+
         if (isPerfect) {
           this.grillStats.perfect++;
           changeReputation(1);
@@ -535,47 +651,61 @@ export class GrillScene extends Phaser.Scene {
           this.grillStats.ok++;
         }
 
+        this.sessionRevenue += price;
         this.customerQueue.serveCustomer(nextCustomer.id, isPerfect);
-        this.showFeedback(`+$${price}${isPerfect ? ' ★' : ''}`, slot.x, slot.y - 60, '#44ff88');
-
-        // Remove from customer tracking
         this.customers = this.customers.filter(c => c.id !== nextCustomer.id);
 
-        // Animate sausage flying off
+        const feedbackMsg = `+$${price}${isPerfect ? ' ★' : ''}`;
+        this.showFeedback(feedbackMsg, slot.x, slot.y - 60, '#44ff88');
+        this.bounceRevenue();
+
         slot.sausage = { ...slot.sausage, served: true };
         slot.sprite = null;
 
-        const queueX = 80;
-        const queueY = this.scale.height * 0.12;
-        sprite.playServeAnimation(queueX, queueY);
+        const targetX = 80;
+        const targetY = this.scale.height * 0.13;
+        sprite.playServeAnimation(targetX, targetY);
 
-        // Refill slot after a short delay
-        this.time.delayedCall(600, () => {
+        this.time.delayedCall(580, () => {
           slot.sausage = null;
           this.fillSlot(slot);
         });
+
+        this.updateStatsDisplay();
       }
     } else {
-      // Customer won't buy — they leave
+      // Customer rejects — leave without buying
       this.customerQueue.dismissFrontCustomer();
-      this.showFeedback('客人嫌貴走了', slot.x, slot.y - 50, '#ff6666');
       this.customers = this.customers.filter(c => c.id !== nextCustomer.id);
+      this.showFeedback('客人嫌貴走了', slot.x, slot.y - 50, '#ff6666');
     }
   }
 
   private onCustomerTimeout(customerId: string): void {
     changeReputation(-1);
     this.customers = this.customers.filter(c => c.id !== customerId);
-    this.showFeedback('-1 聲望', 80, this.scale.height * 0.12, '#ff4444');
+    this.showFeedback('-1 聲望', 80, this.scale.height * 0.13, '#ff4444');
   }
 
   // ── Display helpers ────────────────────────────────────────────────────────
 
   private updateTimerDisplay(): void {
     const secs = Math.ceil(this.timeLeft);
-    this.timerText.setText(`${secs}s`);
+    this.timerText.setText(`⏱ ${secs}s`);
+
     if (secs <= 10) {
       this.timerText.setColor('#ff3300');
+      // Flash the timer in the last 10 seconds (start once)
+      if (!this.timerFlashTween) {
+        this.timerFlashTween = this.tweens.add({
+          targets: this.timerText,
+          alpha: 0.3,
+          duration: 400,
+          yoyo: true,
+          repeat: -1,
+          ease: 'Sine.easeInOut',
+        });
+      }
     } else if (secs <= 20) {
       this.timerText.setColor('#ff9900');
     } else {
@@ -583,10 +713,22 @@ export class GrillScene extends Phaser.Scene {
     }
   }
 
-  private updateRevenueDisplay(): void {
-    const total = this.salesLog.reduce((sum, r) => sum + r.price, 0);
-    this.revenueText.setText(`$${total}`);
-    this.soldText.setText(`${this.salesLog.length}`);
+  private updateStatsDisplay(): void {
+    const { perfect, ok, burnt } = this.grillStats;
+    this.statsText.setText(`完美:${perfect} | 普通:${ok} | 焦:${burnt}`);
+    this.revenueText.setText(`💰 $${this.sessionRevenue}`);
+  }
+
+  private bounceRevenue(): void {
+    if (this.timerFlashTween?.isPlaying()) return; // avoid conflicting tweens
+    this.tweens.add({
+      targets: this.revenueText,
+      scaleX: 1.3,
+      scaleY: 1.3,
+      duration: 120,
+      yoyo: true,
+      ease: 'Back.Out',
+    });
   }
 
   private showFeedback(msg: string, x: number, y: number, color: string): void {
@@ -602,7 +744,7 @@ export class GrillScene extends Phaser.Scene {
 
     this.tweens.add({
       targets: txt,
-      y: y - 45,
+      y: y - 44,
       alpha: 0,
       duration: 1000,
       ease: 'Power2',
@@ -614,23 +756,32 @@ export class GrillScene extends Phaser.Scene {
     });
   }
 
-  // ── End session ────────────────────────────────────────────────────────────
+  // ── End session ──────────────────────────────────────────────────────────
 
   private endGrilling(): void {
     if (this.isDone) return;
     this.isDone = true;
 
-    // Store salesLog and grillStats in gameState so BattleScene/SummaryScene can access them
+    // Stop timer flash tween if running
+    if (this.timerFlashTween) {
+      this.timerFlashTween.stop();
+      this.timerFlashTween = null;
+      this.timerText.setAlpha(1);
+    }
+
+    // Persist to game state
     updateGameState({
       dailySalesLog: [...this.salesLog],
       dailyGrillStats: { ...this.grillStats },
     });
 
-    EventBus.emit('grill-done', { salesLog: this.salesLog, grillStats: this.grillStats });
+    EventBus.emit('grill-done', {
+      salesLog: this.salesLog,
+      grillStats: this.grillStats,
+    });
 
     this.cameras.main.fadeOut(600, 0, 0, 0);
     this.cameras.main.once('camerafadeoutcomplete', () => {
-      // Every 3 days: trigger territory battle instead of going directly to summary
       if (gameState.day % 3 === 0) {
         this.scene.start('BattleScene');
       } else {
@@ -639,8 +790,22 @@ export class GrillScene extends Phaser.Scene {
     });
   }
 
+  // ── Cleanup ──────────────────────────────────────────────────────────────
+
   shutdown(): void {
-    this.feedbackTexts.forEach(t => { if (t && t.active) t.destroy(); });
+    if (this.timerFlashTween) {
+      this.timerFlashTween.stop();
+      this.timerFlashTween = null;
+    }
+
+    this.feedbackTexts.forEach(t => {
+      if (t?.active) t.destroy();
+    });
     this.feedbackTexts = [];
+
+    this.fireParticles.forEach(p => {
+      if (p?.active) p.destroy();
+    });
+    this.fireParticles = [];
   }
 }

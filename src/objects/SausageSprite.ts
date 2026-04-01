@@ -1,4 +1,5 @@
 // SausageSprite — Phaser Container representing one sausage on the grill
+// Shows two separate doneness bars (top + bottom sides), grill marks, and serve/flip interactions
 import Phaser from 'phaser';
 import type { GrillingSausage } from '../systems/GrillEngine';
 import {
@@ -9,57 +10,81 @@ import {
 } from '../systems/GrillEngine';
 import { SAUSAGE_MAP } from '../data/sausages';
 
-const SAUSAGE_W = 80;
-const SAUSAGE_H = 30;
-const BAR_H = 6;
-const BAR_Y_OFFSET = -SAUSAGE_H / 2 - BAR_H - 4; // above sausage
+const SAUSAGE_W = 60;
+const SAUSAGE_H = 24;
+const BAR_W = 56;
+const BAR_H = 3;
+
+// Top bar sits above sausage, bottom bar sits below
+const TOP_BAR_Y = -(SAUSAGE_H / 2) - BAR_H - 4;
+const BOTTOM_BAR_Y = (SAUSAGE_H / 2) + 4;
+const LABEL_Y = SAUSAGE_H / 2 + 18;
+
+// Perfect zone: 71-90% on a bar width of BAR_W
+const PERFECT_MIN_PX = Math.round((71 / 100) * BAR_W);
+const PERFECT_MAX_PX = Math.round((90 / 100) * BAR_W);
+const PERFECT_W_PX = PERFECT_MAX_PX - PERFECT_MIN_PX;
 
 export class SausageSprite extends Phaser.GameObjects.Container {
   private sausageGfx: Phaser.GameObjects.Graphics;
-  private donenessBar: Phaser.GameObjects.Graphics;
+  private topBarGfx: Phaser.GameObjects.Graphics;
+  private bottomBarGfx: Phaser.GameObjects.Graphics;
   private labelText: Phaser.GameObjects.Text;
+  private readyGlow: Phaser.GameObjects.Graphics;
+
   private isFlipping = false;
   private onFlipCallback: (() => void) | null = null;
   private onServeCallback: (() => void) | null = null;
   private smokeParticles: Phaser.GameObjects.Text[] = [];
   private _data: GrillingSausage;
 
+  // Pulsing tween for active bar
+  private activePulseTween: Phaser.Tweens.Tween | null = null;
+
   constructor(scene: Phaser.Scene, x: number, y: number, sausage: GrillingSausage) {
     super(scene, x, y);
     this._data = sausage;
     scene.add.existing(this);
 
-    // Sausage body (drawn via Graphics)
+    // Ready glow (hidden by default)
+    this.readyGlow = scene.add.graphics();
+    this.add(this.readyGlow);
+
+    // Sausage body graphics
     this.sausageGfx = scene.add.graphics();
     this.add(this.sausageGfx);
 
-    // Doneness bar
-    this.donenessBar = scene.add.graphics();
-    this.add(this.donenessBar);
+    // Two doneness bars
+    this.topBarGfx = scene.add.graphics();
+    this.add(this.topBarGfx);
 
-    // Emoji/name label
+    this.bottomBarGfx = scene.add.graphics();
+    this.add(this.bottomBarGfx);
+
+    // Emoji label
     const sausageType = SAUSAGE_MAP[sausage.sausageTypeId];
     const emoji = sausageType?.emoji ?? '🌭';
-    this.labelText = scene.add.text(0, SAUSAGE_H / 2 + 14, emoji, {
-      fontSize: '18px',
+    this.labelText = scene.add.text(0, LABEL_Y, emoji, {
+      fontSize: '16px',
       align: 'center',
     }).setOrigin(0.5);
     this.add(this.labelText);
 
-    // Hit area — generous for easy clicking
-    const hitZone = scene.add.zone(0, 0, SAUSAGE_W + 20, SAUSAGE_H + 40)
+    // Hit area
+    const hitZone = scene.add.zone(0, 0, SAUSAGE_W + 24, SAUSAGE_H + 60)
       .setInteractive({ cursor: 'pointer' });
     this.add(hitZone);
 
     hitZone.on('pointerdown', () => this.handleClick());
     hitZone.on('pointerover', () => {
-      this.sausageGfx.setAlpha(0.85);
+      this.sausageGfx.setAlpha(0.82);
     });
     hitZone.on('pointerout', () => {
       this.sausageGfx.setAlpha(1);
     });
 
     this.redraw();
+    this.playNewSausageAnimation();
   }
 
   get sausageData(): GrillingSausage {
@@ -85,16 +110,11 @@ export class SausageSprite extends Phaser.GameObjects.Container {
     if (this._data.served || this.isFlipping) return;
 
     const quality = judgeQuality(this._data);
+    if (quality === 'burnt') return;
 
-    if (quality === 'burnt') return; // burnt handled automatically
-
-    // If sausage is ready (ok or perfect), trigger serve; otherwise flip
     if (quality === 'ok' || quality === 'perfect') {
-      if (this.onServeCallback) {
-        this.onServeCallback();
-      }
+      if (this.onServeCallback) this.onServeCallback();
     } else {
-      // raw or still cooking — flip it
       this.triggerFlip();
     }
   }
@@ -103,11 +123,10 @@ export class SausageSprite extends Phaser.GameObjects.Container {
     if (this.isFlipping || this._data.served) return;
     this.isFlipping = true;
 
-    // Animate: squish scaleY to 0, then back to 1 (flip effect)
     this.scene.tweens.add({
       targets: this,
       scaleY: 0,
-      duration: 100,
+      duration: 75,
       ease: 'Power1',
       onComplete: () => {
         if (this.onFlipCallback) this.onFlipCallback();
@@ -115,7 +134,7 @@ export class SausageSprite extends Phaser.GameObjects.Container {
         this.scene.tweens.add({
           targets: this,
           scaleY: 1,
-          duration: 120,
+          duration: 100,
           ease: 'Back.Out',
           onComplete: () => {
             this.isFlipping = false;
@@ -126,39 +145,43 @@ export class SausageSprite extends Phaser.GameObjects.Container {
   }
 
   playServeAnimation(targetX: number, targetY: number): void {
-    // Fly toward customer area + sparkles
+    const quality = judgeQuality(this._data);
+    const isPerfect = quality === 'perfect';
+
+    if (isPerfect) {
+      this.spawnSparkles();
+    }
+
     this.scene.tweens.add({
       targets: this,
-      x: this.x + (targetX - this.x) * 0.3,
+      x: this.x + (targetX - this.x) * 0.4,
       y: targetY,
-      scaleX: 0.3,
-      scaleY: 0.3,
+      scaleX: 0.25,
+      scaleY: 0.25,
       alpha: 0,
-      duration: 400,
+      duration: 380,
       ease: 'Power2',
       onComplete: () => {
         this.destroy();
       },
     });
-    this.spawnSparkles();
   }
 
   playBurntAnimation(): void {
-    // Shake + smoke
     this.scene.tweens.add({
       targets: this,
       x: this.x - 5,
-      duration: 60,
+      duration: 55,
       yoyo: true,
-      repeat: 4,
+      repeat: 5,
       ease: 'Linear',
       onComplete: () => {
         this.spawnSmoke();
-        this.scene.time.delayedCall(800, () => {
+        this.scene.time.delayedCall(700, () => {
           this.scene.tweens.add({
             targets: this,
             alpha: 0,
-            duration: 400,
+            duration: 350,
             onComplete: () => this.destroy(),
           });
         });
@@ -166,21 +189,36 @@ export class SausageSprite extends Phaser.GameObjects.Container {
     });
   }
 
+  playNewSausageAnimation(): void {
+    // Slide up from below grill rack
+    const originalY = this.y;
+    this.y = originalY + 60;
+    this.setAlpha(0);
+    this.scene.tweens.add({
+      targets: this,
+      y: originalY,
+      alpha: 1,
+      duration: 280,
+      ease: 'Back.Out',
+    });
+  }
+
   private spawnSparkles(): void {
     const sparkleEmojis = ['✨', '⭐', '💫'];
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < 5; i++) {
       const spark = this.scene.add.text(
-        this.x + Phaser.Math.Between(-30, 30),
-        this.y + Phaser.Math.Between(-20, 20),
+        this.x + Phaser.Math.Between(-35, 35),
+        this.y + Phaser.Math.Between(-25, 10),
         sparkleEmojis[i % sparkleEmojis.length],
-        { fontSize: '18px' },
-      ).setOrigin(0.5);
+        { fontSize: '16px' },
+      ).setOrigin(0.5).setDepth(200);
 
       this.scene.tweens.add({
         targets: spark,
-        y: spark.y - 40,
+        y: spark.y - 50,
         alpha: 0,
-        duration: 600,
+        duration: 700,
+        delay: i * 80,
         ease: 'Power2',
         onComplete: () => spark.destroy(),
       });
@@ -188,21 +226,21 @@ export class SausageSprite extends Phaser.GameObjects.Container {
   }
 
   private spawnSmoke(): void {
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < 4; i++) {
       const smoke = this.scene.add.text(
-        this.x + Phaser.Math.Between(-20, 20),
+        this.x + Phaser.Math.Between(-22, 22),
         this.y,
         '💨',
-        { fontSize: '20px', alpha: 0.8 } as Phaser.Types.GameObjects.Text.TextStyle,
-      ).setOrigin(0.5);
+        { fontSize: '20px' } as Phaser.Types.GameObjects.Text.TextStyle,
+      ).setOrigin(0.5).setAlpha(0.8).setDepth(150);
 
       this.smokeParticles.push(smoke);
       this.scene.tweens.add({
         targets: smoke,
-        y: smoke.y - 50,
+        y: smoke.y - 55,
         alpha: 0,
-        delay: i * 150,
-        duration: 700,
+        delay: i * 130,
+        duration: 750,
         ease: 'Power1',
         onComplete: () => {
           smoke.destroy();
@@ -213,12 +251,83 @@ export class SausageSprite extends Phaser.GameObjects.Container {
     }
   }
 
+  private startActivePulse(targetGfx: Phaser.GameObjects.Graphics): void {
+    // Stop existing pulse
+    if (this.activePulseTween) {
+      this.activePulseTween.stop();
+      this.activePulseTween = null;
+    }
+
+    // Pulse alpha between 0.5 and 1 to indicate active cooking side
+    this.activePulseTween = this.scene.tweens.add({
+      targets: targetGfx,
+      alpha: 0.55,
+      duration: 600,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut',
+    });
+  }
+
+  private stopActivePulse(): void {
+    if (this.activePulseTween) {
+      this.activePulseTween.stop();
+      this.activePulseTween = null;
+    }
+    this.topBarGfx.setAlpha(1);
+    this.bottomBarGfx.setAlpha(1);
+  }
+
+  private drawDonenessBar(
+    gfx: Phaser.GameObjects.Graphics,
+    doneness: number,
+    yOffset: number,
+  ): void {
+    gfx.clear();
+
+    const bx = -BAR_W / 2;
+
+    // Background
+    gfx.fillStyle(0x333333, 1);
+    gfx.fillRect(bx, yOffset, BAR_W, BAR_H);
+
+    // Fill
+    const fillW = Math.round((Math.min(100, Math.max(0, doneness)) / 100) * BAR_W);
+    if (fillW > 0) {
+      gfx.fillStyle(getDonenessBarColor(doneness), 1);
+      gfx.fillRect(bx, yOffset, fillW, BAR_H);
+    }
+
+    // Perfect zone indicator (blue tint)
+    gfx.fillStyle(0x44aaff, 0.30);
+    gfx.fillRect(bx + PERFECT_MIN_PX, yOffset, PERFECT_W_PX, BAR_H);
+
+    // Border
+    gfx.lineStyle(1, 0x555555, 0.8);
+    gfx.strokeRect(bx, yOffset, BAR_W, BAR_H);
+  }
+
   private redraw(): void {
     const sausage = this._data;
     const avgDoneness = getAverageDoneness(sausage);
     const color = getSausageColor(avgDoneness);
+    const quality = judgeQuality(sausage);
 
-    // Draw sausage body
+    // Ready glow when serveable
+    this.readyGlow.clear();
+    if (quality === 'ok' || quality === 'perfect') {
+      const glowColor = quality === 'perfect' ? 0xffdd00 : 0x88ff88;
+      this.readyGlow.fillStyle(glowColor, 0.12);
+      this.readyGlow.fillRoundedRect(
+        -SAUSAGE_W / 2 - 6,
+        -SAUSAGE_H / 2 - 6,
+        SAUSAGE_W + 12,
+        SAUSAGE_H + 12,
+        SAUSAGE_H / 2 + 6,
+      );
+    }
+
+    // ── Sausage body ──
     this.sausageGfx.clear();
 
     // Shadow
@@ -231,7 +340,7 @@ export class SausageSprite extends Phaser.GameObjects.Container {
       SAUSAGE_H / 2,
     );
 
-    // Main sausage body
+    // Main body
     this.sausageGfx.fillStyle(color, 1);
     this.sausageGfx.fillRoundedRect(
       -SAUSAGE_W / 2,
@@ -244,44 +353,38 @@ export class SausageSprite extends Phaser.GameObjects.Container {
     // Highlight sheen
     this.sausageGfx.fillStyle(0xffffff, 0.15);
     this.sausageGfx.fillRoundedRect(
-      -SAUSAGE_W / 2 + 6,
-      -SAUSAGE_H / 2 + 4,
-      SAUSAGE_W - 20,
+      -SAUSAGE_W / 2 + 5,
+      -SAUSAGE_H / 2 + 3,
+      SAUSAGE_W - 18,
       SAUSAGE_H / 3,
-      4,
+      3,
     );
 
-    // Doneness bar background
-    this.donenessBar.clear();
-    this.donenessBar.fillStyle(0x222222, 1);
-    this.donenessBar.fillRect(-SAUSAGE_W / 2, BAR_Y_OFFSET, SAUSAGE_W, BAR_H);
-
-    // Doneness fill (represents the side facing down — the active cooking side)
-    const activeDoneness = sausage.currentSide === 'bottom'
-      ? sausage.bottomDoneness
-      : sausage.topDoneness;
-    const barWidth = Math.round((activeDoneness / 100) * SAUSAGE_W);
-    const barColor = getDonenessBarColor(activeDoneness);
-
-    this.donenessBar.fillStyle(barColor, 1);
-    this.donenessBar.fillRect(-SAUSAGE_W / 2, BAR_Y_OFFSET, barWidth, BAR_H);
-
-    // Bar border
-    this.donenessBar.lineStyle(1, 0x444444, 1);
-    this.donenessBar.strokeRect(-SAUSAGE_W / 2, BAR_Y_OFFSET, SAUSAGE_W, BAR_H);
-
-    // Small "flip side" indicator dots on sausage
-    const otherDoneness = sausage.currentSide === 'bottom'
-      ? sausage.topDoneness
-      : sausage.bottomDoneness;
-    const dotAlpha = otherDoneness > 20 ? 0.6 : 0.2;
-    this.sausageGfx.fillStyle(0x000000, dotAlpha);
+    // Grill marks — 3 dark lines across the body, opacity increases with doneness
+    const grillAlpha = Math.min(0.7, avgDoneness / 100 * 0.8 + 0.05);
+    this.sausageGfx.fillStyle(0x111111, grillAlpha);
     for (let i = 0; i < 3; i++) {
-      this.sausageGfx.fillCircle(-20 + i * 20, 4, 3);
+      const markX = -SAUSAGE_W / 2 + 12 + i * 14;
+      this.sausageGfx.fillRect(markX, -SAUSAGE_H / 2 + 4, 3, SAUSAGE_H - 8);
+    }
+
+    // ── Doneness bars ──
+    this.drawDonenessBar(this.topBarGfx, sausage.topDoneness, TOP_BAR_Y);
+    this.drawDonenessBar(this.bottomBarGfx, sausage.bottomDoneness, BOTTOM_BAR_Y);
+
+    // Pulse the active cooking side bar
+    this.stopActivePulse();
+    if (!sausage.served) {
+      if (sausage.currentSide === 'bottom') {
+        this.startActivePulse(this.bottomBarGfx);
+      } else {
+        this.startActivePulse(this.topBarGfx);
+      }
     }
   }
 
-  destroy(fromScene?: boolean): void {
+  override destroy(fromScene?: boolean): void {
+    this.stopActivePulse();
     this.smokeParticles.forEach(s => {
       if (s && s.active) s.destroy();
     });
