@@ -1,5 +1,5 @@
 import { EventBus } from '../utils/EventBus';
-import type { GamePhase } from '../types';
+import type { GamePhase, LoanState } from '../types';
 
 // Single source of truth for all game state
 // Always create new objects rather than mutating (immutability principle)
@@ -11,12 +11,15 @@ export const gameState = {
   inventory: {} as Record<string, number>,
   map: {} as Record<number, string>,
   upgrades: {} as Record<string, boolean>,
-  loans: {} as Record<string, unknown>,
+  loans: {
+    active: null,
+    bankBlacklisted: false,
+  } as LoanState,
   stats: {
     totalSausagesSold: 0,
     totalRevenue: 0,
     totalExpenses: 0,
-  } as Record<string, unknown>,
+  } as Record<string, number>,
 };
 
 // Update state and notify UI via EventBus
