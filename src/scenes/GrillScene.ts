@@ -190,23 +190,30 @@ export class GrillScene extends Phaser.Scene {
       slot.sausage = updated;
       slot.sprite.updateData(updated);
 
-      // No auto-flip — player controls when to flip (click once to flip, click again to serve)
+      // ── Contextual action buttons above sausage ──
+      const heatedSide = updated.currentSide === 'bottom' ? updated.bottomDoneness : updated.topDoneness;
+      const nonHeated = updated.currentSide === 'bottom' ? updated.topDoneness : updated.bottomDoneness;
 
-      // Show warning feedback for dangerous doneness levels (but don't auto-remove anything)
+      // Show "翻面！" prompt when heated side hits green zone (70+) and other side not yet cooked
+      if (heatedSide >= 70 && nonHeated < 30 && !(slot as any).__flipPromptShown) {
+        (slot as any).__flipPromptShown = true;
+        this.showFeedback('點香腸翻面！', slot.x, slot.y - 55, '#39ff14');
+      }
+
+      // Show warning for overcooked
       const currentQuality = judgeQuality(updated);
       if (currentQuality === 'carbonized' && !(slot as any).__carbonWarnShown) {
         sfx.playBurnt();
-        this.showFeedback('碳化了！快起鍋或丟掉', slot.x, slot.y - 50, '#ff3300');
+        this.showFeedback('碳化了！快起鍋', slot.x, slot.y - 55, '#ff3300');
         (slot as any).__carbonWarnShown = true;
       } else if (currentQuality === 'burnt' && !(slot as any).__burntWarnShown) {
-        this.showFeedback('焦了！還能賣但有風險', slot.x, slot.y - 50, '#ff6600');
+        this.showFeedback('焦了！趕快起鍋', slot.x, slot.y - 55, '#ff6600');
         (slot as any).__burntWarnShown = true;
       }
 
-      // Show "起鍋" button when both sides have been cooked (non-heated side >= 20)
-      const nonHeated = updated.currentSide === 'bottom' ? updated.topDoneness : updated.bottomDoneness;
-      if (nonHeated >= 20 && !slot.serveBtn) {
-        const btn = this.add.text(slot.x, slot.y - 68, '[ 放入保溫箱 ]', {
+      // Show "放入保溫箱" button when both sides cooked (non-heated >= 30)
+      if (nonHeated >= 30 && !slot.serveBtn) {
+        const btn = this.add.text(slot.x, slot.y - 72, '[ 放入保溫箱 ]', {
           fontSize: '14px',
           fontFamily: FONT,
           color: '#39ff14',
@@ -214,7 +221,8 @@ export class GrillScene extends Phaser.Scene {
           padding: { x: 10, y: 5 },
         }).setOrigin(0.5).setDepth(50).setInteractive({ cursor: 'pointer' });
 
-        btn.on('pointerdown', () => {
+        btn.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+          pointer.event.stopPropagation();
           if (slot.sprite) this.moveToWarming(slot, slot.sprite);
         });
         btn.on('pointerover', () => btn.setColor('#ffffff'));
@@ -1044,6 +1052,9 @@ export class GrillScene extends Phaser.Scene {
         currentSlot.sausage = flipSausage(currentSlot.sausage);
         sprite.updateData(currentSlot.sausage);
         sfx.playFlip();
+        // Reset flip prompt so it can show again for the new side
+        (currentSlot as any).__flipPromptShown = false;
+        this.showFeedback('翻面！', currentSlot.x, currentSlot.y + 35, '#ffcc44');
       }
     });
 

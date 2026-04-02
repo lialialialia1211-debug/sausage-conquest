@@ -35,7 +35,7 @@ export function generateCustomers(gridFootTraffic: number, marketingBonus: numbe
 
     customers.push({
       id: `customer-${++customerIdCounter}`,
-      patience: 12 + Math.random() * 13, // 12-25 seconds
+      patience: 30 + Math.random() * 30, // 30-60 seconds
       preferredType,
       maxPrice,
     });
