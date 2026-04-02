@@ -39,7 +39,7 @@ export const gameState = {
   // Waste tracking at end of day
   dailyWaste: { grillRemaining: 0, warmingRemaining: 0 } as { grillRemaining: number; warmingRemaining: number },
   // Unlocked sausage types (starts with 3 base types)
-  unlockedSausages: ['black-pig', 'flying-fish-roe', 'garlic-bomb'] as string[],
+  unlockedSausages: ['black-pig', 'flying-fish-roe', 'garlic-bomb', 'big-taste'] as string[],
   // AI opponent tracking
   activeOpponents: [] as string[],
   defeatedOpponents: [] as string[],

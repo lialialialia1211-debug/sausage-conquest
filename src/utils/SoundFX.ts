@@ -217,6 +217,86 @@ class SoundFX {
     this.playArpeggio(notes, 0.1, 0.4);
   }
 
+  /** Sausage swing — whoosh (sawtooth 400→100 Hz, 150ms) */
+  playSwing(): void {
+    if (!this.ctx || this.muted) return;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(400, this.ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(100, this.ctx.currentTime + 0.15);
+    gain.gain.setValueAtTime(0.15, this.ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.15);
+    osc.connect(gain).connect(this.masterGain!);
+    osc.start();
+    osc.stop(this.ctx.currentTime + 0.15);
+  }
+
+  /** Heavy hit impact — low thump + noise burst */
+  playHeavyHit(): void {
+    if (!this.ctx || this.muted) return;
+    // Low thump
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(80, this.ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(40, this.ctx.currentTime + 0.2);
+    gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.2);
+    osc.connect(gain).connect(this.masterGain!);
+    osc.start();
+    osc.stop(this.ctx.currentTime + 0.2);
+    // Noise burst
+    const bufferSize = this.ctx.sampleRate * 0.08;
+    const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) data[i] = (Math.random() * 2 - 1) * 0.3;
+    const noise = this.ctx.createBufferSource();
+    noise.buffer = buffer;
+    const noiseGain = this.ctx.createGain();
+    noiseGain.gain.setValueAtTime(0.2, this.ctx.currentTime);
+    noiseGain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.08);
+    noise.connect(noiseGain).connect(this.masterGain!);
+    noise.start();
+  }
+
+  /** Special attack explosion — shaped noise burst with lowpass sweep */
+  playExplosion(): void {
+    if (!this.ctx || this.muted) return;
+    const bufferSize = this.ctx.sampleRate * 0.4;
+    const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+      data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufferSize * 0.15));
+    }
+    const noise = this.ctx.createBufferSource();
+    noise.buffer = buffer;
+    const filter = this.ctx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(1000, this.ctx.currentTime);
+    filter.frequency.exponentialRampToValueAtTime(200, this.ctx.currentTime + 0.4);
+    const gain = this.ctx.createGain();
+    gain.gain.setValueAtTime(0.35, this.ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.4);
+    noise.connect(filter).connect(gain).connect(this.masterGain!);
+    noise.start();
+  }
+
+  /** Player gets hit — descending square wave (200→100 Hz, 150ms) */
+  playPlayerHit(): void {
+    if (!this.ctx || this.muted) return;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(200, this.ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(100, this.ctx.currentTime + 0.15);
+    gain.gain.setValueAtTime(0.15, this.ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.15);
+    osc.connect(gain).connect(this.masterGain!);
+    osc.start();
+    osc.stop(this.ctx.currentTime + 0.15);
+  }
+
   /** Defeat — descending arpeggio G4-E4-C4 (150ms each) */
   playDefeat(): void {
     const notes: [number, number][] = [

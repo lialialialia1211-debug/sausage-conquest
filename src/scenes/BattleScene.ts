@@ -8,6 +8,7 @@ import {
   applyBattleResult,
   applySimulationBuff,
 } from '../systems/AutoChessEngine';
+import { sfx } from '../utils/SoundFX';
 
 // ── Layout constants ───────────────────────────────────────────────────────────
 const FONT = 'Microsoft JhengHei, PingFang TC, sans-serif';
@@ -292,6 +293,8 @@ export class BattleScene extends Phaser.Scene {
     if (this.normalCd > 0) return;
     this.normalCd = 0.5;
 
+    sfx.playSwing();
+
     const hit = this.isHitOnOpponent(pointer);
     const headshot = hit && this.isHeadshot(pointer);
     const { width, height } = this.scale;
@@ -330,6 +333,7 @@ export class BattleScene extends Phaser.Scene {
     });
 
     if (hit) {
+      sfx.playAttack();
       const dmg = headshot ? 15 : 8;
       this.dealDamageToOpponent(dmg);
       this.energy = Math.min(100, this.energy + 10);
@@ -361,6 +365,8 @@ export class BattleScene extends Phaser.Scene {
     this.heavyCd = 2;
     this.energy = Math.max(0, this.energy - 25);
 
+    sfx.playSwing();
+
     const { width, height } = this.scale;
 
     // Heavy thrust: big sausage from bottom center, straight toward opponent
@@ -381,6 +387,7 @@ export class BattleScene extends Phaser.Scene {
 
     const hit = this.isHitOnOpponent(pointer);
     if (hit) {
+      sfx.playHeavyHit();
       this.dealDamageToOpponent(20);
       this.opponentStunTimer = 1.0;
       this.energy = Math.min(100, this.energy + 5);
@@ -480,6 +487,7 @@ export class BattleScene extends Phaser.Scene {
       ease: 'Bounce.Out',
       onComplete: () => {
         charcoal.destroy();
+        sfx.playExplosion();
         this.dealDamageToOpponent(35);
         // Stronger screen shake
         this.cameras.main.shake(300, 0.03);
@@ -540,6 +548,7 @@ export class BattleScene extends Phaser.Scene {
 
     const hitChance = Math.random();
     if (hitChance < 0.70) {
+      sfx.playPlayerHit();
       this.playerHp = Math.max(0, this.playerHp - this.aiDamage);
       this.energy = Math.min(100, this.energy + 15); // getting hit charges energy
       this.flashScreenEdges();

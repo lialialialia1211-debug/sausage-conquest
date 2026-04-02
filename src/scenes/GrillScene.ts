@@ -981,6 +981,25 @@ export class GrillScene extends Phaser.Scene {
       fontFamily: FONT,
       color: COLOR_DIM,
     }).setOrigin(0.5);
+
+    // Mobile flip button (visible on all devices, useful shortcut)
+    const flipBtn = this.add.text(
+      10, this.scale.height - 80,
+      '🔄 翻面',
+      { fontSize: '16px', color: '#ffcc00', backgroundColor: '#1a1a2e', padding: { x: 10, y: 6 } }
+    ).setInteractive({ useHandCursor: true }).setDepth(10);
+
+    flipBtn.on('pointerdown', () => {
+      // Flip the hovered slot, or first occupied slot if none hovered
+      if (this.hoveredSlotIndex !== null) {
+        const slot = this.grillSlots[this.hoveredSlotIndex];
+        if (slot?.sausage) this.doFlipSlot(slot);
+      } else {
+        // Find first slot with a sausage and flip it
+        const firstOccupied = this.grillSlots.find(s => s.sausage);
+        if (firstOccupied) this.doFlipSlot(firstOccupied);
+      }
+    });
   }
 
   private setupInventoryPanel(width: number, height: number): void {
