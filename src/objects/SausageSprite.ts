@@ -87,8 +87,8 @@ export class SausageSprite extends Phaser.GameObjects.Container {
     }).setOrigin(0.5);
     this.add(this.labelText);
 
-    // Hit area
-    const hitZone = scene.add.zone(0, 0, SAUSAGE_W + 24, SAUSAGE_H + 60)
+    // Hit area — only covers the sausage body, not above it (起鍋 button lives above)
+    const hitZone = scene.add.zone(0, 6, SAUSAGE_W + 20, SAUSAGE_H + 30)
       .setInteractive({ cursor: 'pointer' });
     this.add(hitZone);
 
@@ -130,10 +130,11 @@ export class SausageSprite extends Phaser.GameObjects.Container {
     if (this.isFlipping || this._data.served) return;
     this.isFlipping = true;
 
+    // Fast flip animation (60ms total) so clicks don't get swallowed
     this.scene.tweens.add({
       targets: this,
       scaleY: 0,
-      duration: 75,
+      duration: 30,
       ease: 'Power1',
       onComplete: () => {
         if (this.onFlipCallback) this.onFlipCallback();
@@ -141,8 +142,8 @@ export class SausageSprite extends Phaser.GameObjects.Container {
         this.scene.tweens.add({
           targets: this,
           scaleY: 1,
-          duration: 100,
-          ease: 'Back.Out',
+          duration: 30,
+          ease: 'Linear',
           onComplete: () => {
             this.isFlipping = false;
           },

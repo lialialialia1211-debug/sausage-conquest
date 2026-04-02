@@ -206,12 +206,12 @@ export class GrillScene extends Phaser.Scene {
       // Show "起鍋" button when both sides have been cooked (non-heated side >= 20)
       const nonHeated = updated.currentSide === 'bottom' ? updated.topDoneness : updated.bottomDoneness;
       if (nonHeated >= 20 && !slot.serveBtn) {
-        const btn = this.add.text(slot.x, slot.y - 52, '[ 起鍋 ]', {
-          fontSize: '13px',
+        const btn = this.add.text(slot.x, slot.y - 68, '[ 放入保溫箱 ]', {
+          fontSize: '14px',
           fontFamily: FONT,
           color: '#39ff14',
-          backgroundColor: '#000000cc',
-          padding: { x: 6, y: 3 },
+          backgroundColor: '#000000dd',
+          padding: { x: 10, y: 5 },
         }).setOrigin(0.5).setDepth(50).setInteractive({ cursor: 'pointer' });
 
         btn.on('pointerdown', () => {
