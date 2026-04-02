@@ -189,19 +189,7 @@ export class GrillScene extends Phaser.Scene {
       slot.sausage = updated;
       slot.sprite.updateData(updated);
 
-      // Auto-flip safety: flip when heated side nears burn threshold
-      // Only auto-flip if average hasn't exceeded 95 (allow player to rescue slightly-burnt)
-      if (slot.sausage && !slot.sausage.served && slot.sprite) {
-        const heated = slot.sausage.currentSide === 'bottom'
-          ? slot.sausage.bottomDoneness
-          : slot.sausage.topDoneness;
-        const avgDoneness = (slot.sausage.topDoneness + slot.sausage.bottomDoneness) / 2;
-        if (heated >= 85 && avgDoneness < 95) {
-          slot.sausage = flipSausage(slot.sausage);
-          slot.sprite.updateData(slot.sausage);
-          slot.sprite.triggerFlip();
-        }
-      }
+      // No auto-flip — player controls when to flip (click once to flip, click again to serve)
 
       // Show warning feedback for dangerous doneness levels (but don't auto-remove anything)
       const currentQuality = judgeQuality(updated);

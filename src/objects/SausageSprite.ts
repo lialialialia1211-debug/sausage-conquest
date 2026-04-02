@@ -126,13 +126,18 @@ export class SausageSprite extends Phaser.GameObjects.Container {
   private handleClick(): void {
     if (this._data.served || this.isFlipping) return;
 
-    const quality = judgeQuality(this._data);
-    if (quality === 'burnt') return;
+    // Simple rule: if the non-heated side is still raw (< 20), click = flip
+    // Otherwise both sides have been cooked → click = serve (move to warming zone)
+    const nonHeatedDoneness = this._data.currentSide === 'bottom'
+      ? this._data.topDoneness
+      : this._data.bottomDoneness;
 
-    if (quality === 'ok' || quality === 'perfect') {
-      if (this.onServeCallback) this.onServeCallback();
-    } else {
+    if (nonHeatedDoneness < 20) {
+      // Other side still raw — flip it
       this.triggerFlip();
+    } else {
+      // Both sides have some cooking — serve to warming zone
+      if (this.onServeCallback) this.onServeCallback();
     }
   }
 
@@ -330,10 +335,18 @@ export class SausageSprite extends Phaser.GameObjects.Container {
     const color = getSausageColor(avgDoneness);
     const quality = judgeQuality(sausage);
 
-    // Ready glow when serveable
+    // Ready glow when both sides have been cooked (non-heated side >= 20)
     this.readyGlow.clear();
-    if (quality === 'ok' || quality === 'perfect') {
-      const glowColor = quality === 'perfect' ? 0xffdd00 : 0x88ff88;
+    const nonHeatedDoneness = sausage.currentSide === 'bottom'
+      ? sausage.topDoneness
+      : sausage.bottomDoneness;
+    if (nonHeatedDoneness >= 20) {
+      // Both sides cooked — show glow. Color by quality.
+      let glowColor = 0x88ff88; // default green
+      if (quality === 'perfect') glowColor = 0xffdd00;
+      else if (quality === 'slightly-burnt') glowColor = 0xff8800;
+      else if (quality === 'burnt' || quality === 'carbonized') glowColor = 0xff3300;
+      else if (quality === 'half-cooked') glowColor = 0x4488ff;
       this.readyGlow.fillStyle(glowColor, 0.12);
       this.readyGlow.fillRoundedRect(
         -SAUSAGE_W / 2 - 6,
