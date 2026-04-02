@@ -141,6 +141,9 @@ export class GrillScene extends Phaser.Scene {
     this.setupHUD(width, height);
     this.setupEndButton(width, height);
 
+    // Load overnight sausages into warming zone
+    this.loadOvernightSausages();
+
     this.generateCustomerPool();
 
     // Trigger first customer batch immediately
@@ -217,10 +220,10 @@ export class GrillScene extends Phaser.Scene {
       if (!ws.sausage) continue;
       ws.sausage = { ...ws.sausage, timeInWarming: ws.sausage.timeInWarming + dt };
 
-      // Update warming state — 20s perfect, 20s ok, then cold (no auto-penalty, penalty on serve)
-      if (ws.sausage.timeInWarming < 20) {
+      // Update warming state — 30s perfect, 30s ok, then cold
+      if (ws.sausage.timeInWarming < 30) {
         ws.sausage = { ...ws.sausage, warmingState: 'perfect-warm' };
-      } else if (ws.sausage.timeInWarming < 40) {
+      } else if (ws.sausage.timeInWarming < 60) {
         ws.sausage = { ...ws.sausage, warmingState: 'ok-warm' };
       } else {
         ws.sausage = { ...ws.sausage, warmingState: 'cold' };
@@ -533,18 +536,19 @@ export class GrillScene extends Phaser.Scene {
     if (ws.warmingState === 'perfect-warm') {
       stateLabel = '熱騰騰 ×1.2';
       stateColor = '#44ff88';
-      timeLeft = `${Math.max(0, Math.ceil(20 - ws.timeInWarming))}s`;
+      timeLeft = `${Math.max(0, Math.ceil(30 - ws.timeInWarming))}s`;
     } else if (ws.warmingState === 'ok-warm') {
       stateLabel = '微溫 ×1.0';
       stateColor = '#ffcc44';
-      timeLeft = `${Math.max(0, Math.ceil(40 - ws.timeInWarming))}s`;
+      timeLeft = `${Math.max(0, Math.ceil(60 - ws.timeInWarming))}s`;
     } else {
       stateLabel = '冷掉 ×0.7';
       stateColor = '#6699aa';
       timeLeft = '冷了但還能賣';
     }
 
-    slot.infoText.setText(`${emoji} ${ws.grillQuality} | 點擊出餐`);
+    const overnightTag = ws.isOvernight ? ' [隔夜]' : '';
+    slot.infoText.setText(`${emoji} ${ws.grillQuality}${overnightTag} | 點擊出餐`);
     slot.stateText.setText(`${stateLabel}  ${timeLeft}`);
     slot.stateText.setColor(stateColor);
 
@@ -822,6 +826,25 @@ export class GrillScene extends Phaser.Scene {
       color: COLOR_ORANGE,
     }).setOrigin(1, 0).setDepth(10);
 
+    // ── Price board — show today's prices like a real night market stall ──
+    const priceEntries = Object.entries(gameState.prices)
+      .filter(([id]) => gameState.unlockedSausages.includes(id))
+      .map(([id, price]) => {
+        const info = SAUSAGE_MAP[id];
+        return info ? `${info.emoji}${info.name} $${price}` : '';
+      })
+      .filter(Boolean);
+
+    if (priceEntries.length > 0) {
+      this.add.text(width / 2, 38, priceEntries.join('  '), {
+        fontSize: '11px',
+        fontFamily: FONT,
+        color: '#ffcc44',
+        backgroundColor: '#1a0800cc',
+        padding: { x: 8, y: 3 },
+      }).setOrigin(0.5, 0).setDepth(10);
+    }
+
     // ── Bottom stats bar ─────────────────────────────────────────────────
     const statsY = height - 100;
 
@@ -942,6 +965,20 @@ export class GrillScene extends Phaser.Scene {
 
   // ── Game logic ─────────────────────────────────────────────────────────────
 
+  private loadOvernightSausages(): void {
+    const overnight = gameState.warmingZone;
+    if (!overnight || overnight.length === 0) return;
+
+    for (const ws of overnight) {
+      const emptySlot = this.warmingSlots.find(s => !s.sausage);
+      if (!emptySlot) break;
+      emptySlot.sausage = { ...ws };
+      this.updateWarmingSlotDisplay(emptySlot);
+    }
+    // Clear from gameState (now loaded into scene)
+    updateGameState({ warmingZone: [] });
+  }
+
   private generateCustomerPool(): void {
     const slotId = gameState.selectedSlot;
     const gridSlot = GRID_SLOTS.find(s => s.id === slotId);
@@ -951,8 +988,8 @@ export class GrillScene extends Phaser.Scene {
 
     const marketingBonus = (gameState.upgrades['neon-sign'] ? 0.15 : 0) + (gameState.dailyTrafficBonus ?? 0);
     let pool = generateCustomers(trafficNorm, marketingBonus);
-    // Cap at ~20 customers for a 90-second session
-    if (pool.length > 20) pool = pool.slice(0, 20);
+    // Cap at ~40 customers for a 90-second session (generous flow)
+    if (pool.length > 40) pool = pool.slice(0, 40);
 
     this.pendingCustomerQueue = pool;
   }
@@ -1069,9 +1106,10 @@ export class GrillScene extends Phaser.Scene {
     if (ws.warmingState === 'cold') warmMultiplier = 0.7;
 
     const sausageId = ws.sausageTypeId;
+    // Price = player's set price (already on the price board, customer saw it before queuing)
     const basePrice = gameState.prices[sausageId] ?? SAUSAGE_MAP[sausageId]?.suggestedPrice ?? 35;
     const finalQualityScore = ws.qualityScore * warmMultiplier;
-    const price = Math.round(basePrice * Math.max(0.2, warmMultiplier * ws.qualityScore));
+    const price = basePrice; // customer pays what the board says, no discount
 
     // Always sell — customer always takes the sausage
     const record = sellSausage(sausageId, price, finalQualityScore);
@@ -1151,6 +1189,13 @@ export class GrillScene extends Phaser.Scene {
       changeReputation(-1);
       feedbackMsg += ' (冷的...-1聲望)';
       feedbackColor = '#6699aa';
+    }
+
+    // Overnight sausage consequence: 50% chance customer gets diarrhea and complains
+    if (ws.isOvernight && Math.random() < 0.5) {
+      changeReputation(-2);
+      feedbackMsg += ' 隔夜的！客人拉肚子投訴 -2聲望';
+      feedbackColor = '#cc44ff';
     }
 
     this.sessionRevenue += price + tipAmount;
@@ -1332,8 +1377,9 @@ export class GrillScene extends Phaser.Scene {
         '什麼都能賣！但生的/焦的有機率被客人抱怨或砸店',
         '完美+熱騰騰=有機率拿小費！',
         '',
-        '保溫區：20秒內最佳 → 再20秒普通 → 之後冷掉打折',
-        '客人隊伍在上面，綠條是耐心，歸零就走人',
+        '保溫區：30秒內最佳 → 再30秒普通 → 之後冷掉（都能賣！）',
+        '隔夜香腸也能賣，但客人 50% 機率拉肚子投訴',
+        '客人看到價格牌才來排隊，不會嫌貴！',
         '',
       );
     }

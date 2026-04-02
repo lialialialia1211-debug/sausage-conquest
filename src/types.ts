@@ -86,6 +86,7 @@ export interface WarmingSausage {
   qualityScore: number;  // base quality multiplier from grill
   timeInWarming: number; // seconds since placed in warming zone
   warmingState: 'perfect-warm' | 'ok-warm' | 'cold';
+  isOvernight?: boolean; // true if carried over from previous day
 }
 
 // ── Loan types ─────────────────────────────────────────────────────────────────

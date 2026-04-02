@@ -53,12 +53,19 @@ export function updateGameState(updates: Partial<typeof gameState>): void {
 }
 
 export function advanceDay(): void {
+  // Carry over warming zone sausages as overnight items (don't discard)
+  const overnightSausages = gameState.warmingZone.map(ws => ({
+    ...ws,
+    isOvernight: true,
+    warmingState: 'cold' as const,
+  }));
+
   updateGameState({
     day: gameState.day + 1,
     dailyExpenses: 0,
     dailySalesLog: [],
     dailyGrillStats: { perfect: 0, ok: 0, raw: 0, burnt: 0, 'half-cooked': 0, 'slightly-burnt': 0, carbonized: 0 },
-    warmingZone: [],
+    warmingZone: overnightSausages,
     dailyWaste: { grillRemaining: 0, warmingRemaining: 0 },
     dailyTrafficBonus: 0,
     skipDay: false,
