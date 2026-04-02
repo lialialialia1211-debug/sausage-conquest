@@ -56,6 +56,7 @@ interface GrillSlot {
   y: number;
   placeholderGfx: Phaser.GameObjects.Graphics | null;
   serveBtn: Phaser.GameObjects.Text | null;
+  serveHint: Phaser.GameObjects.Text | null;
 }
 
 interface WarmingSlot {
@@ -328,10 +329,18 @@ export class GrillScene extends Phaser.Scene {
       const heatedSide = updated.currentSide === 'bottom' ? updated.bottomDoneness : updated.topDoneness;
       const nonHeated = updated.currentSide === 'bottom' ? updated.topDoneness : updated.bottomDoneness;
 
-      // Show "空白鍵翻面！" hint when heated side hits green zone (70+) and other side not yet cooked
+      // Show "點一下翻面！" hint when heated side hits green zone (70+) and other side not yet cooked
       if (heatedSide >= 70 && nonHeated < 30 && !(slot as any).__flipPromptShown) {
         (slot as any).__flipPromptShown = true;
-        this.showFeedback('懸停+空白鍵翻面！', slot.x, slot.y - 55, '#39ff14');
+        this.showFeedback('點一下翻面！', slot.x, slot.y - 55, '#39ff14');
+      }
+
+      // Show "雙擊起鍋" persistent hint when both sides are cooked enough
+      if (!slot.serveHint && updated.topDoneness >= 30 && updated.bottomDoneness >= 30) {
+        slot.serveHint = this.add.text(slot.x, slot.y - 45, '雙擊起鍋', {
+          fontSize: '10px', color: '#88ff88', backgroundColor: '#1a2a1a22',
+          padding: { x: 3, y: 1 }
+        }).setOrigin(0.5).setDepth(8);
       }
 
       // Show warning for overcooked
@@ -599,7 +608,7 @@ export class GrillScene extends Phaser.Scene {
 
     for (let i = 0; i < slotCount; i++) {
       const x = startX + i * (totalW / slotCount);
-      const slot: GrillSlot = { sprite: null, sausage: null, x, y: grillY, placeholderGfx: null, serveBtn: null };
+      const slot: GrillSlot = { sprite: null, sausage: null, x, y: grillY, placeholderGfx: null, serveBtn: null, serveHint: null };
       this.grillSlots.push(slot);
       this.drawEmptySlotPlaceholder(slot);
     }
@@ -1554,6 +1563,7 @@ export class GrillScene extends Phaser.Scene {
           slot.sprite.playBurntAnimation();
         }
         if (slot.serveBtn) { slot.serveBtn.destroy(); slot.serveBtn = null; }
+        if (slot.serveHint) { slot.serveHint.destroy(); slot.serveHint = null; }
         slot.sausage = { ...slot.sausage, served: true };
         slot.sprite = null;
         const capturedSlot = slot;
@@ -1702,11 +1712,20 @@ export class GrillScene extends Phaser.Scene {
     const sprite = new SausageSprite(this, slot.x, slot.y, sausage);
     const slotIndex = this.grillSlots.indexOf(slot);
 
-    // onFlip: still supported for future use (keyboard flip calls doFlipSlot directly)
-    // Click = move to warming zone
-    sprite.onServe(() => {
+    // Single click = flip; double-click = move to warming zone
+    sprite.onClick(() => {
       const currentSlot = this.grillSlots.find(s => s.sprite === sprite);
-      if (currentSlot?.sprite) this.moveToWarming(currentSlot, currentSlot.sprite);
+      if (!currentSlot) return;
+      const now = Date.now();
+      const lastClickTime = (currentSlot as any).__lastClickTime || 0;
+      const isDoubleClick = (now - lastClickTime) < 350;
+      if (isDoubleClick) {
+        (currentSlot as any).__lastClickTime = 0;
+        if (currentSlot.sprite) this.moveToWarming(currentSlot, currentSlot.sprite);
+      } else {
+        (currentSlot as any).__lastClickTime = now;
+        this.doFlipSlot(currentSlot);
+      }
     });
 
     // Hover tracking for spacebar flip
@@ -1764,10 +1783,14 @@ export class GrillScene extends Phaser.Scene {
     emptyWarmSlot.sausage = warmingSausage;
     this.updateWarmingSlotDisplay(emptyWarmSlot);
 
-    // Clean up serve button
+    // Clean up serve button and hint
     if (slot.serveBtn) {
       slot.serveBtn.destroy();
       slot.serveBtn = null;
+    }
+    if (slot.serveHint) {
+      slot.serveHint.destroy();
+      slot.serveHint = null;
     }
 
     // Animate sausage sprite flying to warming zone
@@ -2599,25 +2622,40 @@ export class GrillScene extends Phaser.Scene {
 
     if (isFirstDay) {
       lines.push(
-        '── 操作說明 ──',
+        '── 基本操作 ──',
         '',
-        '── 三步驟 ──',
         '① 底部選香腸 → 點烤架空位放上去',
-        '② 滑鼠懸停香腸 + 按空白鍵翻面',
-        '③ 點香腸起鍋到保溫區 → 點保溫區出餐給客人',
+        '② 點一下香腸 = 翻面（空白鍵也行）',
+        '③ 雙擊香腸 = 起鍋到保溫區',
+        '④ 點保溫區香腸 → 加配料 → 出餐',
         '',
         '── 熟度看顏色 ──',
-        '灰色=生的  藍色=半熟  黃色=普通  綠色=完美',
-        '橘色=微焦  紅色=焦了  暗紅=碳化',
+        '灰=生  藍=半熟  黃=普通  綠=完美',
+        '橘=微焦  紅=焦  暗紅=碳化',
         '',
-        '什麼都能賣！但生的/焦的有機率被客人抱怨或砸店',
-        '完美+熱騰騰=有機率拿小費！',
+        '── 客人點餐 ──',
+        '客人頭上會顯示想要的香腸和配料',
+        '出餐時選對配料 → 高分 → 高小費！',
+        '送錯種類或配料會扣分',
         '',
-        '保溫區：30秒內最佳 → 再30秒普通 → 之後冷掉（都能賣！）',
-        '隔夜香腸也能賣，但客人 50% 機率拉肚子投訴',
-        '客人看到價格牌才來排隊，不會嫌貴！',
+        '── 評分系統 ──',
+        '每單評分：烤功 + 配料 + 保溫 + 等待',
+        '★★★★★ = 大量小費！',
+        '常客會回來，忠誠度越高小費越多',
         '',
-        '烤架中間偶爾會發生突發事件，選擇決定後果！',
+        '── 進階玩法 ──',
+        '僱用工讀生 → 他們自動烤，你可以離開攤位',
+        '離開攤位：招攬客人 / 搗亂對手 / 巡邏夜市',
+        '商店有自動翻面機、黑市、各種升級',
+        '',
+        '烤肉中會有突發事件，選擇決定後果！',
+        '',
+      );
+    }
+
+    if (!isFirstDay) {
+      lines.push(
+        '點擊=翻面  雙擊=起鍋  保溫區=加料出餐',
         '',
       );
     }

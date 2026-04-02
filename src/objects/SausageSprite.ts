@@ -39,7 +39,7 @@ export class SausageSprite extends Phaser.GameObjects.Container {
   private readyGlow: Phaser.GameObjects.Graphics;
 
   private isFlipping = false;
-  private onServeCallback: (() => void) | null = null;
+  private onClickCallback: (() => void) | null = null;
   // Hover glow graphics (white outline around sausage)
   private hoverGlowGfx: Phaser.GameObjects.Graphics;
   private smokeParticles: Phaser.GameObjects.Text[] = [];
@@ -120,15 +120,14 @@ export class SausageSprite extends Phaser.GameObjects.Container {
     this.redraw();
   }
 
-  onServe(cb: () => void): this {
-    this.onServeCallback = cb;
+  onClick(cb: () => void): this {
+    this.onClickCallback = cb;
     return this;
   }
 
   private handleClick(): void {
     if (this._data.served || this.isFlipping) return;
-    // Click on sausage = move to warming zone (onServe callback)
-    if (this.onServeCallback) this.onServeCallback();
+    if (this.onClickCallback) this.onClickCallback();
   }
 
   private drawHoverGlow(visible: boolean): void {
