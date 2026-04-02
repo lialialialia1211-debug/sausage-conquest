@@ -1,9 +1,34 @@
 // CustomerEngine — pure logic, no Phaser dependency, no UI code
-import type { Customer, BattleType, CustomerPersonality } from '../types';
+import type { Customer, BattleType, CustomerPersonality, CustomerOrder, LoyaltyBadge } from '../types';
 import { SAUSAGE_MAP, SAUSAGE_TYPES } from '../data/sausages';
+import { CONDIMENTS } from '../data/condiments';
 import { gameState } from '../state/GameState';
+import { getReturningCustomers, getOrCreateLoyalty, getLoyaltyPatienceMult } from './LoyaltyEngine';
 
 let customerIdCounter = 0;
+
+/**
+ * Generate a random order for a customer based on the current day.
+ * Sausage types unlock progressively; condiments are chosen at random.
+ */
+function generateOrder(day: number): CustomerOrder {
+  // Get unlocked sausage types based on day
+  const unlocked: string[] = ['black-pig', 'flying-fish-roe', 'garlic-bomb'];
+  if (day >= 5) unlocked.push('cheese');
+  if (day >= 8) unlocked.push('squidink');
+  if (day >= 12) unlocked.push('mala');
+
+  // Pick random sausage type from unlocked
+  const sausageType = unlocked[Math.floor(Math.random() * unlocked.length)];
+
+  // Pick 0-3 condiments
+  const condimentCount = Math.floor(Math.random() * 4); // 0, 1, 2, or 3
+  const availableCondiments = CONDIMENTS.map(c => c.id);
+  const shuffled = [...availableCondiments].sort(() => Math.random() - 0.5);
+  const condiments = shuffled.slice(0, condimentCount);
+
+  return { sausageType, condiments };
+}
 
 /**
  * Generate a queue of customers for a grid slot.
@@ -22,6 +47,33 @@ export function generateCustomers(gridFootTraffic: number, marketingBonus: numbe
   baseCount = Math.min(baseCount, 80);
 
   const customers: Customer[] = [];
+
+  // Compute average price for loyalty-based max-price scaling
+  const allUnlockedPrices = SAUSAGE_TYPES
+    .filter(s => gameState.unlockedSausages.includes(s.id))
+    .map(s => s.suggestedPrice);
+  const avgPrice = allUnlockedPrices.length > 0
+    ? allUnlockedPrices.reduce((sum, p) => sum + p, 0) / allUnlockedPrices.length
+    : 38;
+
+  // Inject returning loyal customers before the main generation loop
+  const returningIds = getReturningCustomers(Math.min(5, Math.floor(baseCount * 0.2)));
+  for (const loyaltyId of returningIds) {
+    const { record } = getOrCreateLoyalty(loyaltyId);
+    const patienceMult = getLoyaltyPatienceMult(record.badge);
+
+    const returningCustomer: Customer = {
+      id: `customer-${++customerIdCounter}`,
+      patience: (30 + Math.random() * 30) * patienceMult,
+      maxPrice: Math.round(avgPrice * (1.2 + (record.badge === 'gold' ? 0.5 : record.badge === 'silver' ? 0.3 : 0.1))),
+      personality: 'normal' as CustomerPersonality,
+      order: generateOrder(gameState.day),
+      loyaltyId,
+      loyaltyBadge: record.badge,
+    };
+
+    customers.push(returningCustomer);
+  }
 
   const battleTypes: BattleType[] = ['normal', 'ranged', 'aoe', 'tank', 'assassin', 'support'];
 
@@ -71,12 +123,16 @@ export function generateCustomers(gridFootTraffic: number, marketingBonus: numbe
       }
     }
 
+    const { id: loyaltyId } = getOrCreateLoyalty();
     customers.push({
       id: `customer-${++customerIdCounter}`,
       patience: 30 + Math.random() * 30, // 30-60 seconds
       preferredType,
       maxPrice,
       personality,
+      order: generateOrder(gameState.day),
+      loyaltyId,
+      loyaltyBadge: 'none' as LoyaltyBadge,
       ...(isVIP !== undefined ? { isVIP } : {}),
     });
   }
@@ -96,12 +152,16 @@ export function generateCustomers(gridFootTraffic: number, marketingBonus: numbe
     const preferredType = hasPreference
       ? battleTypes[Math.floor(Math.random() * battleTypes.length)]
       : undefined;
+    const { id: loyaltyId } = getOrCreateLoyalty();
     customers.push({
       id: `customer-${++customerIdCounter}`,
       patience: 12 + Math.random() * 13,
       preferredType,
       maxPrice,
       personality: 'normal',
+      order: generateOrder(gameState.day),
+      loyaltyId,
+      loyaltyBadge: 'none' as LoyaltyBadge,
     });
   }
 

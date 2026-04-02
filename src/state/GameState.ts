@@ -1,5 +1,5 @@
 import { EventBus } from '../utils/EventBus';
-import type { GamePhase, LoanState, ManagementFeeState, SaleRecord, WarmingSausage } from '../types';
+import type { CustomerLoyaltyRecord, GamePhase, LoanState, ManagementFeeState, OrderScore, SaleRecord, WarmingSausage } from '../types';
 
 // Single source of truth for all game state
 // Always create new objects rather than mutating (immutability principle)
@@ -68,6 +68,9 @@ export const gameState = {
   } as ManagementFeeState,
   blackMarketUnlocked: false,
   blackMarketStock: {} as Record<string, number>,
+  customerLoyalty: {} as Record<string, CustomerLoyaltyRecord>,
+  dailyOrderScores: [] as OrderScore[],  // scores for today's orders, reset daily
+  battleBonus: 0,  // accumulated from scouting activities
 };
 
 // Update state and notify UI via EventBus
@@ -94,7 +97,10 @@ export function advanceDay(): void {
     dailyTrafficBonus: 0,
     skipDay: false,
     workerSalaryPaid: false,
+    dailyOrderScores: [],
+    battleBonus: 0,
     // grillEventCooldowns persist across days — do NOT reset here
+    // customerLoyalty persists across days — do NOT reset here
   });
   // Bodyguard countdown (use updateGameState for reactivity)
   if (gameState.bodyguardDaysLeft > 0) {

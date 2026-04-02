@@ -18,7 +18,11 @@ import { generateCustomers } from '../systems/CustomerEngine';
 import { sellSausage } from '../systems/EconomyEngine';
 import { SausageSprite } from '../objects/SausageSprite';
 import { CustomerQueue } from '../objects/CustomerQueue';
-import type { SaleRecord, Customer, WarmingSausage, GrillEvent, GrillEventChoice, GrillEventOutcome } from '../types';
+import type { SaleRecord, Customer, WarmingSausage, GrillEvent, GrillEventChoice, GrillEventOutcome, OrderScore } from '../types';
+import { scoreOrder, starsToString, getScoreColor } from '../systems/OrderEngine';
+import { recordVisit, getBadgeInfo } from '../systems/LoyaltyEngine';
+import { CONDIMENTS } from '../data/condiments';
+import { SAUSAGE_TYPES } from '../data/sausages';
 import { sfx } from '../utils/SoundFX';
 import { rollGrillEvent } from '../data/grill-events';
 import { CombatPanel } from '../ui/panels/CombatPanel';
@@ -137,6 +141,11 @@ export class GrillScene extends Phaser.Scene {
   private awayOverlay: Phaser.GameObjects.Container | null = null;
   private meiServeTimer: number = 0;
 
+  // ── Condiment station state ──────────────────────────────────────────────
+  private condimentOverlay: Phaser.GameObjects.Container | null = null;
+  private selectedCondiments: string[] = [];
+  private isShowingCondimentStation: boolean = false;
+
   constructor() {
     super({ key: 'GrillScene' });
   }
@@ -190,6 +199,9 @@ export class GrillScene extends Phaser.Scene {
     this.workerActionTimer = 0;
     this.awayOverlay = null;
     this.meiServeTimer = 0;
+    this.condimentOverlay = null;
+    this.selectedCondiments = [];
+    this.isShowingCondimentStation = false;
 
     // Worker: adi → extra grill slot
     let maxSlots = gameState.upgrades['grill-expand'] ? 6 : MAX_GRILL_SLOTS;
@@ -259,6 +271,8 @@ export class GrillScene extends Phaser.Scene {
     if (this.isDone || this.paused) return;
     // Freeze all game logic while a grill event overlay is shown
     if (this.isShowingGrillEvent) return;
+    // Freeze while condiment station is open
+    if (this.isShowingCondimentStation) return;
 
     const dt = (delta / 1000) * this.speedMultiplier;
 
@@ -444,7 +458,7 @@ export class GrillScene extends Phaser.Scene {
         const filledSlot = this.warmingSlots.find(s => s.sausage);
         const nextCustomer = this.customerQueue?.getNextCustomer();
         if (filledSlot && nextCustomer && filledSlot.sausage) {
-          this.serveFromWarming(filledSlot);
+          this.directServeFromWarming(filledSlot);
           this.showFeedback('💅 小妹幫你出餐了', filledSlot.x, filledSlot.y - 40, '#ff88cc');
         }
       }
@@ -1771,8 +1785,23 @@ export class GrillScene extends Phaser.Scene {
     this.showFeedback('起鍋！', slot.x, slot.y - 40, '#ffcc44');
   }
 
-  // Serve from warming zone — anything can be served, consequences via probability
+  // Serve from warming zone — player click: open condiment station overlay
   private serveFromWarming(warmSlot: WarmingSlot): void {
+    if (!warmSlot.sausage) return;
+    if (this.isShowingCondimentStation) return;
+
+    // Find best matching customer
+    const nextCustomer = this.findMatchingCustomer(warmSlot.sausage);
+    if (!nextCustomer) {
+      this.showFeedback('沒有客人在等！', warmSlot.x, warmSlot.y - 50, '#888888');
+      return;
+    }
+
+    this.openCondimentStation(warmSlot, warmSlot.sausage, nextCustomer);
+  }
+
+  // Direct serve — used by Mei worker (bypasses condiment station)
+  private directServeFromWarming(warmSlot: WarmingSlot): void {
     if (!warmSlot.sausage) return;
 
     const nextCustomer = this.customerQueue.getNextCustomer();
@@ -1897,11 +1926,292 @@ export class GrillScene extends Phaser.Scene {
     this.showFeedback(feedbackMsg, warmSlot.x, warmSlot.y - 40, feedbackColor);
     this.bounceRevenue();
 
+    // Score order + loyalty (Mei doesn't add condiments)
+    const order = nextCustomer.order || { sausageType: ws.sausageTypeId, condiments: [] };
+    const patienceRatio = this.customerQueue.getCustomerPatienceRatio?.(nextCustomer.id) ?? 0.5;
+    const meiScore = scoreOrder(ws, order, [], patienceRatio, nextCustomer.loyaltyBadge || 'none', basePrice);
+    if (nextCustomer.loyaltyId) {
+      recordVisit(nextCustomer.loyaltyId, meiScore.stars);
+    }
+    const scores = [...(gameState.dailyOrderScores || []), meiScore];
+    updateGameState({ dailyOrderScores: scores });
+
     // Clear warming slot
     warmSlot.sausage = null;
     this.clearWarmingSlotDisplay(warmSlot);
 
     this.updateStatsDisplay();
+  }
+
+  // ── Condiment station ─────────────────────────────────────────────────────
+
+  private findMatchingCustomer(sausage: WarmingSausage): Customer | null {
+    if (!this.customerQueue) return null;
+
+    const waiting = (this.customerQueue as any).getWaitingCustomers?.() as Customer[] || [];
+
+    // Priority 1: customer whose order matches this sausage type
+    const typeMatch = waiting.find((c: Customer) => c.order?.sausageType === sausage.sausageTypeId);
+    if (typeMatch) return typeMatch;
+
+    // Priority 2: any waiting customer (type mismatch handled in scoring)
+    const anyCustomer = this.customerQueue.getNextCustomer();
+    return anyCustomer || null;
+  }
+
+  private openCondimentStation(warmSlot: WarmingSlot, sausage: WarmingSausage, customer: Customer): void {
+    this.isShowingCondimentStation = true;
+    this.paused = true;
+    this.selectedCondiments = [];
+
+    const w = this.scale.width;
+    const h = this.scale.height;
+
+    this.condimentOverlay = this.add.container(0, 0).setDepth(20);
+
+    // Backdrop
+    const bg = this.add.rectangle(w / 2, h / 2, w, h, 0x000000, 0.85).setInteractive();
+    this.condimentOverlay.add(bg);
+
+    // Title
+    const title = this.add.text(w / 2, 40, '加料台', {
+      fontSize: '22px', color: '#ffcc00', fontStyle: 'bold', fontFamily: FONT
+    }).setOrigin(0.5);
+    this.condimentOverlay.add(title);
+
+    // Customer order display
+    const orderSausageName = SAUSAGE_TYPES?.find((s: any) => s.id === customer.order?.sausageType)?.name
+      || customer.order?.sausageType || '?';
+    const wantedCondiments = (customer.order?.condiments || [])
+      .map((id: string) => { const c = CONDIMENTS.find(c => c.id === id); return c ? `${c.emoji} ${c.name}` : id; })
+      .join(' → ');
+
+    const orderLabel = this.add.text(w / 2, 75, `客人要：${orderSausageName}`, {
+      fontSize: '14px', color: '#44aaff', fontFamily: FONT
+    }).setOrigin(0.5);
+    this.condimentOverlay.add(orderLabel);
+
+    const condimentLabel = this.add.text(w / 2, 98,
+      wantedCondiments ? `配料：${wantedCondiments}` : '不加料', {
+        fontSize: '13px', color: '#88ff88', fontFamily: FONT
+      }).setOrigin(0.5);
+    this.condimentOverlay.add(condimentLabel);
+
+    // Loyalty badge display
+    if (customer.loyaltyBadge && customer.loyaltyBadge !== 'none') {
+      const badgeInfo = getBadgeInfo(customer.loyaltyBadge);
+      const badgeText = this.add.text(w / 2, 118, `${badgeInfo.emoji} ${badgeInfo.name}`, {
+        fontSize: '12px', color: '#ffcc00', fontFamily: FONT
+      }).setOrigin(0.5);
+      this.condimentOverlay.add(badgeText);
+    }
+
+    // Selected condiments display
+    const selectedDisplay = this.add.text(w / 2, 145, '已加：（無）', {
+      fontSize: '13px', color: '#ffffff', fontFamily: FONT
+    }).setOrigin(0.5);
+    this.condimentOverlay.add(selectedDisplay);
+
+    // Condiment buttons — 2 rows of 4
+    const btnW = 80;
+    const btnH = 55;
+    const gap = 8;
+    const cols = 4;
+    const startX = w / 2 - (cols * btnW + (cols - 1) * gap) / 2;
+    const startY = 170;
+
+    CONDIMENTS.forEach((condiment, i) => {
+      const col = i % cols;
+      const row = Math.floor(i / cols);
+      const x = startX + col * (btnW + gap) + btnW / 2;
+      const y = startY + row * (btnH + gap) + btnH / 2;
+
+      const isWanted = customer.order?.condiments?.includes(condiment.id);
+      const btnBg = this.add.rectangle(x, y, btnW, btnH, 0x1a1a3e, 0.9)
+        .setStrokeStyle(1, isWanted ? 0x44ff44 : 0x444466)
+        .setInteractive({ useHandCursor: true });
+
+      const btnEmoji = this.add.text(x, y - 10, condiment.emoji, {
+        fontSize: '20px'
+      }).setOrigin(0.5);
+
+      const btnName = this.add.text(x, y + 14, condiment.name, {
+        fontSize: '11px', color: '#cccccc', fontFamily: FONT
+      }).setOrigin(0.5);
+
+      btnBg.on('pointerdown', () => {
+        const idx = this.selectedCondiments.indexOf(condiment.id);
+        if (idx >= 0) {
+          this.selectedCondiments.splice(idx, 1);
+          btnBg.setFillStyle(0x1a1a3e, 0.9);
+        } else {
+          if (this.selectedCondiments.length < 4) {
+            this.selectedCondiments.push(condiment.id);
+            btnBg.setFillStyle(0x2a3a2a, 0.9);
+          }
+        }
+        const names = this.selectedCondiments.map(id => {
+          const c = CONDIMENTS.find(c => c.id === id);
+          return c ? `${c.emoji}${c.name}` : id;
+        });
+        selectedDisplay.setText(names.length > 0 ? `已加：${names.join(' ')}` : '已加：（無）');
+      });
+
+      this.condimentOverlay!.add([btnBg, btnEmoji, btnName]);
+    });
+
+    // Serve button
+    const serveBtn = this.add.text(w / 2 - 60, startY + 2 * (btnH + gap) + 20, '出餐！', {
+      fontSize: '18px', color: '#44ff44', backgroundColor: '#1a2a1a',
+      padding: { x: 16, y: 10 }, fontFamily: FONT
+    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+
+    serveBtn.on('pointerdown', () => {
+      this.finalizeServe(warmSlot, sausage, customer);
+    });
+
+    // Skip condiments button
+    const skipBtn = this.add.text(w / 2 + 60, startY + 2 * (btnH + gap) + 20, '跳過加料', {
+      fontSize: '14px', color: '#888888', backgroundColor: '#1a1a1a',
+      padding: { x: 12, y: 8 }, fontFamily: FONT
+    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+
+    skipBtn.on('pointerdown', () => {
+      this.selectedCondiments = [];
+      this.finalizeServe(warmSlot, sausage, customer);
+    });
+
+    this.condimentOverlay.add([serveBtn, skipBtn]);
+  }
+
+  private finalizeServe(warmSlot: WarmingSlot, sausage: WarmingSausage, customer: Customer): void {
+    // Close condiment overlay
+    this.condimentOverlay?.destroy();
+    this.condimentOverlay = null;
+    this.isShowingCondimentStation = false;
+    this.paused = false;
+
+    // Calculate patience ratio
+    const patienceRatio = Math.max(0, Math.min(1,
+      (this.customerQueue as any).getCustomerPatienceRatio?.(customer.id) ?? 0.5
+    ));
+
+    // Base price
+    const price = gameState.prices?.[sausage.sausageTypeId] ?? 35;
+
+    // Score the order
+    const order = customer.order || { sausageType: sausage.sausageTypeId, condiments: [] };
+    const score = scoreOrder(
+      sausage,
+      order,
+      this.selectedCondiments,
+      patienceRatio,
+      customer.loyaltyBadge || 'none',
+      price
+    );
+
+    // Type match check
+    const typeMatch = sausage.sausageTypeId === order.sausageType;
+
+    // VIP double pay
+    let effectivePrice = price;
+    if (customer.isVIP) {
+      effectivePrice *= 2;
+      this.showFeedback('VIP 雙倍！', warmSlot.x, warmSlot.y - 60, '#ffcc00');
+    }
+
+    // Sell the sausage (deduct inventory, update economy)
+    const record = sellSausage(sausage.sausageTypeId, effectivePrice, sausage.qualityScore);
+    if (record) {
+      this.salesLog.push(record);
+    }
+
+    // Track grill quality stats
+    const grillQuality = sausage.grillQuality as keyof typeof this.grillStats;
+    if (grillQuality in this.grillStats) {
+      (this.grillStats as Record<string, number>)[grillQuality]++;
+    }
+
+    // Add tip
+    if (score.tipAmount > 0) {
+      addMoney(score.tipAmount);
+    }
+
+    this.sessionRevenue += effectivePrice + score.tipAmount;
+
+    // Record loyalty visit
+    if (customer.loyaltyId) {
+      recordVisit(customer.loyaltyId, score.stars);
+    }
+
+    // Record order score for daily summary
+    const scores = [...(gameState.dailyOrderScores || []), score];
+    updateGameState({ dailyOrderScores: scores });
+
+    // Remove sausage from warming slot
+    warmSlot.sausage = null;
+    this.clearWarmingSlotDisplay(warmSlot);
+
+    // Remove customer from queue
+    this.customerQueue.serveCustomer(customer.id, score.stars >= 4);
+    this.customers = this.customers.filter(c => c.id !== customer.id);
+
+    // Show score popup
+    this.showScorePopup(score, typeMatch, customer.isVIP);
+
+    this.bounceRevenue();
+    this.updateStatsDisplay();
+
+    // Reset selected condiments for next serve
+    this.selectedCondiments = [];
+  }
+
+  private showScorePopup(score: OrderScore, typeMatch: boolean, isVIP?: boolean): void {
+    const w = this.scale.width;
+    const h = this.scale.height;
+
+    const popup = this.add.container(w / 2, h / 2).setDepth(25);
+
+    const bg = this.add.rectangle(0, 0, 260, 200, 0x111122, 0.95)
+      .setStrokeStyle(2, getScoreColor(score.totalScore));
+    popup.add(bg);
+
+    // Stars
+    const starsText = this.add.text(0, -75, starsToString(score.stars), {
+      fontSize: '28px', color: '#ffcc00'
+    }).setOrigin(0.5);
+    popup.add(starsText);
+
+    // Score breakdown
+    const lines = [
+      `烤功：${score.grillScore}`,
+      `配料：${score.condimentScore}`,
+      `保溫：${score.warmingScore}`,
+      `等待：${score.waitScore}`,
+    ];
+
+    if (!typeMatch) lines.push('送錯種類！');
+    if (isVIP) lines.push('VIP 雙倍價！');
+
+    lines.forEach((line, i) => {
+      const t = this.add.text(0, -40 + i * 20, line, {
+        fontSize: '13px', color: '#cccccc', fontFamily: FONT
+      }).setOrigin(0.5);
+      popup.add(t);
+    });
+
+    // Total + tip
+    const totalText = this.add.text(0, 55, `總分 ${score.totalScore} | 小費 $${score.tipAmount}`, {
+      fontSize: '15px', color: '#44ff44', fontStyle: 'bold', fontFamily: FONT
+    }).setOrigin(0.5);
+    popup.add(totalText);
+
+    // Auto-dismiss after 2 seconds
+    this.time.delayedCall(2000, () => { if (popup.active) popup.destroy(); });
+
+    // Click to dismiss
+    bg.setInteractive();
+    bg.on('pointerdown', () => popup.destroy());
   }
 
   private onCustomerTimeout(customerId: string): void {
@@ -2203,6 +2513,11 @@ export class GrillScene extends Phaser.Scene {
     if (this.isDone) return;
     this.isDone = true;
 
+    // Clean up condiment station
+    this.condimentOverlay?.destroy();
+    this.condimentOverlay = null;
+    this.isShowingCondimentStation = false;
+
     // Clean up away state
     this.isPlayerAway = false;
     this.currentActivity = null;
@@ -2377,6 +2692,13 @@ export class GrillScene extends Phaser.Scene {
       this.grillEventOverlay.destroy();
       this.grillEventOverlay = null;
     }
+
+    // Clean up condiment station
+    if (this.condimentOverlay) {
+      this.condimentOverlay.destroy();
+      this.condimentOverlay = null;
+    }
+    this.isShowingCondimentStation = false;
 
     // Clean up away state
     this.isPlayerAway = false;

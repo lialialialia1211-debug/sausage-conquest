@@ -109,6 +109,12 @@ export class SummaryPanel {
       this.panel.appendChild(warnEl);
     }
 
+    // Order scores summary
+    if (gameState.dailyOrderScores.length > 0) {
+      const orderScoresEl = this.buildOrderScores();
+      this.panel.appendChild(orderScoresEl);
+    }
+
     // Chaos log (only shown if there were chaos actions today)
     if (gameState.dailyChaosActions.length > 0) {
       const chaosLog = document.createElement('div');
@@ -169,6 +175,169 @@ export class SummaryPanel {
     });
     btnCenter.appendChild(btn);
     this.panel.appendChild(btnCenter);
+  }
+
+  private buildOrderScores(): HTMLElement {
+    const scores = gameState.dailyOrderScores;
+
+    // Calculate averages
+    const count = scores.length;
+    const avgGrill = Math.round(scores.reduce((s, o) => s + o.grillScore, 0) / count);
+    const avgWarming = Math.round(scores.reduce((s, o) => s + o.warmingScore, 0) / count);
+    const avgCondiment = Math.round(scores.reduce((s, o) => s + o.condimentScore, 0) / count);
+    const avgWait = Math.round(scores.reduce((s, o) => s + o.waitScore, 0) / count);
+    const avgTotal = Math.round(scores.reduce((s, o) => s + o.totalScore, 0) / count);
+    const totalTips = scores.reduce((s, o) => s + o.tipAmount, 0);
+
+    // Star distribution
+    const starDist = [5, 4, 3, 2, 1].map(star => ({
+      star,
+      count: scores.filter(o => o.stars === star).length,
+    }));
+
+    // Average star rating (weighted)
+    const avgStars = scores.reduce((s, o) => s + o.stars, 0) / count;
+    const avgStarsRounded = Math.round(avgStars);
+
+    const starString = (n: number): string => '★'.repeat(n) + '☆'.repeat(5 - n);
+
+    const starColors: Record<number, string> = {
+      5: '#ffcc00',
+      4: '#44ff44',
+      3: '#44aaff',
+      2: '#ff8844',
+      1: '#ff4444',
+    };
+
+    // Build bar string for distribution (5 filled blocks max)
+    const maxCount = Math.max(...starDist.map(d => d.count), 1);
+    const buildBar = (c: number): string => {
+      const filled = Math.round((c / maxCount) * 5);
+      return '█'.repeat(filled) + '░'.repeat(5 - filled);
+    };
+
+    const section = document.createElement('div');
+    section.className = 'summary-grill-stats';
+    section.style.marginTop = '10px';
+
+    // Section title
+    const title = document.createElement('div');
+    title.className = 'summary-section-title';
+    title.textContent = '🌟 今日服務評分';
+    section.appendChild(title);
+
+    // Average score row
+    const avgRow = document.createElement('div');
+    avgRow.className = 'summary-revenue-row';
+    avgRow.style.marginBottom = '4px';
+
+    const avgLabel = document.createElement('span');
+    avgLabel.className = 'summary-rev-label';
+    avgLabel.textContent = '平均評分';
+
+    const avgValue = document.createElement('span');
+    avgValue.className = 'summary-rev-value';
+    avgValue.style.color = starColors[avgStarsRounded] ?? '#ffffff';
+    avgValue.style.textShadow = `0 0 6px ${starColors[avgStarsRounded] ?? '#ffffff'}88`;
+    avgValue.textContent = `${starString(avgStarsRounded)} (${avgTotal}分)`;
+
+    avgRow.appendChild(avgLabel);
+    avgRow.appendChild(avgValue);
+    section.appendChild(avgRow);
+
+    // Total tips row
+    const tipsRow = document.createElement('div');
+    tipsRow.className = 'summary-revenue-row';
+    tipsRow.style.marginBottom = '8px';
+
+    const tipsLabel = document.createElement('span');
+    tipsLabel.className = 'summary-rev-label';
+    tipsLabel.textContent = '總小費收入';
+
+    const tipsValue = document.createElement('span');
+    tipsValue.className = 'summary-rev-value';
+    tipsValue.style.color = '#39ff14';
+    tipsValue.style.textShadow = '0 0 6px #39ff1488';
+    tipsValue.textContent = `$${totalTips}`;
+
+    tipsRow.appendChild(tipsLabel);
+    tipsRow.appendChild(tipsValue);
+    section.appendChild(tipsRow);
+
+    // Sub-scores grid title
+    const subTitle = document.createElement('div');
+    subTitle.style.fontSize = '11px';
+    subTitle.style.color = '#aaaaaa';
+    subTitle.style.marginBottom = '4px';
+    subTitle.textContent = '📊 各項平均';
+    section.appendChild(subTitle);
+
+    // Sub-scores grid (2x2)
+    const grid = document.createElement('div');
+    grid.style.display = 'grid';
+    grid.style.gridTemplateColumns = '1fr 1fr';
+    grid.style.gap = '2px 12px';
+    grid.style.fontSize = '12px';
+    grid.style.marginBottom = '8px';
+    grid.style.paddingLeft = '8px';
+
+    const subScores = [
+      { icon: '🔥', label: '烤功', value: avgGrill },
+      { icon: '🌶️', label: '配料', value: avgCondiment },
+      { icon: '♨️', label: '保溫', value: avgWarming },
+      { icon: '⏱', label: '等待', value: avgWait },
+    ];
+
+    subScores.forEach(item => {
+      const cell = document.createElement('div');
+      cell.style.color = '#cccccc';
+      cell.textContent = `${item.icon} ${item.label}：${item.value}`;
+      grid.appendChild(cell);
+    });
+
+    section.appendChild(grid);
+
+    // Star distribution title
+    const distTitle = document.createElement('div');
+    distTitle.style.fontSize = '11px';
+    distTitle.style.color = '#aaaaaa';
+    distTitle.style.marginBottom = '4px';
+    distTitle.textContent = '⭐ 評分分布';
+    section.appendChild(distTitle);
+
+    // Star distribution rows
+    starDist.forEach(({ star, count: c }) => {
+      const row = document.createElement('div');
+      row.style.display = 'flex';
+      row.style.alignItems = 'center';
+      row.style.gap = '6px';
+      row.style.fontSize = '12px';
+      row.style.marginBottom = '2px';
+      row.style.paddingLeft = '8px';
+
+      const starEl = document.createElement('span');
+      starEl.style.color = starColors[star];
+      starEl.style.minWidth = '72px';
+      starEl.style.fontFamily = 'monospace';
+      starEl.textContent = starString(star);
+
+      const barEl = document.createElement('span');
+      barEl.style.color = starColors[star];
+      barEl.style.fontFamily = 'monospace';
+      barEl.style.letterSpacing = '1px';
+      barEl.textContent = buildBar(c);
+
+      const countEl = document.createElement('span');
+      countEl.style.color = '#888888';
+      countEl.textContent = `${c} 單`;
+
+      row.appendChild(starEl);
+      row.appendChild(barEl);
+      row.appendChild(countEl);
+      section.appendChild(row);
+    });
+
+    return section;
   }
 
   private buildRevenueBox(report: DailySummary): HTMLElement {

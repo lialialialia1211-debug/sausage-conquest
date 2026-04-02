@@ -2,6 +2,8 @@
 // Customers enter from right, slide left to fill gaps, show patience bar + emoji states
 import Phaser from 'phaser';
 import type { Customer } from '../types';
+import { SAUSAGE_MAP } from '../data/sausages';
+import { CONDIMENTS } from '../data/condiments';
 
 const CUSTOMER_SLOT_W = 56;
 const PATIENCE_BAR_H = 4;
@@ -22,6 +24,8 @@ interface CustomerDisplay {
   emojiText: Phaser.GameObjects.Text;
   patBarBg: Phaser.GameObjects.Graphics;
   patBarFill: Phaser.GameObjects.Graphics;
+  orderBubble: Phaser.GameObjects.Text | null;
+  badgeBubble: Phaser.GameObjects.Text | null;
   remainingPatience: number;
   initialPatience: number;
   state: 'waiting' | 'served' | 'leaving';
@@ -61,7 +65,36 @@ export class CustomerQueue extends Phaser.GameObjects.Container {
 
     const patBarFill = this.scene.add.graphics();
 
-    container.add([emojiText, patBarBg, patBarFill]);
+    // Order bubble: show sausage emoji + condiment emojis above customer
+    let orderBubble: Phaser.GameObjects.Text | null = null;
+    let badgeBubble: Phaser.GameObjects.Text | null = null;
+
+    if (customer.order) {
+      const sausageInfo = SAUSAGE_MAP[customer.order.sausageType];
+      const sausageEmoji = sausageInfo?.emoji ?? '🌭';
+      const condimentEmojis = (customer.order.condiments || [])
+        .map((id: string) => CONDIMENTS.find(c => c.id === id)?.emoji ?? '')
+        .join('');
+      const bubbleText = condimentEmojis ? `${sausageEmoji}${condimentEmojis}` : sausageEmoji;
+
+      orderBubble = this.scene.add.text(0, -36, bubbleText, {
+        fontSize: '13px',
+        align: 'center',
+      }).setOrigin(0.5);
+    }
+
+    if (customer.loyaltyBadge && customer.loyaltyBadge !== 'none') {
+      const badgeEmoji = customer.loyaltyBadge === 'gold' ? '🥇'
+        : customer.loyaltyBadge === 'silver' ? '🥈' : '🥉';
+      badgeBubble = this.scene.add.text(CUSTOMER_SLOT_W / 2 - 6, -30, badgeEmoji, {
+        fontSize: '11px',
+      }).setOrigin(0.5);
+    }
+
+    const toAdd: Phaser.GameObjects.GameObject[] = [emojiText, patBarBg, patBarFill];
+    if (orderBubble) toAdd.push(orderBubble);
+    if (badgeBubble) toAdd.push(badgeBubble);
+    container.add(toAdd);
 
     const display: CustomerDisplay = {
       customer,
@@ -69,6 +102,8 @@ export class CustomerQueue extends Phaser.GameObjects.Container {
       emojiText,
       patBarBg,
       patBarFill,
+      orderBubble,
+      badgeBubble,
       remainingPatience: customer.patience,
       initialPatience: customer.patience,
       state: 'waiting',
@@ -156,6 +191,18 @@ export class CustomerQueue extends Phaser.GameObjects.Container {
 
   getWaitingCount(): number {
     return this.displays.filter(d => d.state === 'waiting').length;
+  }
+
+  getWaitingCustomers(): Customer[] {
+    return this.displays
+      .filter(d => d.state === 'waiting')
+      .map(d => d.customer);
+  }
+
+  getCustomerPatienceRatio(customerId: string): number {
+    const display = this.displays.find(d => d.customer.id === customerId && d.state === 'waiting');
+    if (!display) return 0.5;
+    return Math.max(0, display.remainingPatience / display.initialPatience);
   }
 
   private playLeaveAnimation(display: CustomerDisplay, dismissedByServe: boolean): void {

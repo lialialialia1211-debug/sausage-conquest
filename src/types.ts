@@ -77,6 +77,9 @@ export interface Customer {
   maxPrice: number;
   personality: CustomerPersonality;
   isVIP?: boolean;
+  order?: CustomerOrder;       // what they want to order
+  loyaltyId?: string;          // links to loyalty record
+  loyaltyBadge?: LoyaltyBadge; // current badge for display
 }
 
 // ── Warming zone types ─────────────────────────────────────────────────────────
@@ -237,3 +240,32 @@ export interface ManagementFeeState {
 export type EventCategory =
   | 'customer' | 'gangster' | 'positive'
   | 'underground' | 'social' | 'chaos';
+
+// ── 訂單系統 ──
+export interface CustomerOrder {
+  sausageType: string;       // which sausage type they want (id from sausages.ts)
+  condiments: string[];      // condiment IDs they want, in preferred order (1-3 items)
+}
+
+// ── 每單評分 ──
+export interface OrderScore {
+  grillScore: number;        // 0-100, grill quality
+  warmingScore: number;      // 0-100, warming state
+  condimentScore: number;    // 0-100, condiment accuracy
+  waitScore: number;         // 0-100, remaining patience
+  totalScore: number;        // weighted average
+  stars: number;             // 1-5 stars
+  tipAmount: number;         // calculated tip
+}
+
+// ── 客人忠誠度 ──
+export type LoyaltyBadge = 'none' | 'bronze' | 'silver' | 'gold';
+
+export interface CustomerLoyaltyRecord {
+  name: string;              // display name
+  emoji: string;             // character emoji
+  visits: number;            // total visits
+  totalStars: number;        // accumulated stars from all orders
+  badge: LoyaltyBadge;       // current loyalty tier
+  lastVisitDay: number;      // last day they visited
+}
