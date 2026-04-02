@@ -19,9 +19,10 @@ export function rollDailyEvents(): GameEvent[] {
     ? 0
     : Math.random() < 0.15 ? 0 : Math.min(maxEvents, Math.floor(Math.random() * 2) + 1);
 
-  // Shuffle and pick
+  // Shuffle and pick, then deduplicate by event ID
   const shuffled = [...eligible].sort(() => Math.random() - 0.5);
-  const picked = shuffled.slice(0, count);
+  let picked = shuffled.slice(0, count);
+  picked = picked.filter((e, i, arr) => arr.findIndex(x => x.id === e.id) === i);
 
   // Update recent tracking
   picked.forEach(e => {
@@ -45,7 +46,11 @@ export function rollDailyEvents(): GameEvent[] {
     if (crisisEvent) picked.push(crisisEvent);
   }
 
-  return picked;
+  // Final deduplication: remove any event that appears more than once (by ID)
+  // This covers cases where a scheduled injection duplicates a randomly selected event
+  const deduped = picked.filter((e, i, arr) => arr.findIndex(x => x.id === e.id) === i);
+
+  return deduped;
 }
 
 export function applyEventChoice(event: GameEvent, choiceIndex: number): EventChoice {

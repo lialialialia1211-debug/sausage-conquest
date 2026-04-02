@@ -60,6 +60,15 @@ export class EventScene extends Phaser.Scene {
       return;
     }
 
+    // Remove any stale listener before re-binding to prevent accumulation
+    EventBus.off('event-done', this.onEventDone, this);
+
+    // Clear all children from panel-area defensively, then remove tracked panel
+    if (this.panelArea) {
+      while (this.panelArea.firstChild) {
+        this.panelArea.removeChild(this.panelArea.firstChild);
+      }
+    }
     this.removePanelFromDOM();
 
     this.currentEventPanel = new EventPanel(nextEvent);

@@ -155,9 +155,13 @@ export class EventPanel {
     const continueBtn = document.createElement('button');
     continueBtn.className = 'btn-neon';
     continueBtn.textContent = '繼續營業 ▶';
-    continueBtn.addEventListener('click', () => {
+    const onContinueClick = (): void => {
+      // Disable immediately to prevent double-emit on rapid clicks
+      continueBtn.disabled = true;
+      continueBtn.removeEventListener('click', onContinueClick);
       EventBus.emit('event-done', {});
-    });
+    };
+    continueBtn.addEventListener('click', onContinueClick);
     btnCenter.appendChild(continueBtn);
     this.panel.appendChild(btnCenter);
   }

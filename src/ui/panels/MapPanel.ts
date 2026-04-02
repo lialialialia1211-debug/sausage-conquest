@@ -24,6 +24,9 @@ export class MapPanel {
     this.panel = document.createElement('div');
     this.panel.className = 'game-panel ui-interactive evening-panel';
 
+    // Listen for money changes (e.g., after morning restocking)
+    EventBus.on('state-updated', this.onStateUpdated);
+
     // Title
     const titleEl = document.createElement('div');
     titleEl.className = 'panel-title neon-flicker';
@@ -139,6 +142,10 @@ export class MapPanel {
     const rentEl = document.createElement('div');
     rentEl.className = 'slot-rent';
     rentEl.textContent = `$${slot.rent}`;
+    const canAffordSlot = gameState.money >= slot.rent;
+    if (!canAffordSlot && !ownership.isOpponent) {
+      rentEl.style.color = '#ff4444';
+    }
     card.appendChild(rentEl);
 
     // Traffic info
@@ -164,6 +171,20 @@ export class MapPanel {
     suggestEl.textContent = `建議備貨 ${suggestStock} 根`;
     card.appendChild(suggestEl);
 
+    // Apply unaffordable disabled style to selectable slots
+    if (!ownership.isOpponent && !canAffordSlot) {
+      card.style.opacity = '0.4';
+      card.style.pointerEvents = 'none';
+      card.classList.add('grid-slot--disabled');
+      // Add lock icon overlay
+      const lockEl = document.createElement('div');
+      lockEl.className = 'slot-lock-icon';
+      lockEl.textContent = '🔒';
+      lockEl.style.cssText = 'position:absolute;top:4px;right:6px;font-size:14px;pointer-events:none;';
+      card.style.position = 'relative';
+      card.appendChild(lockEl);
+    }
+
     // Click handler for selectable slots
     if (!ownership.isOpponent) {
       card.addEventListener('click', () => this.onSlotClick(slot));
@@ -174,6 +195,78 @@ export class MapPanel {
 
     return card;
   }
+
+  /**
+   * Called whenever game state is updated (e.g., after morning restocking).
+   * Re-checks affordability for all slot cards and the currently selected slot.
+   */
+  private onStateUpdated = (): void => {
+    // Update visual affordability state for every slot card
+    for (const slot of GRID_SLOTS) {
+      const card = this.slotElements.get(slot.id);
+      if (!card) continue;
+      const ownership = this.getSlotOwnership(slot);
+      if (ownership.isOpponent) continue;
+
+      const canAfford = gameState.money >= slot.rent;
+
+      // Update rent text colour
+      const rentEl = card.querySelector('.slot-rent') as HTMLElement | null;
+      if (rentEl) {
+        rentEl.style.color = canAfford ? '' : '#ff4444';
+      }
+
+      // Update lock icon presence
+      const existingLock = card.querySelector('.slot-lock-icon');
+      if (!canAfford && !existingLock) {
+        card.style.opacity = '0.4';
+        card.style.pointerEvents = 'none';
+        card.classList.add('grid-slot--disabled');
+        card.style.position = 'relative';
+        const lockEl = document.createElement('div');
+        lockEl.className = 'slot-lock-icon';
+        lockEl.textContent = '🔒';
+        lockEl.style.cssText = 'position:absolute;top:4px;right:6px;font-size:14px;pointer-events:none;';
+        card.appendChild(lockEl);
+      } else if (canAfford && existingLock) {
+        card.style.opacity = '';
+        card.style.pointerEvents = '';
+        card.classList.remove('grid-slot--disabled');
+        existingLock.remove();
+        if (rentEl) rentEl.style.color = '';
+      }
+    }
+
+    // Handle selected slot becoming unaffordable
+    if (this.selectedSlotId >= 0) {
+      const slot = GRID_SLOTS.find(s => s.id === this.selectedSlotId);
+      if (slot && gameState.money < slot.rent) {
+        // Clear selection
+        const prevEl = this.slotElements.get(this.selectedSlotId);
+        if (prevEl) {
+          prevEl.classList.remove('grid-slot--selected');
+          const ownership = this.getSlotOwnership(slot);
+          prevEl.classList.add(ownership.isPlayer ? 'grid-slot--player' : 'grid-slot--empty');
+        }
+        this.selectedSlotId = -1;
+
+        // Update UI to reflect cleared selection
+        this.selectedInfoEl.style.display = 'none';
+        this.pricingSection.style.display = 'none';
+        this.startBtn.style.display = 'none';
+
+        // Show insufficiency message
+        this.affordWarning.textContent = '資金不足，請重新選擇地盤';
+        this.affordWarning.style.color = '#ff4444';
+        this.affordWarning.style.display = 'block';
+
+        // Disable start button
+        this.startBtn.disabled = true;
+        this.startBtn.style.opacity = '0.4';
+        this.startBtn.style.cursor = 'not-allowed';
+      }
+    }
+  };
 
   private onSlotClick = (slot: GridSlot): void => {
     // Deselect previous
@@ -351,5 +444,6 @@ export class MapPanel {
 
   destroy(): void {
     this.startBtn.removeEventListener('click', this.onStartBusiness);
+    EventBus.off('state-updated', this.onStateUpdated);
   }
 }

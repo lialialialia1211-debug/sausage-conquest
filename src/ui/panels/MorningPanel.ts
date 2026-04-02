@@ -203,12 +203,26 @@ export class MorningPanel {
     qtyInput.style.borderRadius = '4px';
     qtyInput.style.padding = '4px 2px';
     qtyInput.style.appearance = 'textfield';
-    qtyInput.addEventListener('input', () => {
-      const val = Math.max(0, parseInt(qtyInput.value) || 0);
-      this.setQuantity(sausage, val, qtyInput, subtotalEl);
+    qtyInput.addEventListener('change', () => {
+      const raw = parseInt(qtyInput.value) || 0;
+      // calcMaxAffordable is defined below and closed over via the card scope
+      this.setQuantity(sausage, raw, qtyInput, subtotalEl);
+    });
+    qtyInput.addEventListener('blur', () => {
+      const raw = parseInt(qtyInput.value) || 0;
+      this.setQuantity(sausage, raw, qtyInput, subtotalEl);
     });
     this.qtyDisplays.set(sausage.id, qtyInput);
     this.cardRefs.set(sausage.id, { sausage });
+
+    const MAX_QUANTITY = 99;
+
+    const calcMaxAffordable = (): number => {
+      const otherSpend = this.calcTotalCost() - this.quantities[sausage.id] * sausage.cost;
+      const remaining = gameState.money - otherSpend;
+      const spendable = Math.max(0, remaining - MIN_RENT_RESERVE);
+      return Math.min(MAX_QUANTITY, Math.floor(spendable / sausage.cost));
+    };
 
     const makeBtn = (label: string, delta: number): HTMLButtonElement => {
       const btn = document.createElement('button');
@@ -218,12 +232,27 @@ export class MorningPanel {
       btn.style.padding = '4px 6px';
       btn.style.fontSize = '13px';
       btn.addEventListener('click', () => {
-        const newVal = Math.max(0, this.quantities[sausage.id] + delta);
+        const maxAffordable = calcMaxAffordable();
+        const newVal = Math.max(0, Math.min(maxAffordable, this.quantities[sausage.id] + delta));
         this.setQuantity(sausage, newVal, qtyInput, subtotalEl);
       });
       return btn;
     };
 
+    // "清空" button — destructive, sets quantity to 0
+    const clearBtn = document.createElement('button');
+    clearBtn.className = 'qty-btn';
+    clearBtn.textContent = '清空';
+    clearBtn.style.minWidth = '36px';
+    clearBtn.style.padding = '4px 6px';
+    clearBtn.style.fontSize = '13px';
+    clearBtn.style.color = '#ff6666';
+    clearBtn.style.borderColor = '#ff4444';
+    clearBtn.addEventListener('click', () => {
+      this.setQuantity(sausage, 0, qtyInput, subtotalEl);
+    });
+
+    qtyControl.appendChild(clearBtn);
     qtyControl.appendChild(makeBtn('-10', -10));
     qtyControl.appendChild(makeBtn('-5', -5));
     qtyControl.appendChild(makeBtn('-1', -1));
@@ -232,7 +261,7 @@ export class MorningPanel {
     qtyControl.appendChild(makeBtn('+5', +5));
     qtyControl.appendChild(makeBtn('+10', +10));
 
-    // "Max buy" button — reserves MIN_RENT_RESERVE for evening slot
+    // "Max buy" button — reserves MIN_RENT_RESERVE for evening slot, capped at 99
     const maxBtn = document.createElement('button');
     maxBtn.className = 'qty-btn btn-neon-cyan';
     maxBtn.textContent = '最大';
@@ -240,12 +269,23 @@ export class MorningPanel {
     maxBtn.style.padding = '4px 6px';
     maxBtn.style.fontSize = '13px';
     maxBtn.addEventListener('click', () => {
-      const remaining = gameState.money - this.calcTotalCost() + this.quantities[sausage.id] * sausage.cost;
-      const spendable = Math.max(0, remaining - MIN_RENT_RESERVE);
-      const maxQty = Math.floor(spendable / sausage.cost);
-      this.setQuantity(sausage, maxQty, qtyInput, subtotalEl);
+      this.setQuantity(sausage, calcMaxAffordable(), qtyInput, subtotalEl);
     });
     qtyControl.appendChild(maxBtn);
+
+    // "最小" button — sets quantity to 1 (minimum purchase unit)
+    const minBtn = document.createElement('button');
+    minBtn.className = 'qty-btn btn-neon-cyan';
+    minBtn.textContent = '最小';
+    minBtn.style.minWidth = '42px';
+    minBtn.style.padding = '4px 6px';
+    minBtn.style.fontSize = '13px';
+    minBtn.addEventListener('click', () => {
+      const maxAffordable = calcMaxAffordable();
+      const minVal = maxAffordable >= 1 ? 1 : 0;
+      this.setQuantity(sausage, minVal, qtyInput, subtotalEl);
+    });
+    qtyControl.appendChild(minBtn);
 
     qtyRowEl.appendChild(qtyControl);
     qtyRowEl.appendChild(subtotalEl);
@@ -255,11 +295,12 @@ export class MorningPanel {
   }
 
   private setQuantity(sausage: SausageType, qty: number, input: HTMLInputElement, subtotalEl: HTMLElement): void {
-    // Clamp: can't go below 0, can't exceed what we can afford while keeping MIN_RENT_RESERVE
+    // Clamp: can't go below 0, can't exceed 99, can't exceed what we can afford while keeping MIN_RENT_RESERVE
+    const MAX_QUANTITY = 99;
     const otherSpend = this.calcTotalCost() - this.quantities[sausage.id] * sausage.cost;
     const remaining = gameState.money - otherSpend;
     const spendable = Math.max(0, remaining - MIN_RENT_RESERVE);
-    const maxAffordable = Math.floor(spendable / sausage.cost);
+    const maxAffordable = Math.min(MAX_QUANTITY, Math.floor(spendable / sausage.cost));
     const clamped = Math.max(0, Math.min(qty, maxAffordable));
 
     // Show warning if user tried to exceed the rent-reserved limit
