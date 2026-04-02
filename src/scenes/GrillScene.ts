@@ -2004,7 +2004,7 @@ export class GrillScene extends Phaser.Scene {
     // Check for special sausage effect
     const directEffect = getSpecialEffect(ws.sausageTypeId);
     if (directEffect) {
-      this.applySpecialEffect(directEffect);
+      this.applySpecialEffect(directEffect, ws.sausageTypeId);
     }
 
     this.updateStatsDisplay();
@@ -2241,7 +2241,7 @@ export class GrillScene extends Phaser.Scene {
     // Check for special sausage effect
     const finalizeEffect = getSpecialEffect(sausage.sausageTypeId);
     if (finalizeEffect) {
-      this.applySpecialEffect(finalizeEffect);
+      this.applySpecialEffect(finalizeEffect, sausage.sausageTypeId);
     }
 
     // Reset selected condiments for next serve
@@ -2305,9 +2305,30 @@ export class GrillScene extends Phaser.Scene {
 
   // ── Special sausage effect application ───────────────────────────────────
 
-  private applySpecialEffect(effect: SpecialEffectResult): void {
+  private applySpecialEffect(effect: SpecialEffectResult, sausageId?: string): void {
     // Show main feedback text
     this.showFeedback(effect.feedbackText, this.scale.width / 2, this.scale.height / 2 - 30, '#ffcc00');
+
+    // 大嚐莖: +1 customer to pending queue + extra loyalty star
+    if (sausageId === 'big-taste' && this.pendingCustomerQueue.length > 0) {
+      // Move 1 extra customer from pending to active (instant arrival)
+      const bonus = this.pendingCustomerQueue.shift();
+      if (bonus) {
+        this.customerQueue.addCustomer(bonus);
+        this.customers.push(bonus);
+      }
+    }
+
+    // 萬里腸城: +2 customers from pending queue
+    if (sausageId === 'great-wall') {
+      for (let i = 0; i < 2; i++) {
+        const bonus = this.pendingCustomerQueue.shift();
+        if (bonus) {
+          this.customerQueue.addCustomer(bonus);
+          this.customers.push(bonus);
+        }
+      }
+    }
 
     // Scare customers out of queue
     if (effect.scareCount && effect.scareCount > 0) {

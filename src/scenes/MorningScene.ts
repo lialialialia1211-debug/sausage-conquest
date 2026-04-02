@@ -7,15 +7,17 @@ import { STORY_BEATS } from '../data/dialogue';
 import { checkAndUnlockBlackMarket } from '../systems/BlackMarketEngine';
 
 // Sausage unlock schedule: [day, sausageId, name]
+// Day-based unlock schedule: [day, sausageId, name]
 const UNLOCK_SCHEDULE: [number, string, string][] = [
+  [1, 'big-taste', '大嚐莖'],
+  [3, 'big-wrap-small', '大腸包小腸'],
   [5, 'cheese', '起司爆漿'],
-  [7, 'wasabi-bomb', '芥末炸彈'],
   [8, 'squidink', '墨魚香腸'],
-  [10, 'love-sausage', '戀愛香腸'],
   [12, 'mala', '麻辣螺螄'],
-  [14, 'ghost-pepper', '鬼椒地獄腸'],
-  [15, 'rainbow', '彩虹派對腸'],
-  [18, 'truffle', '松露黑金腸'],
+];
+// Battle-based unlock: 萬里腸城 unlocks after first battle won
+const BATTLE_UNLOCKS: [string, string][] = [
+  ['great-wall', '萬里腸城'],
 ];
 
 export class MorningScene extends Phaser.Scene {
@@ -76,6 +78,16 @@ export class MorningScene extends Phaser.Scene {
           unlockedSausages: [...gameState.unlockedSausages, id],
         });
         notifications.push(`新品種解鎖：${name}！`);
+      }
+    }
+
+    // Check battle-based unlocks
+    for (const [id, name] of BATTLE_UNLOCKS) {
+      if (gameState.stats.battlesWon > 0 && !gameState.unlockedSausages.includes(id)) {
+        updateGameState({
+          unlockedSausages: [...gameState.unlockedSausages, id],
+        });
+        notifications.push(`戰鬥獎勵解鎖：${name}！`);
       }
     }
 

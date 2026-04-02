@@ -19,36 +19,27 @@ export interface SpecialEffectResult {
 export type { SausageSpecialEffect };
 
 export const SAUSAGE_EFFECTS: Record<string, SpecialEffectResult> = {
-  'wasabi-bomb': {
-    feedbackText: '💚 客人噴淚了！旁邊的人嚇到跑掉',
-    customerEmoji: '😭💦',
-    scareCount: 1,
-    reputationDelta: 2,
-  },
-  'love-sausage': {
-    feedbackText: '💕 客人陷入戀愛了！粉紅泡泡感染全場',
-    customerEmoji: '😍💕',
+  'big-taste': {
+    feedbackText: '🍆😳 客人臉紅了...「下次我還要來！」',
+    customerEmoji: '😳💕',
     patienceBoostNext: 1,
-    patienceBoostAmount: 1.5,
-  },
-  'ghost-pepper': {
-    feedbackText: '👻🔥 客人原地噴火！特殊客人嚇跑了',
-    customerEmoji: '🥵🔥',
-    scareCount: 1,
-    scareSpecialOnly: true,
-    patiencePenaltyAll: 0.8,
-  },
-  'truffle': {
-    feedbackText: '🖤✨ 客人驚為天人！接下來的客人小費翻倍',
-    customerEmoji: '🤩✨',
-    tipMultiplierNext: 3,
-    tipMultiplierAmount: 2.0,
-  },
-  'rainbow': {
-    feedbackText: '🌈🎶 客人開始唱歌跳舞！全場嗨起來',
-    customerEmoji: '🥳🎶',
-    patienceResetAll: true,
+    patienceBoostAmount: 1.3,
     reputationDelta: 1,
+    // +1 customer traffic handled in GrillScene (add 1 to pending queue)
+    // +1 fan handled via loyalty (record extra star)
+  },
+  'big-wrap-small': {
+    feedbackText: '🌭😠 客人嚼了幾口...「下面怎麼硬硬的？」',
+    customerEmoji: '😠❓',
+    patiencePenaltyAll: 0.85,
+    reputationDelta: -1,
+  },
+  'great-wall': {
+    feedbackText: '🏯📸 整條街的人都在拍照！「這太扯了吧！」',
+    customerEmoji: '🤯📸',
+    patienceResetAll: true,
+    reputationDelta: 3,
+    // +2 customer traffic handled in GrillScene
   },
 };
 
