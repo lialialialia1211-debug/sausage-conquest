@@ -37,9 +37,11 @@ const GAME_DURATION = 90;      // seconds
 const MAX_GRILL_SLOTS = 4;     // 6 if grill-expand upgrade
 const GRILL_Y_FRAC = 0.44;    // grill vertical position as fraction of screen height
 // Warming zone has no fixed limit — slots are created dynamically
-const CUSTOMER_ARRIVAL_INTERVAL = 5;  // seconds between customer batches (was 8)
-const CUSTOMER_BATCH_MIN = 2;         // minimum customers per batch (was 1)
-const CUSTOMER_BATCH_MAX = 4;         // maximum customers per batch (was 3)
+// Customer arrival scales with day: early days are calmer
+const BASE_ARRIVAL_INTERVAL = 10; // day 1 interval
+const MIN_ARRIVAL_INTERVAL = 5;   // fastest interval (late game with upgrades)
+const CUSTOMER_BATCH_MIN = 1;
+const CUSTOMER_BATCH_MAX = 2;     // base max, scales up with day
 
 // ── Colors / fonts ──────────────────────────────────────────────────────────
 const COLOR_BG_TOP = 0x100500;
@@ -78,7 +80,13 @@ export class GrillScene extends Phaser.Scene {
   private customers: Customer[] = [];
   private pendingCustomerQueue: Customer[] = [];
   private customerArrivalTimer = 0;
-  private readonly customerArrivalInterval = CUSTOMER_ARRIVAL_INTERVAL;
+  private readonly customerArrivalInterval: number = (() => {
+    // Day 1: 10s, scales down to 5s by day 15+; upgrades/marketing reduce further
+    const dayFactor = Math.min(1, (gameState.day - 1) / 14); // 0 at day1, 1 at day15
+    const hasNeonSign = gameState.upgrades['neon-sign'];
+    const upgradeBonus = hasNeonSign ? 1 : 0;
+    return Math.max(MIN_ARRIVAL_INTERVAL, BASE_ARRIVAL_INTERVAL - dayFactor * 4 - upgradeBonus);
+  })();
   private isDone = false;
   private sessionRevenue = 0;
   private paused = true; // Start paused until player clicks "開始營業"
@@ -287,8 +295,11 @@ export class GrillScene extends Phaser.Scene {
       this.pendingCustomerQueue.length > 0
     ) {
       this.customerArrivalTimer = 0;
+      // Batch size scales: day 1-5 = 1-2, day 6-14 = 1-3, day 15+ = 2-4
+      const dayBatchMax = gameState.day >= 15 ? 4 : gameState.day >= 6 ? 3 : CUSTOMER_BATCH_MAX;
+      const dayBatchMin = gameState.day >= 15 ? 2 : CUSTOMER_BATCH_MIN;
       const batch = Math.min(
-        Phaser.Math.Between(CUSTOMER_BATCH_MIN, CUSTOMER_BATCH_MAX),
+        Phaser.Math.Between(dayBatchMin, dayBatchMax),
         this.pendingCustomerQueue.length,
       );
       for (let i = 0; i < batch; i++) {

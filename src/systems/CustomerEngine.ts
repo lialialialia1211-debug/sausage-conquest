@@ -35,16 +35,18 @@ function generateOrder(day: number): CustomerOrder {
  * Base count driven by footTraffic (1-5); marketingBonus scales it up.
  */
 export function generateCustomers(gridFootTraffic: number, marketingBonus: number): Customer[] {
-  // Base count: footTraffic * 3, scaled by marketing
-  let baseCount = Math.round(gridFootTraffic * 3 * (1 + marketingBonus));
+  // Base multiplier scales with day: 0.8x day1, grows to 3x by day 20
+  const dayMultiplier = 0.8 + Math.min(2.2, (gameState.day - 1) * 0.11);
+  let baseCount = Math.round(gridFootTraffic * dayMultiplier * (1 + marketingBonus));
 
   // Worker 'mei' brings in more customers (+30% traffic)
   if (gameState.hiredWorkers.includes('mei')) {
     baseCount = Math.round(baseCount * 1.3);
   }
 
-  // Cap at 80 customers per session
-  baseCount = Math.min(baseCount, 80);
+  // Cap scales with day: 15 on day 1, up to 80 by day 20
+  const dayCap = Math.min(80, 15 + (gameState.day - 1) * 3);
+  baseCount = Math.min(baseCount, dayCap);
 
   const customers: Customer[] = [];
 
@@ -137,8 +139,9 @@ export function generateCustomers(gridFootTraffic: number, marketingBonus: numbe
     });
   }
 
-  // Guarantee at least 20 customers regardless of footTraffic/marketing
-  while (customers.length < 20) {
+  // Guarantee minimum customers: 6 on day 1, scales to 20 by day 10
+  const minGuarantee = Math.min(20, 6 + (gameState.day - 1) * 1.5);
+  while (customers.length < minGuarantee) {
     const maxPriceMultiplier = 0.8 + Math.random() * 0.7;
     const unlockedPrices = SAUSAGE_TYPES
       .filter(s => gameState.unlockedSausages.includes(s.id))
