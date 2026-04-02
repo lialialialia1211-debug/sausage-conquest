@@ -77,6 +77,17 @@ export interface Customer {
   maxPrice: number;
 }
 
+// ── Warming zone types ─────────────────────────────────────────────────────────
+
+export interface WarmingSausage {
+  id: string;
+  sausageTypeId: string;
+  grillQuality: string;  // quality when removed from grill
+  qualityScore: number;  // base quality multiplier from grill
+  timeInWarming: number; // seconds since placed in warming zone
+  warmingState: 'perfect-warm' | 'ok-warm' | 'cold';
+}
+
 // ── Loan types ─────────────────────────────────────────────────────────────────
 
 export interface LoanConfig {

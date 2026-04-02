@@ -9,6 +9,9 @@ export interface GrillStats {
   ok: number;
   raw: number;
   burnt: number;
+  'half-cooked': number;
+  'slightly-burnt': number;
+  carbonized: number;
 }
 
 export interface SummaryData {
@@ -181,8 +184,11 @@ export class SummaryPanel {
     const items = [
       { label: '完美', count: stats.perfect, emoji: '✨' },
       { label: '普通', count: stats.ok, emoji: '' },
+      { label: '半熟', count: stats['half-cooked'] ?? 0, emoji: '' },
+      { label: '微焦', count: stats['slightly-burnt'] ?? 0, emoji: '' },
       { label: '半生', count: stats.raw, emoji: '' },
       { label: '焦', count: stats.burnt, emoji: '' },
+      { label: '碳化', count: stats.carbonized ?? 0, emoji: '' },
     ];
 
     items.forEach(item => {
@@ -193,6 +199,19 @@ export class SummaryPanel {
     });
 
     el.appendChild(statsRow);
+
+    // Waste report
+    const waste = gameState.dailyWaste;
+    if (waste && (waste.grillRemaining > 0 || waste.warmingRemaining > 0)) {
+      const wasteEl = document.createElement('div');
+      wasteEl.className = 'summary-grill-row';
+      wasteEl.style.marginTop = '6px';
+      wasteEl.style.color = '#ff9944';
+      wasteEl.style.fontSize = '12px';
+      wasteEl.textContent = `今日浪費：烤架殘留 ${waste.grillRemaining} 根 + 保溫區冷掉 ${waste.warmingRemaining} 根`;
+      el.appendChild(wasteEl);
+    }
+
     return el;
   }
 

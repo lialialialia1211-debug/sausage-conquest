@@ -30,7 +30,7 @@ export class MorningScene extends Phaser.Scene {
     updateGameState({
       dailyExpenses: 0,
       dailySalesLog: [],
-      dailyGrillStats: { perfect: 0, ok: 0, raw: 0, burnt: 0 },
+      dailyGrillStats: { perfect: 0, ok: 0, raw: 0, burnt: 0, 'half-cooked': 0, 'slightly-burnt': 0, carbonized: 0 },
     });
 
     // ── Daily processing (Day 2+) ──

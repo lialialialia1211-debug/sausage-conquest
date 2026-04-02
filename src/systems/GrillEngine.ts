@@ -2,7 +2,7 @@
 // Handles sausage state, cooking ticks, flip, serve judgment
 
 export type HeatLevel = 'low' | 'medium' | 'high';
-export type GrillQuality = 'perfect' | 'ok' | 'raw' | 'burnt';
+export type GrillQuality = 'perfect' | 'ok' | 'half-cooked' | 'raw' | 'slightly-burnt' | 'burnt' | 'carbonized';
 
 export interface GrillingSausage {
   id: string;
@@ -42,16 +42,16 @@ export function updateSausage(
 
   const rate = HEAT_RATES[heatLevel] * deltaSeconds;
 
-  // The side facing DOWN gets heat
+  // The side facing DOWN gets heat; cap at 120 to allow carbonization range
   if (sausage.currentSide === 'bottom') {
     return {
       ...sausage,
-      bottomDoneness: Math.min(100, sausage.bottomDoneness + rate),
+      bottomDoneness: Math.min(120, sausage.bottomDoneness + rate),
     };
   } else {
     return {
       ...sausage,
-      topDoneness: Math.min(100, sausage.topDoneness + rate),
+      topDoneness: Math.min(120, sausage.topDoneness + rate),
     };
   }
 }
@@ -66,48 +66,54 @@ export function flipSausage(sausage: GrillingSausage): GrillingSausage {
 
 export function judgeQuality(sausage: GrillingSausage): GrillQuality {
   const { topDoneness, bottomDoneness } = sausage;
+  const avg = (topDoneness + bottomDoneness) / 2;
 
-  // If either side is burnt
-  if (topDoneness > 90 || bottomDoneness > 90) return 'burnt';
-
-  // If either side is raw
-  if (topDoneness < 40 || bottomDoneness < 40) return 'raw';
-
-  // Both sides in perfect range (60-90)
-  if (topDoneness >= 60 && topDoneness <= 90 && bottomDoneness >= 60 && bottomDoneness <= 90) {
-    return 'perfect';
-  }
-
-  return 'ok';
+  if (avg > 100)  return 'carbonized';
+  if (avg >= 96)  return 'burnt';
+  if (avg >= 91)  return 'slightly-burnt';
+  if (avg >= 71)  return 'perfect';
+  if (avg >= 51)  return 'ok';
+  if (avg >= 31)  return 'half-cooked';
+  return 'raw';
 }
 
 export function getQualityScore(quality: GrillQuality): number {
   switch (quality) {
-    case 'perfect': return 1.5;
-    case 'ok':      return 1.0;
-    case 'raw':     return 0.5;
-    case 'burnt':   return 0;
+    case 'perfect':       return 1.5;
+    case 'ok':            return 1.0;
+    case 'half-cooked':   return 0.5;
+    case 'raw':           return 0;   // cannot serve
+    case 'slightly-burnt':return 0.6;
+    case 'burnt':         return 0.3;
+    case 'carbonized':    return 0;   // cannot serve
   }
 }
 
 /**
- * Returns a hex color for a given doneness value (0-100).
- * 0: pink (raw)  →  60: golden (perfect)  →  100: charcoal (burnt)
+ * Returns a hex color for a given doneness value (0-120).
+ * 0: pink (raw)  →  70: golden (perfect)  →  100: charcoal (burnt)  →  120: pitch black (carbonized)
  */
 export function getSausageColor(doneness: number): number {
-  if (doneness <= 60) {
-    // Pink (0xffb6c1) → Golden (0xdaa520)  at t=0..1
-    const t = doneness / 60;
+  if (doneness <= 70) {
+    // Pink (0xffb6c1) → Golden (0xdaa520) at t=0..1
+    const t = doneness / 70;
     const r = Math.round(0xff + (0xda - 0xff) * t);
     const g = Math.round(0xb6 + (0xa5 - 0xb6) * t);
     const b = Math.round(0xc1 + (0x20 - 0xc1) * t);
     return (r << 16) | (g << 8) | b;
-  } else {
+  } else if (doneness <= 100) {
     // Golden (0xdaa520) → Charcoal (0x333333) at t=0..1
-    const t = (doneness - 60) / 40;
+    const t = (doneness - 70) / 30;
     const r = Math.round(0xda + (0x33 - 0xda) * t);
     const g = Math.round(0xa5 + (0x33 - 0xa5) * t);
     const b = Math.round(0x20 + (0x33 - 0x20) * t);
+    return (r << 16) | (g << 8) | b;
+  } else {
+    // Charcoal (0x333333) → Pitch black (0x111111) at t=0..1
+    const t = (doneness - 100) / 20;
+    const r = Math.round(0x33 + (0x11 - 0x33) * t);
+    const g = Math.round(0x33 + (0x11 - 0x33) * t);
+    const b = Math.round(0x33 + (0x11 - 0x33) * t);
     return (r << 16) | (g << 8) | b;
   }
 }
@@ -120,25 +126,31 @@ export function getAverageDoneness(sausage: GrillingSausage): number {
 }
 
 /**
- * Returns doneness bar color: green → yellow → red
+ * Returns doneness bar color reflecting new quality zones:
+ * 0-30: grey (raw), 31-50: blue (half-cooked), 51-70: yellow (ok),
+ * 71-90: green (perfect), 91-95: orange (slightly-burnt), 96-100: red (burnt), 100+: dark red (carbonized)
  */
 export function getDonenessBarColor(doneness: number): number {
-  if (doneness < 50) {
-    // White/grey (not ready)
+  if (doneness <= 30) {
+    // Grey — raw zone
     return 0x888888;
-  } else if (doneness <= 80) {
-    // Green → yellow (good zone)
-    const t = (doneness - 50) / 30;
-    const r = Math.round(0x00 + 0xff * t);
-    const g = 0xcc;
-    const b = 0x00;
-    return (r << 16) | (g << 8) | b;
+  } else if (doneness <= 50) {
+    // Blue — half-cooked zone
+    return 0x4488ff;
+  } else if (doneness <= 70) {
+    // Yellow — ok zone
+    return 0xffcc00;
+  } else if (doneness <= 90) {
+    // Green — perfect zone
+    return 0x00cc44;
+  } else if (doneness <= 95) {
+    // Orange — slightly-burnt zone
+    return 0xff8800;
+  } else if (doneness <= 100) {
+    // Red — burnt zone
+    return 0xff2200;
   } else {
-    // Yellow → red (danger zone)
-    const t = (doneness - 80) / 20;
-    const r = 0xff;
-    const g = Math.round(0xcc * (1 - t));
-    const b = 0x00;
-    return (r << 16) | (g << 8) | b;
+    // Dark red — carbonized zone
+    return 0x880000;
   }
 }

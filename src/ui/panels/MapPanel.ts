@@ -147,6 +147,23 @@ export class MapPanel {
     trafficEl.textContent = `人流 ${slot.baseTraffic}`;
     card.appendChild(trafficEl);
 
+    // Traffic estimate range (±10% variation)
+    const estMin = Math.round(slot.baseTraffic * 0.9);
+    const estMax = Math.round(slot.baseTraffic * 1.1);
+    const estimateEl = document.createElement('div');
+    estimateEl.className = 'slot-estimate';
+    estimateEl.style.cssText = 'font-size:11px;color:#888;margin-top:2px;';
+    estimateEl.textContent = `預估人流 ${estMin}~${estMax} 人`;
+    card.appendChild(estimateEl);
+
+    // Suggested stock
+    const suggestStock = Math.round(slot.baseTraffic * 0.75);
+    const suggestEl = document.createElement('div');
+    suggestEl.className = 'slot-suggest';
+    suggestEl.style.cssText = 'font-size:11px;color:#666;';
+    suggestEl.textContent = `建議備貨 ${suggestStock} 根`;
+    card.appendChild(suggestEl);
+
     // Click handler for selectable slots
     if (!ownership.isOpponent) {
       card.addEventListener('click', () => this.onSlotClick(slot));

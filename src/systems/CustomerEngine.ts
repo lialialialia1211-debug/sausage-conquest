@@ -35,7 +35,30 @@ export function generateCustomers(gridFootTraffic: number, marketingBonus: numbe
 
     customers.push({
       id: `customer-${++customerIdCounter}`,
-      patience: 10 + Math.random() * 20, // 10-30 seconds
+      patience: 12 + Math.random() * 13, // 12-25 seconds
+      preferredType,
+      maxPrice,
+    });
+  }
+
+  // Guarantee at least 15 customers regardless of footTraffic/marketing
+  while (customers.length < 15) {
+    const maxPriceMultiplier = 0.8 + Math.random() * 0.7;
+    const unlockedPrices = SAUSAGE_TYPES
+      .filter(s => gameState.unlockedSausages.includes(s.id))
+      .map(s => s.suggestedPrice);
+    const avgExpectedPrice = unlockedPrices.length > 0
+      ? unlockedPrices.reduce((sum, p) => sum + p, 0) / unlockedPrices.length
+      : 38;
+    const maxPrice = Math.round(avgExpectedPrice * maxPriceMultiplier);
+    const battleTypes: BattleType[] = ['normal', 'ranged', 'aoe', 'tank', 'assassin', 'support'];
+    const hasPreference = Math.random() < 0.3;
+    const preferredType = hasPreference
+      ? battleTypes[Math.floor(Math.random() * battleTypes.length)]
+      : undefined;
+    customers.push({
+      id: `customer-${++customerIdCounter}`,
+      patience: 12 + Math.random() * 13,
       preferredType,
       maxPrice,
     });
@@ -75,7 +98,13 @@ export function willBuy(
 
   // priceFactor drops sharply above expected price
   const priceDelta = (price - expectedPrice) / expectedPrice;
-  const priceFactor = Math.max(0, 1 - priceDelta * 2);
+  let priceFactor = Math.max(0, 1 - priceDelta * 2);
+
+  // If price is within ±20% of suggested, guarantee at least 0.8 factor
+  if (Math.abs(priceDelta) <= 0.2) priceFactor = Math.max(0.8, priceFactor);
+
+  // Harsh penalty for extreme overpricing (>150% of suggested)
+  if (priceDelta > 0.5) priceFactor = Math.max(0, priceFactor * 0.3);
 
   // marketingBonus
   const marketingBonus = 1 + marketingEffects.reduce((sum, e) => sum + e, 0);
@@ -88,5 +117,5 @@ export function willBuy(
 
   const purchaseChance = baseAttraction * priceFactor * marketingBonus * clampedQuality * preferenceBonus;
 
-  return Math.random() < Math.min(0.95, purchaseChance);
+  return Math.random() < Math.max(0.4, Math.min(0.95, purchaseChance));
 }

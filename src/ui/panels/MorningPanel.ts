@@ -3,6 +3,7 @@ import { EventBus } from '../../utils/EventBus';
 import { gameState } from '../../state/GameState';
 import { buyStock } from '../../systems/EconomyEngine';
 import { SAUSAGE_TYPES } from '../../data/sausages';
+import { GRID_SLOTS } from '../../data/map';
 import type { SausageType } from '../../types';
 
 // Minimum rent reserve — the cheapest available slot (parking lot, slot 4) costs $200
@@ -37,6 +38,23 @@ export class MorningPanel {
     titleEl.className = 'panel-title neon-flicker';
     titleEl.textContent = '🌅 早上 — 進貨備料';
     this.panel.appendChild(titleEl);
+
+    // Stats / suggestion section
+    const statsSection = document.createElement('div');
+    statsSection.className = 'morning-stats';
+    statsSection.style.cssText = 'background:#111;border:1px solid #333;border-radius:6px;padding:10px 14px;margin-bottom:12px;font-size:13px;color:#ccc;line-height:1.8;';
+
+    if (gameState.day === 1) {
+      statsSection.textContent = '新手建議：先買 15~20 根試試水溫';
+    } else {
+      const lastSlot = gameState.selectedSlot;
+      const slotInfo = lastSlot >= 0 ? GRID_SLOTS.find(s => s.id === lastSlot) : null;
+      const traffic = slotInfo ? slotInfo.baseTraffic : 40;
+      const suggestMin = Math.round(traffic * 0.6);
+      const suggestMax = Math.round(traffic * 0.9);
+      statsSection.textContent = `建議今日進貨：${suggestMin}~${suggestMax} 根（依攤位地段估算）`;
+    }
+    this.panel.appendChild(statsSection);
 
     // Sausage cards container (only show unlocked types)
     const cardsEl = document.createElement('div');

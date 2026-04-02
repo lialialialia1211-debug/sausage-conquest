@@ -1,11 +1,11 @@
 import { EventBus } from '../utils/EventBus';
-import type { GamePhase, LoanState, SaleRecord } from '../types';
+import type { GamePhase, LoanState, SaleRecord, WarmingSausage } from '../types';
 
 // Single source of truth for all game state
 // Always create new objects rather than mutating (immutability principle)
 export const gameState = {
   day: 1,
-  money: 5000,
+  money: 8000,
   reputation: 50,
   phase: 'boot' as GamePhase,
   inventory: {} as Record<string, number>,
@@ -31,7 +31,11 @@ export const gameState = {
   // Temporary daily sales log — GrillScene writes, SummaryScene reads
   dailySalesLog: [] as SaleRecord[],
   // Temporary grill stats for today — GrillScene writes, SummaryScene reads
-  dailyGrillStats: { perfect: 0, ok: 0, raw: 0, burnt: 0 } as { perfect: number; ok: number; raw: number; burnt: number },
+  dailyGrillStats: { perfect: 0, ok: 0, raw: 0, burnt: 0, 'half-cooked': 0, 'slightly-burnt': 0, carbonized: 0 } as { perfect: number; ok: number; raw: number; burnt: number; 'half-cooked': number; 'slightly-burnt': number; carbonized: number },
+  // Warming zone: sausages removed from grill awaiting service
+  warmingZone: [] as WarmingSausage[],
+  // Waste tracking at end of day
+  dailyWaste: { grillRemaining: 0, warmingRemaining: 0 } as { grillRemaining: number; warmingRemaining: number },
   // Unlocked sausage types (starts with 3 base types)
   unlockedSausages: ['black-pig', 'flying-fish-roe', 'garlic-bomb'] as string[],
   // AI opponent tracking
@@ -53,7 +57,9 @@ export function advanceDay(): void {
     day: gameState.day + 1,
     dailyExpenses: 0,
     dailySalesLog: [],
-    dailyGrillStats: { perfect: 0, ok: 0, raw: 0, burnt: 0 },
+    dailyGrillStats: { perfect: 0, ok: 0, raw: 0, burnt: 0, 'half-cooked': 0, 'slightly-burnt': 0, carbonized: 0 },
+    warmingZone: [],
+    dailyWaste: { grillRemaining: 0, warmingRemaining: 0 },
     dailyTrafficBonus: 0,
     skipDay: false,
   });

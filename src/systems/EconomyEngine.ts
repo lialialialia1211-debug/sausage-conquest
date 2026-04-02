@@ -99,6 +99,19 @@ export function calculateDailyReport(salesLog: SaleRecord[]): DailySummary {
 }
 
 /**
+ * Clear warming zone and grill at end of day.
+ * Returns waste counts for summary display.
+ * Actual clearing happens in GrillScene.endGrilling() and GameState.advanceDay().
+ * This function reads the stored values from gameState.dailyWaste.
+ */
+export function clearEndOfDayWaste(): { grillWaste: number; warmingWaste: number } {
+  return {
+    grillWaste: gameState.dailyWaste?.grillRemaining ?? 0,
+    warmingWaste: gameState.dailyWaste?.warmingRemaining ?? 0,
+  };
+}
+
+/**
  * Process one sausage sale.
  * Deducts 1 unit from inventory, adds price to money.
  * Returns a SaleRecord. Returns null if out of stock.
