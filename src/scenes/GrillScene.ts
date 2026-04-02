@@ -27,6 +27,7 @@ import { sfx } from '../utils/SoundFX';
 import { rollGrillEvent } from '../data/grill-events';
 import { CombatPanel } from '../ui/panels/CombatPanel';
 import { getPersonalityEmoji } from '../systems/CustomerEngine';
+import { useBlackMarketItem, BLACK_MARKET_ITEMS } from '../systems/BlackMarketEngine';
 import { changeUndergroundRep, addChaos, spendMoney } from '../state/GameState';
 import { canPlayerLeave, tickWorkerAI } from '../systems/WorkerGrillAI';
 import { AWAY_ACTIVITIES, rollActivityOutcome } from '../data/activities';
@@ -1885,8 +1886,18 @@ export class GrillScene extends Phaser.Scene {
     const sausageId = ws.sausageTypeId;
     // Price = player's set price (already on the price board, customer saw it before queuing)
     const basePrice = gameState.prices[sausageId] ?? SAUSAGE_MAP[sausageId]?.suggestedPrice ?? 35;
-    const finalQualityScore = ws.qualityScore * warmMultiplier;
-    let effectivePrice = basePrice; // customer pays what the board says, no discount
+    // Apply black market item bonus (auto-use best available)
+    let bmBonus = 0;
+    for (const bmItem of BLACK_MARKET_ITEMS) {
+      const result = useBlackMarketItem(bmItem.id);
+      if (result.used) {
+        bmBonus += result.qualityBonus;
+        this.showFeedback(`💀 使用${bmItem.name}`, warmSlot.x, warmSlot.y - 70, '#ff4444');
+        break; // use one per serve
+      }
+    }
+    const finalQualityScore = (ws.qualityScore + bmBonus) * warmMultiplier;
+    let effectivePrice = basePrice;
 
     // If customer is VIP (fatcat), double the effective price
     if (nextCustomer.isVIP) {
@@ -2199,8 +2210,19 @@ export class GrillScene extends Phaser.Scene {
       this.showFeedback('VIP 雙倍！', warmSlot.x, warmSlot.y - 60, '#ffcc00');
     }
 
+    // Apply black market item bonus (auto-use best available)
+    let bmBonus = 0;
+    for (const bmItem of BLACK_MARKET_ITEMS) {
+      const result = useBlackMarketItem(bmItem.id);
+      if (result.used) {
+        bmBonus += result.qualityBonus;
+        break;
+      }
+    }
+    const finalQuality = sausage.qualityScore + bmBonus;
+
     // Sell the sausage (deduct inventory, update economy)
-    const record = sellSausage(sausage.sausageTypeId, effectivePrice, sausage.qualityScore);
+    const record = sellSausage(sausage.sausageTypeId, effectivePrice, finalQuality);
     if (record) {
       this.salesLog.push(record);
     }

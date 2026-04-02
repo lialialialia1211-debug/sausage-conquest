@@ -1393,6 +1393,7 @@ body {
   overflow-y: auto;
   scrollbar-width: thin;
   scrollbar-color: var(--neon-orange) transparent;
+  pointer-events: auto;
 }
 
 .event-panel::-webkit-scrollbar {
