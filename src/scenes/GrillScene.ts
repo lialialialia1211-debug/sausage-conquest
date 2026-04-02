@@ -749,12 +749,13 @@ export class GrillScene extends Phaser.Scene {
       });
       hitZone.on('pointerdown', () => {
         if (!hasStock) return;
-        if (this.selectedInventoryType === id) {
-          this.selectedInventoryType = null;
+        // Auto-place onto first empty grill slot
+        const emptySlot = this.grillSlots.find(s => !s.sausage);
+        if (emptySlot) {
+          this.placeOnGrill(emptySlot, id);
         } else {
-          this.selectedInventoryType = id;
+          this.showFeedback('烤架滿了！', bx, centerY - 30, '#ffaa00');
         }
-        this.updateInventoryButtonStyles();
       });
 
       container.add([bgGfx, txt, nameTxt, hitZone]);
