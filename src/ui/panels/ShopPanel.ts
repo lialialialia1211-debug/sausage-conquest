@@ -6,6 +6,17 @@ import { WORKERS } from '../../data/workers';
 import { LOAN_CONFIGS } from '../../data/loans';
 import { canBorrow, takeLoan, repayLoan } from '../../systems/LoanEngine';
 import { refundMarketing } from '../../systems/EconomyEngine';
+import { joinHui, getHuiSummary, playerBid, skipBid, runAwayFromHui } from '../../systems/HuiEngine';
+import {
+  isLoanSharkUnlocked,
+  getRandomBorrower,
+  lendMoney,
+  getPlayerLoansSummary,
+  seizeBorrowerStall,
+  forgiveLoan,
+  sendDogToCollect,
+} from '../../systems/LoanSharkEngine';
+import type { PlayerLoan } from '../../systems/LoanSharkEngine';
 
 export type ShopTab = 'upgrades' | 'workers' | 'marketing' | 'loans';
 
@@ -19,6 +30,10 @@ export class ShopPanel {
   private bankSliderDisplay: HTMLElement | null = null;
   private sharkSlider: HTMLInputElement | null = null;
   private sharkSliderDisplay: HTMLElement | null = null;
+
+  // Loan shark (player as lender) state
+  private pendingBorrower: { name: string; emoji: string; reliability: number; requestAmount: number } | null = null;
+  private loanSharkRateSlider: HTMLInputElement | null = null;
 
   constructor() {
     this.panel = document.createElement('div');
@@ -536,6 +551,24 @@ export class ShopPanel {
     const container = document.createElement('div');
     container.className = 'shop-section';
 
+    // Section A: 互助會
+    container.appendChild(this.buildHuiSection());
+
+    // Section B: 地下賭場
+    container.appendChild(this.buildCasinoSection());
+
+    // Section C: 放高利貸
+    // Sample a borrower once per tab build (stable within session)
+    if (!this.pendingBorrower) {
+      this.pendingBorrower = getRandomBorrower();
+    }
+    container.appendChild(this.buildLoanSharkSection());
+
+    // Divider
+    const divider = document.createElement('hr');
+    divider.style.cssText = 'border: none; border-top: 1px solid #333; margin: 16px 0;';
+    container.appendChild(divider);
+
     // Active loan summary (if any)
     if (gameState.loans.active) {
       const activeLoanBox = this.buildActiveLoanBox();
@@ -551,6 +584,347 @@ export class ShopPanel {
     container.appendChild(sharkSection);
 
     return container;
+  }
+
+  // ── Section A: 互助會 ──────────────────────────────────────────────────────
+
+  private buildHuiSection(): HTMLElement {
+    const section = document.createElement('div');
+    section.className = 'loan-lender-section';
+    section.style.marginBottom = '12px';
+
+    const titleEl = document.createElement('div');
+    titleEl.className = 'loan-section-title';
+    titleEl.textContent = '📜 互助會（標會）';
+    section.appendChild(titleEl);
+
+    const hui = gameState.hui;
+
+    if (!hui.isActive) {
+      const descEl = document.createElement('div');
+      descEl.className = 'loan-terms';
+      descEl.textContent = '加入夜市攤販互助會，每天繳 $100，每 5 天開標一次拿回 $2500';
+      section.appendChild(descEl);
+
+      const joinBtn = document.createElement('button');
+      joinBtn.className = 'btn-neon loan-borrow-btn';
+      joinBtn.textContent = '加入互助會';
+      joinBtn.addEventListener('click', () => {
+        joinHui();
+        this.refreshLoansTab();
+      });
+      section.appendChild(joinBtn);
+    } else {
+      // Show status
+      const statusEl = document.createElement('div');
+      statusEl.className = 'loan-terms';
+      statusEl.textContent = getHuiSummary();
+      section.appendChild(statusEl);
+
+      // If today is a bidding day (day % 5 === 0 and day > 0)
+      const isBiddingDay = hui.day > 0 && hui.day % 5 === 0 && !hui.playerHasCollected;
+
+      if (isBiddingDay) {
+        const bidLabel = document.createElement('div');
+        bidLabel.className = 'loan-terms';
+        bidLabel.style.color = '#ffcc00';
+        bidLabel.textContent = '今天是開標日！輸入你的利息出價：';
+        section.appendChild(bidLabel);
+
+        const bidWrapper = document.createElement('div');
+        bidWrapper.className = 'loan-slider-wrapper';
+
+        const bidInput = document.createElement('input');
+        bidInput.type = 'number';
+        bidInput.min = '0';
+        bidInput.max = String(hui.pot);
+        bidInput.value = '0';
+        bidInput.className = 'price-slider loan-slider';
+        bidInput.style.width = '120px';
+
+        bidWrapper.appendChild(bidInput);
+        section.appendChild(bidWrapper);
+
+        const bidRow = document.createElement('div');
+        bidRow.style.display = 'flex';
+        bidRow.style.gap = '8px';
+        bidRow.style.marginTop = '6px';
+
+        const bidBtn = document.createElement('button');
+        bidBtn.className = 'btn-neon loan-borrow-btn';
+        bidBtn.textContent = '出價';
+        bidBtn.addEventListener('click', () => {
+          const result = playerBid(Number(bidInput.value));
+          alert(result.message);
+          this.refreshLoansTab();
+        });
+
+        const skipBtn = document.createElement('button');
+        skipBtn.className = 'btn-neon';
+        skipBtn.textContent = '跳過這輪';
+        skipBtn.style.marginLeft = '6px';
+        skipBtn.addEventListener('click', () => {
+          const msg = skipBid();
+          alert(msg);
+          this.refreshLoansTab();
+        });
+
+        bidRow.appendChild(bidBtn);
+        bidRow.appendChild(skipBtn);
+        section.appendChild(bidRow);
+      }
+
+      // Run away button (always visible when active)
+      const runBtn = document.createElement('button');
+      runBtn.className = 'btn-neon loan-borrow-btn--shark';
+      runBtn.style.cssText = 'margin-top:10px; background:rgba(139,0,0,0.3); border-color:#8b0000; color:#ff4444;';
+      runBtn.textContent = '跑路！捲款潛逃';
+      runBtn.addEventListener('click', () => {
+        const confirm = window.confirm('確定要捲款跑路嗎？這會嚴重損害你的聲望！');
+        if (confirm) {
+          const msg = runAwayFromHui();
+          alert(msg);
+          this.refreshLoansTab();
+        }
+      });
+      section.appendChild(runBtn);
+    }
+
+    return section;
+  }
+
+  // ── Section B: 地下賭場 ───────────────────────────────────────────────────
+
+  private buildCasinoSection(): HTMLElement {
+    const section = document.createElement('div');
+    section.className = 'loan-lender-section';
+    section.style.marginBottom = '12px';
+
+    const titleEl = document.createElement('div');
+    titleEl.className = 'loan-section-title';
+    titleEl.textContent = '🎰 地下賭場';
+    section.appendChild(titleEl);
+
+    const isUnlocked = gameState.day >= 3;
+
+    if (!isUnlocked) {
+      const lockEl = document.createElement('div');
+      lockEl.className = 'loan-ineligible';
+      lockEl.style.opacity = '0.5';
+      lockEl.textContent = '🔒 第 3 天後解鎖';
+      section.appendChild(lockEl);
+    } else {
+      const descEl = document.createElement('div');
+      descEl.className = 'loan-terms';
+      descEl.textContent = '暗巷裡的老地方，贏了是運氣輸了是人生';
+      section.appendChild(descEl);
+
+      const enterBtn = document.createElement('button');
+      enterBtn.className = 'btn-neon loan-borrow-btn';
+      enterBtn.textContent = '進入賭場';
+      enterBtn.addEventListener('click', () => {
+        EventBus.emit('show-panel', 'casino');
+        EventBus.once('casino-done', () => {
+          EventBus.emit('show-panel', 'shop');
+        });
+      });
+      section.appendChild(enterBtn);
+    }
+
+    return section;
+  }
+
+  // ── Section C: 放高利貸 ───────────────────────────────────────────────────
+
+  private buildLoanSharkSection(): HTMLElement {
+    const section = document.createElement('div');
+    section.className = 'loan-lender-section';
+    section.style.marginBottom = '12px';
+
+    const titleEl = document.createElement('div');
+    titleEl.className = 'loan-section-title';
+    titleEl.textContent = '💰 放高利貸';
+    section.appendChild(titleEl);
+
+    if (!isLoanSharkUnlocked()) {
+      const lockEl = document.createElement('div');
+      lockEl.className = 'loan-ineligible';
+      lockEl.style.opacity = '0.5';
+      lockEl.textContent = `🔒 地下聲望不足（需要 60，目前 ${gameState.undergroundRep}）`;
+      section.appendChild(lockEl);
+      return section;
+    }
+
+    // Pending borrower request
+    if (this.pendingBorrower) {
+      const b = this.pendingBorrower;
+      const requestEl = document.createElement('div');
+      requestEl.className = 'loan-terms';
+      requestEl.style.color = '#ffcc00';
+      requestEl.textContent = `${b.emoji} ${b.name} 想借 $${b.requestAmount}`;
+      section.appendChild(requestEl);
+
+      // Interest rate slider
+      const rateWrapper = document.createElement('div');
+      rateWrapper.className = 'loan-slider-wrapper';
+
+      const rateLabel = document.createElement('div');
+      rateLabel.className = 'loan-terms';
+      rateLabel.style.marginBottom = '4px';
+      rateLabel.textContent = '設定利率：';
+
+      const rateSlider = document.createElement('input');
+      rateSlider.type = 'range';
+      rateSlider.className = 'price-slider loan-slider';
+      rateSlider.min = '10';
+      rateSlider.max = '100';
+      rateSlider.step = '5';
+      rateSlider.value = '30';
+      this.loanSharkRateSlider = rateSlider;
+
+      const rateDisplay = document.createElement('div');
+      rateDisplay.className = 'loan-slider-display';
+      rateDisplay.textContent = `利率 30%，到期應收 $${Math.round(b.requestAmount * 1.3)}`;
+
+      rateSlider.addEventListener('input', () => {
+        const rate = Number(rateSlider.value) / 100;
+        const totalOwed = Math.round(b.requestAmount * (1 + rate));
+        rateDisplay.textContent = `利率 ${rateSlider.value}%，到期應收 $${totalOwed}`;
+      });
+
+      rateWrapper.appendChild(rateLabel);
+      rateWrapper.appendChild(rateSlider);
+      rateWrapper.appendChild(rateDisplay);
+      section.appendChild(rateWrapper);
+
+      const lendBtn = document.createElement('button');
+      lendBtn.className = 'btn-neon loan-borrow-btn';
+      lendBtn.textContent = `借給他 $${b.requestAmount}`;
+      lendBtn.addEventListener('click', () => {
+        const rate = this.loanSharkRateSlider ? Number(this.loanSharkRateSlider.value) / 100 : 0.3;
+        const loan = lendMoney(b.name, b.emoji, b.requestAmount, rate, b.reliability);
+        if (!loan) {
+          alert('你的錢不夠！');
+          return;
+        }
+        this.pendingBorrower = null;
+        alert(`已借出 $${b.requestAmount} 給 ${b.emoji}${b.name}，5 天後收回 $${loan.totalOwed}`);
+        this.refreshLoansTab();
+        this.refreshMoneyDisplay();
+      });
+
+      const refuseBtn = document.createElement('button');
+      refuseBtn.className = 'btn-neon';
+      refuseBtn.style.marginLeft = '8px';
+      refuseBtn.textContent = '拒絕';
+      refuseBtn.addEventListener('click', () => {
+        this.pendingBorrower = null;
+        this.refreshLoansTab();
+      });
+
+      const btnRow = document.createElement('div');
+      btnRow.style.display = 'flex';
+      btnRow.style.gap = '8px';
+      btnRow.style.marginTop = '6px';
+      btnRow.appendChild(lendBtn);
+      btnRow.appendChild(refuseBtn);
+      section.appendChild(btnRow);
+    } else {
+      const noOneEl = document.createElement('div');
+      noOneEl.className = 'loan-terms';
+      noOneEl.style.opacity = '0.7';
+      noOneEl.textContent = '今天沒有人來借錢。';
+      section.appendChild(noOneEl);
+    }
+
+    // Active / defaulted loans list
+    const activeLoansList = getPlayerLoansSummary();
+    if (activeLoansList.length > 0) {
+      const listTitle = document.createElement('div');
+      listTitle.className = 'loan-terms';
+      listTitle.style.cssText = 'margin-top:10px; font-weight:bold;';
+      listTitle.textContent = '目前放款紀錄：';
+      section.appendChild(listTitle);
+
+      for (const loan of activeLoansList) {
+        section.appendChild(this.buildPlayerLoanRow(loan));
+      }
+    }
+
+    return section;
+  }
+
+  private buildPlayerLoanRow(loan: PlayerLoan): HTMLElement {
+    const row = document.createElement('div');
+    row.className = 'loan-active-box';
+    row.style.marginTop = '6px';
+
+    const infoEl = document.createElement('div');
+    infoEl.className = 'loan-terms';
+    infoEl.textContent =
+      `${loan.borrowerEmoji} ${loan.borrowerName}｜借 $${loan.principal}｜到期應收 $${loan.totalOwed}｜第 ${loan.dueDay} 天到期`;
+
+    const statusEl = document.createElement('div');
+    statusEl.style.fontSize = '0.85em';
+    statusEl.style.marginTop = '2px';
+
+    if (loan.status === 'active') {
+      statusEl.style.color = '#4caf50';
+      statusEl.textContent = '狀態：等待還款中';
+    } else {
+      statusEl.style.color = '#ff4444';
+      statusEl.textContent = '狀態：賴帳！';
+    }
+
+    row.appendChild(infoEl);
+    row.appendChild(statusEl);
+
+    // Action buttons for defaulted loans
+    if (loan.status === 'defaulted') {
+      const btnRow = document.createElement('div');
+      btnRow.style.display = 'flex';
+      btnRow.style.gap = '6px';
+      btnRow.style.marginTop = '6px';
+      btnRow.style.flexWrap = 'wrap';
+
+      const dogBtn = document.createElement('button');
+      dogBtn.className = 'btn-neon';
+      dogBtn.style.fontSize = '0.8em';
+      dogBtn.textContent = '🐕 派旺財討債';
+      dogBtn.addEventListener('click', () => {
+        const msg = sendDogToCollect(loan.id);
+        alert(msg);
+        this.refreshLoansTab();
+        this.refreshMoneyDisplay();
+      });
+
+      const seizeBtn = document.createElement('button');
+      seizeBtn.className = 'btn-neon';
+      seizeBtn.style.cssText = 'font-size:0.8em; border-color:#ff9800; color:#ff9800;';
+      seizeBtn.textContent = '🏪 收攤位';
+      seizeBtn.addEventListener('click', () => {
+        const msg = seizeBorrowerStall(loan.id);
+        alert(msg);
+        this.refreshLoansTab();
+      });
+
+      const forgiveBtn = document.createElement('button');
+      forgiveBtn.className = 'btn-neon';
+      forgiveBtn.style.cssText = 'font-size:0.8em; border-color:#aaa; color:#aaa;';
+      forgiveBtn.textContent = '算了放過他';
+      forgiveBtn.addEventListener('click', () => {
+        const msg = forgiveLoan(loan.id);
+        alert(msg);
+        this.refreshLoansTab();
+      });
+
+      btnRow.appendChild(dogBtn);
+      btnRow.appendChild(seizeBtn);
+      btnRow.appendChild(forgiveBtn);
+      row.appendChild(btnRow);
+    }
+
+    return row;
   }
 
   private buildActiveLoanBox(): HTMLElement {
@@ -828,6 +1202,20 @@ export class ShopPanel {
     const content = this.tabContents.get('loans');
     if (!content) return;
     content.textContent = '';
+
+    // Section A: 互助會
+    content.appendChild(this.buildHuiSection());
+
+    // Section B: 地下賭場
+    content.appendChild(this.buildCasinoSection());
+
+    // Section C: 放高利貸
+    content.appendChild(this.buildLoanSharkSection());
+
+    // Divider
+    const divider = document.createElement('hr');
+    divider.style.cssText = 'border: none; border-top: 1px solid #333; margin: 16px 0;';
+    content.appendChild(divider);
 
     if (gameState.loans.active) {
       content.appendChild(this.buildActiveLoanBox());

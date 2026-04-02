@@ -273,20 +273,6 @@ export class MorningPanel {
     });
     qtyControl.appendChild(maxBtn);
 
-    // "最小" button — sets quantity to 1 (minimum purchase unit)
-    const minBtn = document.createElement('button');
-    minBtn.className = 'qty-btn btn-neon-cyan';
-    minBtn.textContent = '最小';
-    minBtn.style.minWidth = '42px';
-    minBtn.style.padding = '4px 6px';
-    minBtn.style.fontSize = '13px';
-    minBtn.addEventListener('click', () => {
-      const maxAffordable = calcMaxAffordable();
-      const minVal = maxAffordable >= 1 ? 1 : 0;
-      this.setQuantity(sausage, minVal, qtyInput, subtotalEl);
-    });
-    qtyControl.appendChild(minBtn);
-
     qtyRowEl.appendChild(qtyControl);
     qtyRowEl.appendChild(subtotalEl);
     card.appendChild(qtyRowEl);

@@ -12,6 +12,7 @@ import type { EndingData } from './panels/EndingPanel';
 import { ShopPanel } from './panels/ShopPanel';
 import { SausageBoxPanel } from './panels/SausageBoxPanel';
 import { BlackMarketPanel } from './panels/BlackMarketPanel';
+import { CasinoPanel } from './panels/CasinoPanel';
 import './styles/neon.css';
 
 // UIManager: controls which HTML overlay panel is shown/hidden
@@ -120,6 +121,10 @@ export class UIManager {
       case 'black-market': {
         const bmPanel = new BlackMarketPanel();
         return { instance: bmPanel };
+      }
+      case 'casino': {
+        const casinoPanel = new CasinoPanel();
+        return { instance: casinoPanel };
       }
       default:           return null;
     }

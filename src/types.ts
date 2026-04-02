@@ -278,3 +278,41 @@ export interface CustomerLoyaltyRecord {
   badge: LoyaltyBadge;       // current loyalty tier
   lastVisitDay: number;      // last day they visited
 }
+
+// ── 放高利貸系統 ──
+export interface PlayerLoan {
+  id: string;
+  borrowerName: string;
+  borrowerEmoji: string;
+  principal: number;
+  interestRate: number;
+  totalOwed: number;
+  dayLent: number;
+  dueDay: number;
+  status: 'active' | 'repaid' | 'defaulted' | 'seized';
+  reliability: number;
+}
+
+// ── 標會系統 ──
+export interface HuiMember {
+  id: string;
+  name: string;
+  emoji: string;
+  reliability: number;    // 0-1, chance they actually pay (1.0 = always pays)
+  hasCollected: boolean;  // whether they already collected the pot
+  isPlayer: boolean;
+}
+
+export interface HuiState {
+  isActive: boolean;        // whether player has joined a hui
+  day: number;              // which day of the hui cycle (1-5)
+  cycle: number;            // which 5-day cycle (1, 2, 3...)
+  members: HuiMember[];     // 5 members
+  pot: number;              // current accumulated pot
+  dailyFee: number;         // $100 per day
+  playerHasCollected: boolean;  // player already took the pot
+  playerBidAmount: number;  // player's last bid (0 if not bidding)
+  runaway: boolean;         // player ran away with the money
+  totalPaidIn: number;      // how much player has paid in total
+  totalCollected: number;   // how much player has collected
+}

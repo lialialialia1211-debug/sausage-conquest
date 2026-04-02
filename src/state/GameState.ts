@@ -1,5 +1,5 @@
 import { EventBus } from '../utils/EventBus';
-import type { CustomerLoyaltyRecord, GamePhase, LoanState, ManagementFeeState, OrderScore, SaleRecord, WarmingSausage } from '../types';
+import type { CustomerLoyaltyRecord, GamePhase, HuiState, LoanState, ManagementFeeState, OrderScore, PlayerLoan, SaleRecord, WarmingSausage } from '../types';
 
 // Single source of truth for all game state
 // Always create new objects rather than mutating (immutability principle)
@@ -71,6 +71,20 @@ export const gameState = {
   customerLoyalty: {} as Record<string, CustomerLoyaltyRecord>,
   dailyOrderScores: [] as OrderScore[],  // scores for today's orders, reset daily
   battleBonus: 0,  // accumulated from scouting activities
+  playerLoans: [] as PlayerLoan[],
+  hui: {
+    isActive: false,
+    day: 0,
+    cycle: 0,
+    members: [],
+    pot: 0,
+    dailyFee: 100,
+    playerHasCollected: false,
+    playerBidAmount: 0,
+    runaway: false,
+    totalPaidIn: 0,
+    totalCollected: 0,
+  } as HuiState,
 };
 
 // Update state and notify UI via EventBus
