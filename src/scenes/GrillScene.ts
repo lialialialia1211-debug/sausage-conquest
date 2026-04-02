@@ -25,7 +25,7 @@ import { sfx } from '../utils/SoundFX';
 const GAME_DURATION = 90;      // seconds
 const MAX_GRILL_SLOTS = 4;     // 6 if grill-expand upgrade
 const GRILL_Y_FRAC = 0.44;    // grill vertical position as fraction of screen height
-const MAX_WARMING_SLOTS = 4;
+// Warming zone has no fixed limit — slots are created dynamically
 
 // ── Colors / fonts ──────────────────────────────────────────────────────────
 const COLOR_BG_TOP = 0x100500;
@@ -41,6 +41,7 @@ interface GrillSlot {
   x: number;
   y: number;
   placeholderGfx: Phaser.GameObjects.Graphics | null;
+  serveBtn: Phaser.GameObjects.Text | null;
 }
 
 interface WarmingSlot {
@@ -201,6 +202,26 @@ export class GrillScene extends Phaser.Scene {
         this.showFeedback('焦了！還能賣但有風險', slot.x, slot.y - 50, '#ff6600');
         (slot as any).__burntWarnShown = true;
       }
+
+      // Show "起鍋" button when both sides have been cooked (non-heated side >= 20)
+      const nonHeated = updated.currentSide === 'bottom' ? updated.topDoneness : updated.bottomDoneness;
+      if (nonHeated >= 20 && !slot.serveBtn) {
+        const btn = this.add.text(slot.x, slot.y - 52, '[ 起鍋 ]', {
+          fontSize: '13px',
+          fontFamily: FONT,
+          color: '#39ff14',
+          backgroundColor: '#000000cc',
+          padding: { x: 6, y: 3 },
+        }).setOrigin(0.5).setDepth(50).setInteractive({ cursor: 'pointer' });
+
+        btn.on('pointerdown', () => {
+          if (slot.sprite) this.moveToWarming(slot, slot.sprite);
+        });
+        btn.on('pointerover', () => btn.setColor('#ffffff'));
+        btn.on('pointerout', () => btn.setColor('#39ff14'));
+
+        slot.serveBtn = btn;
+      }
     }
 
     // Tick warming zone timers
@@ -358,7 +379,7 @@ export class GrillScene extends Phaser.Scene {
 
     for (let i = 0; i < slotCount; i++) {
       const x = startX + i * (totalW / slotCount);
-      const slot: GrillSlot = { sprite: null, sausage: null, x, y: grillY, placeholderGfx: null };
+      const slot: GrillSlot = { sprite: null, sausage: null, x, y: grillY, placeholderGfx: null, serveBtn: null };
       this.grillSlots.push(slot);
       this.drawEmptySlotPlaceholder(slot);
     }
@@ -426,68 +447,85 @@ export class GrillScene extends Phaser.Scene {
     }
   }
 
+  // Warming zone config (stored for dynamic slot creation)
+  private wzX = 0;
+  private wzY = 0;
+  private wzSlotW = 0;
+  private readonly wzSlotH = 36; // compact height
+
   private setupWarmingZone(width: number, height: number): void {
-    const wzX = width * 0.70;
-    const wzY = height * GRILL_Y_FRAC - 60;
-    const slotH = 60;
-    const slotW = width * 0.27;
+    this.wzX = width * 0.70;
+    this.wzY = height * GRILL_Y_FRAC - 60;
+    this.wzSlotW = width * 0.27;
 
     // Zone label
-    this.add.text(wzX + slotW / 2, wzY - 22, '保溫區', {
-      fontSize: '13px',
+    this.add.text(this.wzX + this.wzSlotW / 2, this.wzY - 22, '保溫區（點擊出餐）', {
+      fontSize: '12px',
       fontFamily: FONT,
       color: COLOR_DIM,
     }).setOrigin(0.5);
 
-    for (let i = 0; i < MAX_WARMING_SLOTS; i++) {
-      const sy = wzY + i * (slotH + 6);
-      const wx = wzX + slotW / 2;
-      const wy = sy + slotH / 2;
-
-      const bgGfx = this.add.graphics();
-      bgGfx.lineStyle(1, 0x664422, 0.5);
-      bgGfx.fillStyle(0x1a0800, 0.7);
-      bgGfx.fillRoundedRect(wzX, sy, slotW, slotH, 4);
-      bgGfx.strokeRoundedRect(wzX, sy, slotW, slotH, 4);
-
-      const infoText = this.add.text(wx, wy - 8, '空', {
-        fontSize: '12px',
-        fontFamily: FONT,
-        color: COLOR_DIM,
-      }).setOrigin(0.5);
-
-      const stateText = this.add.text(wx, wy + 10, '', {
-        fontSize: '11px',
-        fontFamily: FONT,
-        color: '#888888',
-      }).setOrigin(0.5);
-
-      const slot: WarmingSlot = { sausage: null, x: wx, y: wy, bgGfx, infoText, stateText };
-      this.warmingSlots.push(slot);
-
-      // Make slot clickable — serve to next customer
-      const hitZone = this.add.zone(wx, wy, slotW, slotH).setInteractive({ cursor: 'pointer' });
-      hitZone.on('pointerdown', () => {
-        this.serveFromWarming(slot);
-      });
-      hitZone.on('pointerover', () => {
-        if (slot.sausage) {
-          bgGfx.clear();
-          bgGfx.lineStyle(2, 0xff9900, 0.9);
-          bgGfx.fillStyle(0x2a1000, 0.85);
-          bgGfx.fillRoundedRect(wzX, sy, slotW, slotH, 4);
-          bgGfx.strokeRoundedRect(wzX, sy, slotW, slotH, 4);
-        }
-      });
-      hitZone.on('pointerout', () => {
-        if (slot.bgGfx) this.redrawWarmingSlotBg(slot, wzX, sy, slotW, slotH);
-      });
-      // Store dimensions for redraw
-      (slot as any).__x = wzX;
-      (slot as any).__y = sy;
-      (slot as any).__w = slotW;
-      (slot as any).__h = slotH;
+    // Create initial 4 empty slots
+    for (let i = 0; i < 4; i++) {
+      this.createWarmingSlotVisual();
     }
+  }
+
+  private createWarmingSlotVisual(): WarmingSlot {
+    const idx = this.warmingSlots.length;
+    const gap = 4;
+    const sy = this.wzY + idx * (this.wzSlotH + gap);
+    const wx = this.wzX + this.wzSlotW / 2;
+    const wy = sy + this.wzSlotH / 2;
+
+    const bgGfx = this.add.graphics();
+    bgGfx.lineStyle(1, 0x664422, 0.5);
+    bgGfx.fillStyle(0x1a0800, 0.7);
+    bgGfx.fillRoundedRect(this.wzX, sy, this.wzSlotW, this.wzSlotH, 3);
+    bgGfx.strokeRoundedRect(this.wzX, sy, this.wzSlotW, this.wzSlotH, 3);
+
+    const infoText = this.add.text(wx, wy, '', {
+      fontSize: '11px',
+      fontFamily: FONT,
+      color: COLOR_DIM,
+    }).setOrigin(0.5);
+
+    const stateText = this.add.text(this.wzX + this.wzSlotW - 6, wy, '', {
+      fontSize: '10px',
+      fontFamily: FONT,
+      color: '#888888',
+    }).setOrigin(1, 0.5);
+
+    const slot: WarmingSlot = { sausage: null, x: wx, y: wy, bgGfx, infoText, stateText };
+    this.warmingSlots.push(slot);
+
+    // Make clickable
+    const hitZone = this.add.zone(wx, wy, this.wzSlotW, this.wzSlotH).setInteractive({ cursor: 'pointer' });
+    hitZone.on('pointerdown', () => this.serveFromWarming(slot));
+    hitZone.on('pointerover', () => {
+      if (slot.sausage && slot.bgGfx) {
+        slot.bgGfx.clear();
+        slot.bgGfx.lineStyle(2, 0xff9900, 0.9);
+        slot.bgGfx.fillStyle(0x2a1000, 0.85);
+        slot.bgGfx.fillRoundedRect(this.wzX, sy, this.wzSlotW, this.wzSlotH, 3);
+        slot.bgGfx.strokeRoundedRect(this.wzX, sy, this.wzSlotW, this.wzSlotH, 3);
+      }
+    });
+    hitZone.on('pointerout', () => {
+      if (slot.bgGfx) this.redrawWarmingSlotBg(slot, this.wzX, sy, this.wzSlotW, this.wzSlotH);
+    });
+
+    (slot as any).__x = this.wzX;
+    (slot as any).__y = sy;
+    (slot as any).__w = this.wzSlotW;
+    (slot as any).__h = this.wzSlotH;
+
+    return slot;
+  }
+
+  // Dynamically add a new warming slot when all are full (no limit)
+  private addWarmingSlot(): WarmingSlot {
+    return this.createWarmingSlotVisual();
   }
 
   private redrawWarmingSlotBg(slot: WarmingSlot, x: number, y: number, w: number, h: number): void {
@@ -535,8 +573,8 @@ export class GrillScene extends Phaser.Scene {
       timeLeft = '冷了但還能賣';
     }
 
-    const overnightTag = ws.isOvernight ? ' [隔夜]' : '';
-    slot.infoText.setText(`${emoji} ${ws.grillQuality}${overnightTag} | 點擊出餐`);
+    const overnightTag = ws.isOvernight ? '[隔夜]' : '';
+    slot.infoText.setText(`${emoji} ${overnightTag} 點擊出餐`);
     slot.stateText.setText(`${stateLabel}  ${timeLeft}`);
     slot.stateText.setColor(stateColor);
 
@@ -1009,11 +1047,6 @@ export class GrillScene extends Phaser.Scene {
       }
     });
 
-    // Single-click on sausage = move to warming zone (起鍋)
-    sprite.onServe(() => {
-      this.moveToWarming(slot, sprite);
-    });
-
     slot.sausage = sausage;
     slot.sprite = sprite;
     (slot as any).__carbonWarnShown = false;
@@ -1042,11 +1075,10 @@ export class GrillScene extends Phaser.Scene {
       this.showFeedback('有點焦，小心客人反應', slot.x, slot.y - 50, '#ff6600');
     }
 
-    // Find empty warming slot
-    const emptyWarmSlot = this.warmingSlots.find(ws => !ws.sausage);
+    // Find empty warming slot, or create a new one dynamically (no limit)
+    let emptyWarmSlot = this.warmingSlots.find(ws => !ws.sausage);
     if (!emptyWarmSlot) {
-      this.showFeedback('保溫區已滿！', slot.x, slot.y - 50, '#ffaa00');
-      return;
+      emptyWarmSlot = this.addWarmingSlot();
     }
 
     const warmingSausage: WarmingSausage = {
@@ -1060,6 +1092,12 @@ export class GrillScene extends Phaser.Scene {
 
     emptyWarmSlot.sausage = warmingSausage;
     this.updateWarmingSlotDisplay(emptyWarmSlot);
+
+    // Clean up serve button
+    if (slot.serveBtn) {
+      slot.serveBtn.destroy();
+      slot.serveBtn = null;
+    }
 
     // Animate sausage sprite flying to warming zone
     slot.sausage = { ...slot.sausage, served: true };

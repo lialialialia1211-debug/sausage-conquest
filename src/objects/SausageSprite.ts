@@ -40,7 +40,7 @@ export class SausageSprite extends Phaser.GameObjects.Container {
 
   private isFlipping = false;
   private onFlipCallback: (() => void) | null = null;
-  private onServeCallback: (() => void) | null = null;
+  // onServe is no longer used — serving is handled via "起鍋" button in GrillScene
   private smokeParticles: Phaser.GameObjects.Text[] = [];
   private _data: GrillingSausage;
 
@@ -118,27 +118,12 @@ export class SausageSprite extends Phaser.GameObjects.Container {
     return this;
   }
 
-  onServe(cb: () => void): this {
-    this.onServeCallback = cb;
-    return this;
-  }
+  // onServe removed — serving handled via "起鍋" button in GrillScene
 
   private handleClick(): void {
     if (this._data.served || this.isFlipping) return;
-
-    // Simple rule: if the non-heated side is still raw (< 20), click = flip
-    // Otherwise both sides have been cooked → click = serve (move to warming zone)
-    const nonHeatedDoneness = this._data.currentSide === 'bottom'
-      ? this._data.topDoneness
-      : this._data.bottomDoneness;
-
-    if (nonHeatedDoneness < 20) {
-      // Other side still raw — flip it
-      this.triggerFlip();
-    } else {
-      // Both sides have some cooking — serve to warming zone
-      if (this.onServeCallback) this.onServeCallback();
-    }
+    // Click on sausage = ALWAYS flip. Serving is done via separate "起鍋" button.
+    this.triggerFlip();
   }
 
   triggerFlip(): void {
