@@ -4,6 +4,7 @@ import { gameState, updateGameState } from '../state/GameState';
 import { spoilOvernight } from '../systems/EconomyEngine';
 import { processAIDaily, checkNewOpponent } from '../systems/AIEngine';
 import { STORY_BEATS } from '../data/dialogue';
+import { checkAndUnlockBlackMarket } from '../systems/BlackMarketEngine';
 
 // Sausage unlock schedule: [day, sausageId, name]
 const UNLOCK_SCHEDULE: [number, string, string][] = [
@@ -70,6 +71,14 @@ export class MorningScene extends Phaser.Scene {
           unlockedSausages: [...gameState.unlockedSausages, id],
         });
         notifications.push(`新品種解鎖：${name}！`);
+      }
+    }
+
+    // Check black market unlock
+    if (gameState.day >= 5 && gameState.undergroundRep >= 20 && !gameState.blackMarketUnlocked) {
+      const unlocked = checkAndUnlockBlackMarket();
+      if (unlocked) {
+        notifications.push('💀 新管道解鎖：黑市供應商現在可以聯絡了。');
       }
     }
 

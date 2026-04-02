@@ -109,6 +109,53 @@ export class SummaryPanel {
       this.panel.appendChild(warnEl);
     }
 
+    // Chaos log (only shown if there were chaos actions today)
+    if (gameState.dailyChaosActions.length > 0) {
+      const chaosLog = document.createElement('div');
+      chaosLog.className = 'chaos-log';
+
+      const chaosTitle = document.createElement('h3');
+      chaosTitle.textContent = '🌀 今日騷操作紀錄';
+      chaosLog.appendChild(chaosTitle);
+
+      gameState.dailyChaosActions.forEach(action => {
+        const entryEl = document.createElement('div');
+        entryEl.className = 'chaos-entry';
+        entryEl.style.color = '#cc88ff';
+        entryEl.textContent = `› ${action}`;
+        chaosLog.appendChild(entryEl);
+      });
+
+      const totalEl = document.createElement('div');
+      totalEl.className = 'chaos-total';
+      totalEl.style.fontWeight = 'bold';
+      totalEl.textContent = `累積混沌指數：${gameState.chaosCount} pts`;
+      chaosLog.appendChild(totalEl);
+
+      this.panel.appendChild(chaosLog);
+    }
+
+    // Dual reputation status
+    const dualRep = document.createElement('div');
+    dualRep.className = 'dual-rep';
+
+    const officialRepEl = document.createElement('div');
+    officialRepEl.textContent = `⭐ 官方聲望：${gameState.reputation}/100`;
+    dualRep.appendChild(officialRepEl);
+
+    const undergroundRepEl = document.createElement('div');
+    undergroundRepEl.textContent = `💀 地下聲望：${gameState.undergroundRep}/100`;
+    dualRep.appendChild(undergroundRepEl);
+
+    if (gameState.reputation > 70 && gameState.undergroundRep > 70 && gameState.reputationCrisisDay < 0) {
+      const warningEl = document.createElement('div');
+      warningEl.style.color = '#ff4444';
+      warningEl.textContent = '⚠️ 警告：記者正在追查你的雙面人生...';
+      dualRep.appendChild(warningEl);
+    }
+
+    this.panel.appendChild(dualRep);
+
     // Button
     const btnCenter = document.createElement('div');
     btnCenter.className = 'btn-center';

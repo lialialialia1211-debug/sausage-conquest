@@ -21,6 +21,9 @@ import { CustomerQueue } from '../objects/CustomerQueue';
 import type { SaleRecord, Customer, WarmingSausage, GrillEvent, GrillEventChoice, GrillEventOutcome } from '../types';
 import { sfx } from '../utils/SoundFX';
 import { rollGrillEvent } from '../data/grill-events';
+import { CombatPanel } from '../ui/panels/CombatPanel';
+import { getPersonalityEmoji } from '../systems/CustomerEngine';
+import { changeUndergroundRep, addChaos } from '../state/GameState';
 
 // ── Layout constants ────────────────────────────────────────────────────────
 const GAME_DURATION = 90;      // seconds
@@ -118,6 +121,10 @@ export class GrillScene extends Phaser.Scene {
   private fireGlowGfx!: Phaser.GameObjects.Graphics;
   private timerFlashTween: Phaser.Tweens.Tween | null = null;
 
+  // ── Combat state ─────────────────────────────────────────────────────────
+  private currentCombatPanel: CombatPanel | null = null;
+  private combatCustomersHandled: Set<string> = new Set();
+
   constructor() {
     super({ key: 'GrillScene' });
   }
@@ -159,6 +166,8 @@ export class GrillScene extends Phaser.Scene {
     this.isShowingGrillEvent = false;
     this.triggeredEventIds = [];
     this.grillEventOverlay = null;
+    this.currentCombatPanel = null;
+    this.combatCustomersHandled = new Set();
     this.workerAdiTimer = 0;
     this.workerMeiTimer = 0;
     this.workerDadActive = gameState.hiredWorkers.includes('dad');
@@ -177,6 +186,17 @@ export class GrillScene extends Phaser.Scene {
     this.setupInventoryPanel(width, height);
     this.setupHUD(width, height);
     this.setupEndButton(width, height);
+
+    // Bodyguard indicator
+    if (gameState.hasBodyguard) {
+      this.add.text(10, 10, '🥊 保鑣在場', {
+        fontSize: '14px',
+        fontFamily: FONT,
+        color: '#44ff44',
+        stroke: '#000000',
+        strokeThickness: 2,
+      }).setDepth(10);
+    }
 
     // Load overnight sausages into warming zone
     this.loadOvernightSausages();
@@ -233,6 +253,17 @@ export class GrillScene extends Phaser.Scene {
           }
           this.customers.push(c);
           this.customerQueue.addCustomer(c);
+
+          // Personality-based triggers
+          if (c.personality === 'influencer') {
+            this.showFeedback('📱 網紅正在直播你的攤位！', this.scale.width / 2, this.scale.height * 0.1, '#44aaff');
+          } else if (
+            ['karen', 'enforcer', 'inspector', 'spy'].includes(c.personality) &&
+            !this.combatCustomersHandled.has(c.id)
+          ) {
+            this.combatCustomersHandled.add(c.id);
+            this.triggerCombat(c);
+          }
         }
       }
     }
@@ -1172,6 +1203,52 @@ export class GrillScene extends Phaser.Scene {
     }
   }
 
+  // ── Combat trigger ────────────────────────────────────────────────────────
+
+  private triggerCombat(customer: Customer): void {
+    this.paused = true;
+    const witnessCount = Math.floor(Math.random() * 5); // 0-4
+
+    // Show pre-combat notification using personality emoji
+    const emoji = getPersonalityEmoji(customer.personality);
+    this.showFeedback(
+      `${emoji} 麻煩來了！`,
+      this.scale.width / 2,
+      this.scale.height * 0.25,
+      '#ff4444',
+    );
+
+    const panelArea = document.getElementById('panel-area');
+    if (!panelArea) {
+      this.paused = false;
+      return;
+    }
+
+    this.currentCombatPanel = new CombatPanel({
+      personality: customer.personality,
+      witnessCount,
+    });
+    panelArea.appendChild(this.currentCombatPanel.getElement());
+
+    EventBus.once('combat-done', (result?: { undergroundRepDelta?: number; chaosPoints?: number }) => {
+      if (this.currentCombatPanel) {
+        const el = this.currentCombatPanel.getElement();
+        if (el.parentElement) el.parentElement.removeChild(el);
+        this.currentCombatPanel.destroy();
+        this.currentCombatPanel = null;
+      }
+      // applyCombatOutcome inside CombatPanel handles the main effects.
+      // Apply any additional rep/chaos passed through the event for external overrides.
+      if (result?.undergroundRepDelta !== undefined && result.undergroundRepDelta !== 0) {
+        changeUndergroundRep(result.undergroundRepDelta);
+      }
+      if (result?.chaosPoints !== undefined && result.chaosPoints > 0) {
+        addChaos(result.chaosPoints, `戰鬥後果（${getPersonalityEmoji(customer.personality)}）`);
+      }
+      this.paused = false;
+    });
+  }
+
   // ── Grill event tick ──────────────────────────────────────────────────────
 
   private tickGrillEvents(dt: number): void {
@@ -1607,7 +1684,15 @@ export class GrillScene extends Phaser.Scene {
     // Price = player's set price (already on the price board, customer saw it before queuing)
     const basePrice = gameState.prices[sausageId] ?? SAUSAGE_MAP[sausageId]?.suggestedPrice ?? 35;
     const finalQualityScore = ws.qualityScore * warmMultiplier;
-    const price = basePrice; // customer pays what the board says, no discount
+    let effectivePrice = basePrice; // customer pays what the board says, no discount
+
+    // If customer is VIP (fatcat), double the effective price
+    if (nextCustomer.isVIP) {
+      effectivePrice = basePrice * 2;
+      this.showFeedback('🤑 冤大頭付了雙倍！', warmSlot.x, warmSlot.y - 60, '#ffcc00');
+    }
+
+    const price = effectivePrice;
 
     // Always sell — customer always takes the sausage
     const record = sellSausage(sausageId, price, finalQualityScore);
@@ -1795,6 +1880,14 @@ export class GrillScene extends Phaser.Scene {
     if (this.isDone) return;
     this.isDone = true;
 
+    // Clean up any active combat panel
+    if (this.currentCombatPanel) {
+      this.currentCombatPanel.destroy();
+      this.currentCombatPanel = null;
+    }
+    this.combatCustomersHandled.clear();
+    EventBus.off('combat-done');
+
     // Stop timer flash tween if running
     if (this.timerFlashTween) {
       this.timerFlashTween.stop();
@@ -1926,6 +2019,14 @@ export class GrillScene extends Phaser.Scene {
 
   shutdown(): void {
     this.time.removeAllEvents();
+
+    // Clean up combat panel if still active
+    if (this.currentCombatPanel) {
+      this.currentCombatPanel.destroy();
+      this.currentCombatPanel = null;
+    }
+    this.combatCustomersHandled.clear();
+    EventBus.off('combat-done');
 
     if (this.timerFlashTween) {
       this.timerFlashTween.stop();

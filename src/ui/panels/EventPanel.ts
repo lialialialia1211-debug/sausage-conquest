@@ -29,6 +29,10 @@ export class EventPanel {
       customer: '奧客來了',
       gangster: '黑道警告',
       positive: '好事發生',
+      underground: '地下事件',
+      social: '社會壓力',
+      combat: '衝突事件',
+      chaos: '混沌事件',
     };
     badge.textContent = categoryLabels[event.category] ?? '突發事件';
     badge.dataset['category'] = event.category;

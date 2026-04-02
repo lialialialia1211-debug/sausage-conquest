@@ -1,5 +1,5 @@
 import { EventBus } from '../utils/EventBus';
-import type { GamePhase, LoanState, SaleRecord, WarmingSausage } from '../types';
+import type { GamePhase, LoanState, ManagementFeeState, SaleRecord, WarmingSausage } from '../types';
 
 // Single source of truth for all game state
 // Always create new objects rather than mutating (immutability principle)
@@ -52,6 +52,22 @@ export const gameState = {
   grillEventCooldowns: {} as Record<string, number>,
   // Whether worker salaries have been paid today (reset each day)
   workerSalaryPaid: false,
+  undergroundRep: 0,
+  reputationCrisisDay: -1,
+  chaosCount: 0,
+  dailyChaosActions: [] as string[],
+  hasBodyguard: false,
+  bodyguardDaysLeft: 0,
+  managementFee: {
+    weeklyAmount: 500,
+    lastPaidDay: 0,
+    isResisting: false,
+    resistDays: 0,
+    bribedInspector: false,
+    rebranded: false,
+  } as ManagementFeeState,
+  blackMarketUnlocked: false,
+  blackMarketStock: {} as Record<string, number>,
 };
 
 // Update state and notify UI via EventBus
@@ -80,6 +96,16 @@ export function advanceDay(): void {
     workerSalaryPaid: false,
     // grillEventCooldowns persist across days — do NOT reset here
   });
+  // Bodyguard countdown (use updateGameState for reactivity)
+  if (gameState.bodyguardDaysLeft > 0) {
+    const newDays = gameState.bodyguardDaysLeft - 1;
+    updateGameState({
+      bodyguardDaysLeft: newDays,
+      hasBodyguard: newDays > 0,
+    });
+  }
+  // Reset daily chaos log
+  updateGameState({ dailyChaosActions: [] });
 }
 
 export function addMoney(amount: number): void {
@@ -95,4 +121,19 @@ export function spendMoney(amount: number): boolean {
 export function changeReputation(delta: number): void {
   const newRep = Math.max(0, Math.min(100, gameState.reputation + delta));
   updateGameState({ reputation: newRep });
+}
+
+export function changeUndergroundRep(delta: number): void {
+  const newRep = Math.max(0, Math.min(100, gameState.undergroundRep + delta));
+  updateGameState({ undergroundRep: newRep });
+}
+
+export function addChaos(points: number, description: string): void {
+  const newCount = gameState.chaosCount + points;
+  const newActions = [...gameState.dailyChaosActions, description];
+  updateGameState({ chaosCount: newCount, dailyChaosActions: newActions });
+}
+
+export function isManagementFeeDue(): boolean {
+  return gameState.day % 7 === 0 && gameState.day > 0;
 }

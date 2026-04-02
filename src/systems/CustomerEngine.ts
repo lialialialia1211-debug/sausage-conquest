@@ -1,5 +1,5 @@
 // CustomerEngine — pure logic, no Phaser dependency, no UI code
-import type { Customer, BattleType } from '../types';
+import type { Customer, BattleType, CustomerPersonality } from '../types';
 import { SAUSAGE_MAP, SAUSAGE_TYPES } from '../data/sausages';
 import { gameState } from '../state/GameState';
 
@@ -18,12 +18,15 @@ export function generateCustomers(gridFootTraffic: number, marketingBonus: numbe
     baseCount = Math.round(baseCount * 1.3);
   }
 
-  // Cap at 60 customers per session
-  baseCount = Math.min(baseCount, 60);
+  // Cap at 80 customers per session
+  baseCount = Math.min(baseCount, 80);
 
   const customers: Customer[] = [];
 
   const battleTypes: BattleType[] = ['normal', 'ranged', 'aoe', 'tank', 'assassin', 'support'];
+
+  // Track whether an enforcer has been assigned this generation pass
+  let enforcerAssigned = false;
 
   for (let i = 0; i < baseCount; i++) {
     // Random max price: 80-150% of typical price range
@@ -42,11 +45,39 @@ export function generateCustomers(gridFootTraffic: number, marketingBonus: numbe
       ? battleTypes[Math.floor(Math.random() * battleTypes.length)]
       : undefined;
 
+    // Personality assignment
+    let personality: CustomerPersonality = 'normal';
+    let isVIP: boolean | undefined;
+
+    if (gameState.day % 7 === 5 && i === 0 && !enforcerAssigned) {
+      // First customer on enforcer day is always an enforcer
+      personality = 'enforcer';
+      enforcerAssigned = true;
+    } else {
+      const roll = Math.random();
+      if (roll < 0.15) {
+        personality = 'karen';
+      } else if (roll < 0.23) {
+        personality = 'fatcat';
+        isVIP = true;
+      } else if (roll < 0.28 && gameState.day >= 3) {
+        personality = 'inspector';
+      } else if (roll < 0.32 && gameState.day >= 6) {
+        personality = 'spy';
+      } else if (roll < 0.35 && gameState.day >= 4) {
+        personality = 'influencer';
+      } else {
+        personality = 'normal';
+      }
+    }
+
     customers.push({
       id: `customer-${++customerIdCounter}`,
       patience: 30 + Math.random() * 30, // 30-60 seconds
       preferredType,
       maxPrice,
+      personality,
+      ...(isVIP !== undefined ? { isVIP } : {}),
     });
   }
 
@@ -70,10 +101,28 @@ export function generateCustomers(gridFootTraffic: number, marketingBonus: numbe
       patience: 12 + Math.random() * 13,
       preferredType,
       maxPrice,
+      personality: 'normal',
     });
   }
 
   return customers;
+}
+
+/**
+ * Returns a display emoji for a given customer personality.
+ * Useful for UI layers that need a quick visual indicator.
+ */
+export function getPersonalityEmoji(personality: CustomerPersonality): string {
+  const map: Record<CustomerPersonality, string> = {
+    normal: '😊',
+    karen: '🤬',
+    enforcer: '🔪',
+    inspector: '📋',
+    fatcat: '🤑',
+    spy: '🕵️',
+    influencer: '📱',
+  };
+  return map[personality] || '😊';
 }
 
 /**

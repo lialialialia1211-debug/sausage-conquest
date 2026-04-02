@@ -11,6 +11,7 @@ import { EndingPanel } from './panels/EndingPanel';
 import type { EndingData } from './panels/EndingPanel';
 import { ShopPanel } from './panels/ShopPanel';
 import { SausageBoxPanel } from './panels/SausageBoxPanel';
+import { BlackMarketPanel } from './panels/BlackMarketPanel';
 import './styles/neon.css';
 
 // UIManager: controls which HTML overlay panel is shown/hidden
@@ -115,6 +116,10 @@ export class UIManager {
       case 'sausage-box': {
         const sausageBoxPanel = new SausageBoxPanel();
         return { instance: sausageBoxPanel };
+      }
+      case 'black-market': {
+        const bmPanel = new BlackMarketPanel();
+        return { instance: bmPanel };
       }
       default:           return null;
     }

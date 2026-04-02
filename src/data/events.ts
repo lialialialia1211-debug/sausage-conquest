@@ -7,6 +7,11 @@ export interface EventChoice {
     reputation?: number;
     trafficBonus?: number;
     skipDay?: boolean;
+    undergroundRep?: number;
+    chaosPoints?: number;
+    managementFeePaid?: number;
+    blacklistBank?: boolean;
+    unlockBlackMarket?: boolean;
   };
 }
 
@@ -14,7 +19,7 @@ export interface GameEvent {
   id: string;
   name: string;
   emoji: string;
-  category: 'customer' | 'gangster' | 'positive';
+  category: 'customer' | 'gangster' | 'positive' | 'underground' | 'social' | 'chaos';
   description: string;
   choices: EventChoice[];
   minDay: number;
@@ -125,6 +130,237 @@ export const GAME_EVENTS: GameEvent[] = [
       { text: '接受投資', emoji: '🤝', resultText: '大哥的人脈讓你的客源暴增。但以後賺的錢要分一半出去...', effects: { money: 2000, trafficBonus: 0.3 } },
       { text: '婉拒', emoji: '🙅', resultText: '大哥笑了笑：「有骨氣。那就靠自己吧。」車窗緩緩搖上。', effects: { reputation: 5 } },
       { text: '反提議三七分', emoji: '💼', resultText: '大哥挑了挑眉：「有意思...好，七你三我，但你欠我一個人情。」', effects: { money: 1000, reputation: 3 } },
+    ],
+  },
+  // 8 new events (underground / social / chaos)
+  {
+    id: 'management-fee-weekly',
+    name: '管理費到期',
+    emoji: '💳',
+    category: 'underground',
+    description: '戴紅臂章的管理員阿姨翻著收據本走過來：「這週的管理費 $500，麻煩一下。」',
+    minDay: 7,
+    choices: [
+      {
+        text: '乖乖付 $500',
+        emoji: '😌',
+        resultText: '乖乖繳錢，世界和平。阿姨在你攤位前留下一個微笑。',
+        effects: { money: -500, reputation: 1, managementFeePaid: 500 },
+      },
+      {
+        text: '據理力爭',
+        emoji: '😤',
+        resultText: '你拍桌子大聲理論，阿姨臉色難看地走了。聽說下週要加倍...',
+        effects: { undergroundRep: 5, chaosPoints: 2, reputation: -2 },
+      },
+      {
+        text: '強硬抵制',
+        emoji: '✊',
+        resultText: '你當著所有攤販的面把收據撕了。傳說今晚會有人來找你麻煩...',
+        effects: { undergroundRep: 12, reputation: -5, chaosPoints: 3 },
+      },
+      {
+        text: '假倒閉換牌',
+        emoji: '🎭',
+        resultText: '你連夜換了招牌，對外宣稱前老闆跑路了。管理費歸零，但30%的老客人不認得你了。',
+        effects: { undergroundRep: 8, chaosPoints: 4, reputation: -15 },
+      },
+    ],
+  },
+  {
+    id: 'inspector-surprise',
+    name: '稽查員突擊',
+    emoji: '📋',
+    category: 'underground',
+    description: '一個穿制服的人推開人群走向你的攤位，手上拿著筆記本和相機。「例行衛生檢查，請出示營業許可。」',
+    minDay: 3,
+    choices: [
+      {
+        text: '配合檢查',
+        emoji: '😊',
+        resultText: '你的攤位乾淨整潔，稽查員點點頭：「不錯，繼續保持。」',
+        effects: { reputation: 3 },
+      },
+      {
+        text: '塞紅包 $200',
+        emoji: '💰',
+        resultText: '稽查員把紅包收進口袋，在報告上寫了「合格」就走了。',
+        effects: { money: -200, undergroundRep: 5, chaosPoints: 3 },
+      },
+      {
+        text: '假裝不是老闆',
+        emoji: '🏃',
+        resultText: '你指著隔壁攤：「老闆出去了，我只是工讀生。」稽查員半信半疑地走了。',
+        effects: { chaosPoints: 1 },
+      },
+    ],
+  },
+  {
+    id: 'influencer-livestream',
+    name: '網紅直播中',
+    emoji: '📱',
+    category: 'social',
+    description: '一個拿著環形燈的年輕人對著手機：「家人們！我現在在一個超神秘的香腸攤！」你的攤位正在被直播給十萬粉絲看。',
+    minDay: 4,
+    choices: [
+      {
+        text: '表演花式烤香腸',
+        emoji: '😎',
+        resultText: '你表演了一手翻香腸特技，直播間刷了一排「太帥了」。明天客人會暴增！',
+        effects: { reputation: 8, trafficBonus: 0.3 },
+      },
+      {
+        text: '低調回應',
+        emoji: '🤫',
+        resultText: '你微笑點頭繼續烤，彈幕寫著「老闆很chill」。',
+        effects: { reputation: 2 },
+      },
+      {
+        text: '搶他手機丟進油鍋',
+        emoji: '📱',
+        resultText: '手機在油鍋裡滋滋作響，直播間最後畫面是你猙獰的臉。你上了熱搜 #香腸攤暴徒',
+        effects: { reputation: -15, undergroundRep: 10, chaosPoints: 5 },
+      },
+    ],
+  },
+  {
+    id: 'competitor-spy',
+    name: '競業臥底',
+    emoji: '🕵️',
+    category: 'underground',
+    description: '你注意到一個戴墨鏡的人已經在你攤位前站了半小時，不斷偷看你的烤架和調料。',
+    minDay: 6,
+    choices: [
+      {
+        text: '假裝沒看到',
+        emoji: '🤝',
+        resultText: '你繼續烤，假裝不知道。他記下了你的配方比例就離開了。',
+        effects: {},
+      },
+      {
+        text: '故意用錯配方讓他偷',
+        emoji: '🫗',
+        resultText: '你故意把糖當鹽撒，他認真記下筆記。明天對手的香腸會很好笑。',
+        effects: { undergroundRep: 5, chaosPoints: 2, trafficBonus: 0.1 },
+      },
+      {
+        text: '正面對質',
+        emoji: '👊',
+        resultText: '你走過去一把扯掉他的墨鏡：「以為我不知道你是誰？」他嚇得轉身就跑。',
+        effects: { reputation: -3, undergroundRep: 8, chaosPoints: 2 },
+      },
+    ],
+  },
+  {
+    id: 'media-crisis-exposed',
+    name: '記者深挖',
+    emoji: '📰',
+    category: 'social',
+    description: '一個記者攔住你：「我們收到線報，你的攤位疑似涉及地下交易。請問你有什麼要回應的？」你的雙面人生被盯上了。',
+    minDay: 14,
+    choices: [
+      {
+        text: '全盤否認',
+        emoji: '😇',
+        resultText: '「完全沒有的事。」記者露出意味深長的笑容，你知道這不會是最後一次。',
+        effects: { reputation: -10 },
+      },
+      {
+        text: '公開認錯',
+        emoji: '💔',
+        resultText: '你流著眼淚開記者會道歉。地下的人覺得你是叛徒，但市民開始同情你。',
+        effects: { reputation: -20, undergroundRep: -30, chaosPoints: 0 },
+      },
+      {
+        text: '反過來收買記者',
+        emoji: '🤝',
+        resultText: '「記者先生，這篇報導值多少？」他收了錢，報導變成了正面的美食特輯。',
+        effects: { money: -500, undergroundRep: 15, chaosPoints: 5 },
+      },
+    ],
+  },
+  {
+    id: 'employee-strike',
+    name: '員工罷工',
+    emoji: '🪧',
+    category: 'social',
+    description: '你的工讀生們聚在一起，舉著用紙箱做的牌子：「加薪！加薪！不加薪就不翻香腸！」',
+    minDay: 10,
+    choices: [
+      {
+        text: '加薪 50%',
+        emoji: '💰',
+        resultText: '你大手一揮：「每人加薪50%！」工讀生們歡呼，今天士氣大增，工作效率提升。',
+        effects: { money: -200, reputation: 5 },
+      },
+      {
+        text: '你們都被開除',
+        emoji: '😤',
+        resultText: '你一個個指著他們：「不想做就滾！」他們哭著離開了，但攤位沒人幫忙了...',
+        effects: { reputation: -5, undergroundRep: 3, chaosPoints: 2 },
+      },
+      {
+        text: '假裝跟他們一起罷工',
+        emoji: '🎤',
+        resultText: '你拿起牌子跟他們一起喊：「對！老闆太黑心了！」工讀生們一臉困惑：「...你就是老闆啊？」',
+        effects: { undergroundRep: 5, chaosPoints: 3 },
+      },
+    ],
+  },
+  {
+    id: 'expired-ingredient-gamble',
+    name: '過期食材賭局',
+    emoji: '🎲',
+    category: 'chaos',
+    description: '冰箱裡發現一批過期三天的食材。丟掉可惜，用了有風險。你的良心和荷包正在天人交戰。',
+    minDay: 5,
+    choices: [
+      {
+        text: '果斷丟掉',
+        emoji: '🗑️',
+        resultText: '你把過期食材全倒了。雖然心痛，但良心過得去。',
+        effects: { money: -100, reputation: 2 },
+      },
+      {
+        text: '賭了！混進去賣',
+        emoji: '🎲',
+        resultText: '你閉上眼把過期食材混進去了。60%沒事、30%差評、10%食物中毒... 結果...',
+        effects: { money: -50, reputation: -3, chaosPoints: 3, undergroundRep: 3 },
+      },
+      {
+        text: '加工後賣到黑市',
+        emoji: '💀',
+        resultText: '你把過期食材重新包裝，賣給了黑市的人。賺了一點，也髒了一點。',
+        effects: { undergroundRep: 8, chaosPoints: 4, money: 80 },
+      },
+    ],
+  },
+  {
+    id: 'underground-delivery',
+    name: '神秘外送單',
+    emoji: '📦',
+    category: 'underground',
+    description: '手機響了，一個沙啞的聲音：「聽說你的香腸不錯。我們需要 50 根送到一個地址，不要問為什麼。酬勞優渥。」',
+    minDay: 8,
+    choices: [
+      {
+        text: '接單！',
+        emoji: '📦',
+        resultText: '你連夜趕工 50 根香腸送到指定地點。門打開的那一刻，你看到裡面坐了一桌穿西裝的人... 不敢多看，收錢走人。',
+        effects: { money: 300, undergroundRep: 10, chaosPoints: 3 },
+      },
+      {
+        text: '太危險了',
+        emoji: '🚫',
+        resultText: '你禮貌地拒絕了。電話那頭沉默了三秒後掛斷。你祈禱他們不會記仇。',
+        effects: { reputation: 2 },
+      },
+      {
+        text: '報警',
+        emoji: '🕵️',
+        resultText: '你報了警。警察破獲了一個地下賭場，你收到了市長的感謝狀。但江湖上傳開了你是抓耙仔...',
+        effects: { reputation: 10, undergroundRep: -15, chaosPoints: 1 },
+      },
     ],
   },
   // 3 positive events

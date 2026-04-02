@@ -857,6 +857,23 @@ export class ShopPanel {
       EventBus.emit('shop-done', {});
     });
 
+    // Black market button (only if unlocked)
+    if (gameState.blackMarketUnlocked) {
+      const bmBtn = document.createElement('button');
+      bmBtn.className = 'btn-neon';
+      bmBtn.style.background = 'rgba(139, 0, 0, 0.3)';
+      bmBtn.style.borderColor = '#8b0000';
+      bmBtn.textContent = '💀 進入黑市';
+      bmBtn.addEventListener('click', () => {
+        EventBus.emit('show-panel', 'black-market');
+        // Listen for return from black market
+        EventBus.once('black-market-done', () => {
+          EventBus.emit('show-panel', 'shop');
+        });
+      });
+      bar.appendChild(bmBtn);
+    }
+
     bar.appendChild(moneyEl);
     bar.appendChild(skipBtn);
 

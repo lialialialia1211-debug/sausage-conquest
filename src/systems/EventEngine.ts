@@ -1,18 +1,23 @@
 import { GAME_EVENTS, type GameEvent, type EventChoice } from '../data/events';
-import { gameState, addMoney, spendMoney, changeReputation, updateGameState } from '../state/GameState';
+import { gameState, addMoney, spendMoney, changeReputation, updateGameState, changeUndergroundRep, addChaos } from '../state/GameState';
 
 let recentEventIds: string[] = []; // track last 3 events to avoid repeats
 
 export function rollDailyEvents(): GameEvent[] {
+  // Exclude special scheduled events from the normal random pool
+  const SCHEDULED_EVENT_IDS = ['management-fee-weekly', 'media-crisis-exposed'];
+
   const eligible = GAME_EVENTS.filter(e =>
     e.minDay <= gameState.day &&
-    !recentEventIds.includes(e.id)
+    !recentEventIds.includes(e.id) &&
+    !SCHEDULED_EVENT_IDS.includes(e.id)
   );
 
-  if (eligible.length === 0) return [];
-
   const maxEvents = gameState.day <= 3 ? 1 : 2;
-  const count = Math.random() < 0.3 ? 0 : Math.min(maxEvents, Math.floor(Math.random() * 2) + 1);
+  // Increased event frequency: 15% chance of no events (was 30%)
+  const count = eligible.length === 0
+    ? 0
+    : Math.random() < 0.15 ? 0 : Math.min(maxEvents, Math.floor(Math.random() * 2) + 1);
 
   // Shuffle and pick
   const shuffled = [...eligible].sort(() => Math.random() - 0.5);
@@ -23,6 +28,22 @@ export function rollDailyEvents(): GameEvent[] {
     recentEventIds.push(e.id);
     if (recentEventIds.length > 3) recentEventIds.shift();
   });
+
+  // Inject management-fee-weekly every 7 days
+  if (gameState.day % 7 === 0 && gameState.day > 0) {
+    const feeEvent = GAME_EVENTS.find(e => e.id === 'management-fee-weekly');
+    if (feeEvent) picked.unshift(feeEvent);
+  }
+
+  // Inject media-crisis-exposed when both reps are high and crisis not yet triggered
+  if (
+    gameState.reputation > 70 &&
+    gameState.undergroundRep > 70 &&
+    (gameState.reputationCrisisDay ?? -1) < 0
+  ) {
+    const crisisEvent = GAME_EVENTS.find(e => e.id === 'media-crisis-exposed');
+    if (crisisEvent) picked.push(crisisEvent);
+  }
 
   return picked;
 }
@@ -49,6 +70,51 @@ export function applyEventChoice(event: GameEvent, choiceIndex: number): EventCh
 
   if (choice.effects.skipDay === true) {
     updateGameState({ skipDay: true });
+  }
+
+  // New effect fields
+  if (choice.effects.undergroundRep) {
+    changeUndergroundRep(choice.effects.undergroundRep);
+  }
+
+  if (choice.effects.chaosPoints) {
+    addChaos(choice.effects.chaosPoints, `事件：${event.name}`);
+  }
+
+  if (choice.effects.managementFeePaid) {
+    const newFee = { ...gameState.managementFee };
+    newFee.lastPaidDay = gameState.day;
+    newFee.isResisting = false;
+    newFee.resistDays = 0;
+    updateGameState({ managementFee: newFee });
+  }
+
+  if (choice.effects.unlockBlackMarket) {
+    updateGameState({ blackMarketUnlocked: true });
+  }
+
+  // Media crisis: record the day it first fires
+  if (event.id === 'media-crisis-exposed') {
+    updateGameState({ reputationCrisisDay: gameState.day });
+  }
+
+  // management-fee-weekly choice C (index 2): set isResisting
+  if (event.id === 'management-fee-weekly' && choiceIndex === 2) {
+    const newFee = { ...gameState.managementFee };
+    newFee.isResisting = true;
+    newFee.resistDays = (newFee.resistDays || 0) + 1;
+    updateGameState({ managementFee: newFee });
+  }
+
+  // management-fee-weekly choice D (index 3): rebrand logic
+  if (event.id === 'management-fee-weekly' && choiceIndex === 3) {
+    const repLost = Math.floor(gameState.reputation * 0.3);
+    changeReputation(-repLost);
+    const newFee = { ...gameState.managementFee };
+    newFee.lastPaidDay = gameState.day;
+    newFee.isResisting = false;
+    newFee.rebranded = true;
+    updateGameState({ managementFee: newFee });
   }
 
   return choice;

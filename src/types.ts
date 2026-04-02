@@ -75,6 +75,8 @@ export interface Customer {
   patience: number;         // seconds willing to wait
   preferredType?: BattleType;
   maxPrice: number;
+  personality: CustomerPersonality;
+  isVIP?: boolean;
 }
 
 // ── Warming zone types ─────────────────────────────────────────────────────────
@@ -170,5 +172,59 @@ export interface GrillEventOutcome {
     extraSlot?: boolean;         // temporary +1 grill slot
     noMoreEventType?: string;    // prevent this event category for N days
     noMoreDays?: number;
+    undergroundRep?: number;
+    chaosPoints?: number;
+    managementFeePaid?: number;
+    blacklistBank?: boolean;
+    unlockBlackMarket?: boolean;
   };
 }
+
+// ── 客人個性系統 ──
+export type CustomerPersonality =
+  | 'normal'      // 普通客人
+  | 'karen'       // 奧客
+  | 'enforcer'    // 地頭蛇手下
+  | 'inspector'   // 食安稽查員
+  | 'fatcat'      // 冤大頭 VIP
+  | 'spy'         // 競業臥底
+  | 'influencer'; // 網紅
+
+// ── 戰鬥系統 ──
+export type CombatAction = 'push' | 'splash' | 'pan' | 'bodyguard' | 'fake_slip' | 'bribe';
+
+export interface CombatOutcome {
+  success: boolean;
+  moneyDelta: number;
+  repDelta: number;
+  undergroundRepDelta: number;
+  witnessEffect: number;
+  resultText: string;
+  chaosPoints: number;
+}
+
+// ── 黑市系統 ──
+export interface BlackMarketItem {
+  id: string;
+  name: string;
+  emoji: string;
+  cost: number;
+  qualityBonus: number;   // 0.0–0.5
+  catchChance: number;    // 0.0–1.0
+  chaosPoints: number;
+}
+
+// ── 管理費狀態 ──
+export interface ManagementFeeState {
+  weeklyAmount: number;
+  lastPaidDay: number;
+  isResisting: boolean;
+  resistDays: number;
+  bribedInspector: boolean;
+  rebranded: boolean;
+}
+
+// ── 事件 category 擴充 ──
+export type EventCategory =
+  | 'customer' | 'gangster' | 'positive'
+  | 'underground' | 'social' | 'chaos';
