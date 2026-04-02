@@ -14,7 +14,7 @@ import {
   type GrillingSausage,
   type GrillQuality,
 } from '../systems/GrillEngine';
-import { generateCustomers, willBuy } from '../systems/CustomerEngine';
+import { generateCustomers } from '../systems/CustomerEngine';
 import { sellSausage } from '../systems/EconomyEngine';
 import { SausageSprite } from '../objects/SausageSprite';
 import { CustomerQueue } from '../objects/CustomerQueue';
@@ -200,25 +200,15 @@ export class GrillScene extends Phaser.Scene {
         }
       }
 
-      // Auto-remove only on carbonized (doneness 100+); burnt stays for player to rescue
+      // Show warning feedback for dangerous doneness levels (but don't auto-remove anything)
       const currentQuality = judgeQuality(updated);
-      if (currentQuality === 'carbonized') {
-        slot.sausage = { ...updated, served: true };
-        const capturedSlot = slot;
-        const capturedSprite = slot.sprite;
-        slot.sprite = null;
-        capturedSprite.playBurntAnimation();
-
-        this.grillStats.carbonized++;
-        changeReputation(-2);
+      if (currentQuality === 'carbonized' && !(slot as any).__carbonWarnShown) {
         sfx.playBurnt();
-        this.showFeedback('碳化了！-2 聲望', slot.x, slot.y - 50, '#ff3300');
-
-        this.time.delayedCall(1200, () => {
-          capturedSlot.sausage = null;
-          this.drawEmptySlotPlaceholder(capturedSlot);
-          this.updateStatsDisplay();
-        });
+        this.showFeedback('碳化了！快起鍋或丟掉', slot.x, slot.y - 50, '#ff3300');
+        (slot as any).__carbonWarnShown = true;
+      } else if (currentQuality === 'burnt' && !(slot as any).__burntWarnShown) {
+        this.showFeedback('焦了！還能賣但有風險', slot.x, slot.y - 50, '#ff6600');
+        (slot as any).__burntWarnShown = true;
       }
     }
 
@@ -227,17 +217,13 @@ export class GrillScene extends Phaser.Scene {
       if (!ws.sausage) continue;
       ws.sausage = { ...ws.sausage, timeInWarming: ws.sausage.timeInWarming + dt };
 
-      // Update warming state
-      if (ws.sausage.timeInWarming < 10) {
+      // Update warming state — 20s perfect, 20s ok, then cold (no auto-penalty, penalty on serve)
+      if (ws.sausage.timeInWarming < 20) {
         ws.sausage = { ...ws.sausage, warmingState: 'perfect-warm' };
-      } else if (ws.sausage.timeInWarming < 20) {
+      } else if (ws.sausage.timeInWarming < 40) {
         ws.sausage = { ...ws.sausage, warmingState: 'ok-warm' };
       } else {
-        if (ws.sausage.warmingState !== 'cold') {
-          // Just went cold — reputation penalty
-          changeReputation(-1);
-          ws.sausage = { ...ws.sausage, warmingState: 'cold' };
-        }
+        ws.sausage = { ...ws.sausage, warmingState: 'cold' };
       }
 
       this.updateWarmingSlotDisplay(ws);
@@ -545,17 +531,17 @@ export class GrillScene extends Phaser.Scene {
     let stateColor = '#888888';
     let timeLeft = '';
     if (ws.warmingState === 'perfect-warm') {
-      stateLabel = '保溫中 ×1.2';
+      stateLabel = '熱騰騰 ×1.2';
       stateColor = '#44ff88';
-      timeLeft = `${Math.max(0, Math.ceil(10 - ws.timeInWarming))}s`;
+      timeLeft = `${Math.max(0, Math.ceil(20 - ws.timeInWarming))}s`;
     } else if (ws.warmingState === 'ok-warm') {
       stateLabel = '微溫 ×1.0';
       stateColor = '#ffcc44';
-      timeLeft = `${Math.max(0, Math.ceil(20 - ws.timeInWarming))}s`;
+      timeLeft = `${Math.max(0, Math.ceil(40 - ws.timeInWarming))}s`;
     } else {
       stateLabel = '冷掉 ×0.7';
       stateColor = '#6699aa';
-      timeLeft = '已冷';
+      timeLeft = '冷了但還能賣';
     }
 
     slot.infoText.setText(`${emoji} ${ws.grillQuality} | 點擊出餐`);
@@ -1004,6 +990,8 @@ export class GrillScene extends Phaser.Scene {
 
     slot.sausage = sausage;
     slot.sprite = sprite;
+    (slot as any).__carbonWarnShown = false;
+    (slot as any).__burntWarnShown = false;
 
     // Reset selection and update inventory display
     this.selectedInventoryType = null;
@@ -1017,22 +1005,15 @@ export class GrillScene extends Phaser.Scene {
 
     const quality = judgeQuality(slot.sausage) as GrillQuality;
 
-    if (quality === 'raw' || quality === 'half-cooked') {
-      this.grillStats.raw++;
-      this.showFeedback('還沒熟！', slot.x, slot.y - 50, '#ffaa00');
-      // Auto-flip for player assist
-      sprite.triggerFlip();
-      const currentSlot = this.grillSlots.find(s => s.sprite === sprite);
-      if (currentSlot?.sausage) {
-        currentSlot.sausage = flipSausage(currentSlot.sausage);
-      }
-      this.updateStatsDisplay();
-      return;
-    }
-
-    if (quality === 'carbonized') {
-      this.showFeedback('碳化無法使用！', slot.x, slot.y - 50, '#ff3300');
-      return;
+    // Warn but don't block — player decides what to serve
+    if (quality === 'raw') {
+      this.showFeedback('還是生的...小心食物中毒', slot.x, slot.y - 50, '#ffaa00');
+    } else if (quality === 'half-cooked') {
+      this.showFeedback('還沒全熟，客人可能不滿', slot.x, slot.y - 50, '#ffcc00');
+    } else if (quality === 'carbonized') {
+      this.showFeedback('碳化了...賣出去可能被砸店', slot.x, slot.y - 50, '#ff3300');
+    } else if (quality === 'burnt') {
+      this.showFeedback('有點焦，小心客人反應', slot.x, slot.y - 50, '#ff6600');
     }
 
     // Find empty warming slot
@@ -1069,7 +1050,7 @@ export class GrillScene extends Phaser.Scene {
     this.showFeedback('起鍋！', slot.x, slot.y - 40, '#ffcc44');
   }
 
-  // Serve from warming zone to the next waiting customer
+  // Serve from warming zone — anything can be served, consequences via probability
   private serveFromWarming(warmSlot: WarmingSlot): void {
     if (!warmSlot.sausage) return;
 
@@ -1080,6 +1061,7 @@ export class GrillScene extends Phaser.Scene {
     }
 
     const ws = warmSlot.sausage;
+    const grillQuality = ws.grillQuality as GrillQuality;
 
     // Calculate warming multiplier
     let warmMultiplier = 1.2;
@@ -1089,61 +1071,100 @@ export class GrillScene extends Phaser.Scene {
     const sausageId = ws.sausageTypeId;
     const basePrice = gameState.prices[sausageId] ?? SAUSAGE_MAP[sausageId]?.suggestedPrice ?? 35;
     const finalQualityScore = ws.qualityScore * warmMultiplier;
-    const price = Math.round(basePrice * warmMultiplier);
+    const price = Math.round(basePrice * Math.max(0.2, warmMultiplier * ws.qualityScore));
 
-    const slotId = gameState.selectedSlot;
-    const gridSlot = GRID_SLOTS.find(s => s.id === slotId);
-    const trafficNorm = gridSlot ? Math.max(1, Math.min(5, gridSlot.baseTraffic / 20)) : 2.5;
-
-    const bought = willBuy(nextCustomer, sausageId, price, finalQualityScore, trafficNorm);
-
-    if (bought) {
-      const record = sellSausage(sausageId, price, finalQualityScore);
-      if (record) {
-        this.salesLog.push(record);
-
-        // Track grill quality stats
-        const grillQuality = ws.grillQuality as GrillQuality;
-        if (grillQuality in this.grillStats) {
-          (this.grillStats as Record<string, number>)[grillQuality]++;
-        }
-
-        // Tip logic for perfect + perfect-warm combination
-        let tipAmount = 0;
-        if (grillQuality === 'perfect' && ws.warmingState === 'perfect-warm') {
-          changeReputation(1);
-          sfx.playPerfect();
-          if (Math.random() < 0.3) {
-            tipAmount = 5 + Math.floor(Math.random() * 11); // $5-15
-            addMoney(tipAmount);
-          }
-        } else {
-          sfx.playCashRegister();
-        }
-
-        if (ws.warmingState === 'cold') {
-          changeReputation(-1);
-        }
-
-        this.sessionRevenue += price + tipAmount;
-        this.customerQueue.serveCustomer(nextCustomer.id, grillQuality === 'perfect');
-        this.customers = this.customers.filter(c => c.id !== nextCustomer.id);
-
-        const feedbackMsg = `+$${price}${tipAmount > 0 ? ` +$${tipAmount}小費` : ''}${ws.warmingState === 'perfect-warm' ? ' ★' : ''}`;
-        this.showFeedback(feedbackMsg, warmSlot.x, warmSlot.y - 40, '#44ff88');
-        this.bounceRevenue();
-
-        // Clear warming slot
-        warmSlot.sausage = null;
-        this.clearWarmingSlotDisplay(warmSlot);
-
-        this.updateStatsDisplay();
-      }
-    } else {
-      this.customerQueue.dismissFrontCustomer();
-      this.customers = this.customers.filter(c => c.id !== nextCustomer.id);
-      this.showFeedback('客人嫌貴走了', warmSlot.x, warmSlot.y - 40, '#ff6666');
+    // Always sell — customer always takes the sausage
+    const record = sellSausage(sausageId, price, finalQualityScore);
+    if (!record) {
+      // Out of stock edge case
+      warmSlot.sausage = null;
+      this.clearWarmingSlotDisplay(warmSlot);
+      return;
     }
+
+    this.salesLog.push(record);
+
+    // Track grill quality stats
+    if (grillQuality in this.grillStats) {
+      (this.grillStats as Record<string, number>)[grillQuality]++;
+    }
+
+    // ── Consequence system: probability-based outcomes ──
+    let tipAmount = 0;
+    let feedbackMsg = `+$${price}`;
+    let feedbackColor = '#44ff88';
+
+    // Perfect grill + perfect warm = best outcome
+    if (grillQuality === 'perfect' && ws.warmingState === 'perfect-warm') {
+      changeReputation(1);
+      sfx.playPerfect();
+      if (Math.random() < 0.3) {
+        tipAmount = 5 + Math.floor(Math.random() * 11);
+        addMoney(tipAmount);
+      }
+      feedbackMsg += tipAmount > 0 ? ` +$${tipAmount}小費 ★` : ' ★';
+
+    // Raw / half-cooked → 40% chance food poisoning
+    } else if (grillQuality === 'raw' || grillQuality === 'half-cooked') {
+      sfx.playCashRegister();
+      if (Math.random() < 0.4) {
+        changeReputation(-3);
+        feedbackMsg += ' 客人吃到生的！-3聲望';
+        feedbackColor = '#ff4444';
+      }
+
+    // Carbonized → 30% chance smash stall
+    } else if (grillQuality === 'carbonized') {
+      sfx.playCashRegister();
+      if (Math.random() < 0.3) {
+        const damage = 50 + Math.floor(Math.random() * 151); // $50-200
+        changeReputation(-2);
+        addMoney(-damage);
+        feedbackMsg += ` 客人砸店！-$${damage} -2聲望`;
+        feedbackColor = '#ff2222';
+      }
+
+    // Burnt → 20% chance angry
+    } else if (grillQuality === 'burnt') {
+      sfx.playCashRegister();
+      if (Math.random() < 0.2) {
+        changeReputation(-2);
+        feedbackMsg += ' 客人怒了！-2聲望';
+        feedbackColor = '#ff6644';
+      }
+
+    // Slightly burnt → some customers actually like it
+    } else if (grillQuality === 'slightly-burnt') {
+      sfx.playCashRegister();
+      if (Math.random() < 0.15) {
+        changeReputation(1);
+        feedbackMsg += ' 焦香味真讚！+1聲望';
+        feedbackColor = '#ffcc44';
+      }
+
+    } else {
+      sfx.playCashRegister();
+    }
+
+    // Cold serving consequence: 30% chance unhappy (separate from grill quality)
+    if (ws.warmingState === 'cold' && Math.random() < 0.3) {
+      changeReputation(-1);
+      feedbackMsg += ' (冷的...-1聲望)';
+      feedbackColor = '#6699aa';
+    }
+
+    this.sessionRevenue += price + tipAmount;
+    this.customerQueue.serveCustomer(nextCustomer.id, grillQuality === 'perfect');
+    this.customers = this.customers.filter(c => c.id !== nextCustomer.id);
+
+    this.showFeedback(feedbackMsg, warmSlot.x, warmSlot.y - 40, feedbackColor);
+    this.bounceRevenue();
+
+    // Clear warming slot
+    warmSlot.sausage = null;
+    this.clearWarmingSlotDisplay(warmSlot);
+
+    this.updateStatsDisplay();
   }
 
   private onCustomerTimeout(customerId: string): void {
@@ -1299,16 +1320,20 @@ export class GrillScene extends Phaser.Scene {
       lines.push(
         '── 操作說明 ──',
         '',
-        '① 點擊底部庫存選擇香腸種類',
-        '② 點擊烤架空位放上香腸',
-        '③ 點擊香腸翻面（兩面都要烤熟）',
-        '④ 熟度OK後，雙擊（點擊出餐鍵）起鍋到保溫區',
-        '⑤ 點擊右側保溫區的香腸出餐給客人',
+        '── 三步驟 ──',
+        '① 底部選香腸 → 點烤架空位放上去',
+        '② 點香腸翻面，看顏色烤到金黃色最棒',
+        '③ 雙擊起鍋到保溫區 → 點保溫區出餐給客人',
         '',
-        '保溫區：10秒內最佳，10-20秒尚可，20秒後冷掉售價打折',
-        '碳化才會自動清除，其餘都需要玩家手動起鍋',
+        '── 熟度看顏色 ──',
+        '灰色=生的  藍色=半熟  黃色=普通  綠色=完美',
+        '橘色=微焦  紅色=焦了  暗紅=碳化',
         '',
-        '右邊是客人隊伍，頭上綠條是耐心，耐心歸零客人走掉 -1 聲望',
+        '什麼都能賣！但生的/焦的有機率被客人抱怨或砸店',
+        '完美+熱騰騰=有機率拿小費！',
+        '',
+        '保溫區：20秒內最佳 → 再20秒普通 → 之後冷掉打折',
+        '客人隊伍在上面，綠條是耐心，歸零就走人',
         '',
       );
     }
