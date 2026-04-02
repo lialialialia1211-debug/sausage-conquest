@@ -23,6 +23,10 @@ export class BootScene extends Phaser.Scene {
     super({ key: 'BootScene' });
   }
 
+  preload(): void {
+    this.load.image('cover', 'cover.png');
+  }
+
   create(): void {
     this.currentPage = 0;
     this.canAdvance = false;
@@ -34,20 +38,30 @@ export class BootScene extends Phaser.Scene {
     const bg = this.add.graphics();
     this.drawBackground(bg, width, height, 0);
 
-    // Title: 腸征天下
-    const title = this.add.text(cx, cy - 145, '腸征天下', {
-      fontSize: '56px',
-      fontFamily: 'Microsoft JhengHei, PingFang TC, sans-serif',
-      color: '#ffe600',
-      stroke: '#ff6b00',
-      strokeThickness: 2,
-      shadow: { blur: 16, color: '#ffe600', fill: true },
-    }).setOrigin(0.5);
+    // Title: cover image logo (replaces text title)
+    let title: Phaser.GameObjects.Image | Phaser.GameObjects.Text;
+    if (this.textures.exists('cover')) {
+      const cover = this.add.image(cx, cy - 110, 'cover');
+      const maxW = width * 0.75;
+      const maxH = height * 0.25;
+      const scale = Math.min(maxW / cover.width, maxH / cover.height);
+      cover.setScale(scale).setDepth(1);
+      title = cover;
+    } else {
+      // Fallback text title if image fails to load
+      title = this.add.text(cx, cy - 110, '腸征天下', {
+        fontSize: '56px',
+        fontFamily: 'Microsoft JhengHei, PingFang TC, sans-serif',
+        color: '#ffe600',
+        stroke: '#ff6b00',
+        strokeThickness: 2,
+      }).setOrigin(0.5);
+    }
 
     // Flicker animation for title
     this.tweens.add({
       targets: title,
-      alpha: { from: 1, to: 0.85 },
+      alpha: { from: 1, to: 0.88 },
       duration: 120,
       ease: 'Sine.easeInOut',
       yoyo: true,
@@ -57,7 +71,7 @@ export class BootScene extends Phaser.Scene {
     });
 
     // Subtitle
-    this.add.text(cx, cy - 83, '台灣夜市香腸征服之路', {
+    this.add.text(cx, cy - 45, '台灣夜市香腸征服之路', {
       fontSize: '18px',
       fontFamily: 'Microsoft JhengHei, PingFang TC, sans-serif',
       color: '#ff6b00',
