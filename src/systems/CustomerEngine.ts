@@ -11,7 +11,16 @@ let customerIdCounter = 0;
  */
 export function generateCustomers(gridFootTraffic: number, marketingBonus: number): Customer[] {
   // Base count: footTraffic * 3, scaled by marketing
-  const baseCount = Math.round(gridFootTraffic * 3 * (1 + marketingBonus));
+  let baseCount = Math.round(gridFootTraffic * 3 * (1 + marketingBonus));
+
+  // Worker 'mei' brings in more customers (+30% traffic)
+  if (gameState.hiredWorkers.includes('mei')) {
+    baseCount = Math.round(baseCount * 1.3);
+  }
+
+  // Cap at 60 customers per session
+  baseCount = Math.min(baseCount, 60);
+
   const customers: Customer[] = [];
 
   const battleTypes: BattleType[] = ['normal', 'ranged', 'aoe', 'tank', 'assassin', 'support'];
@@ -41,8 +50,8 @@ export function generateCustomers(gridFootTraffic: number, marketingBonus: numbe
     });
   }
 
-  // Guarantee at least 15 customers regardless of footTraffic/marketing
-  while (customers.length < 15) {
+  // Guarantee at least 20 customers regardless of footTraffic/marketing
+  while (customers.length < 20) {
     const maxPriceMultiplier = 0.8 + Math.random() * 0.7;
     const unlockedPrices = SAUSAGE_TYPES
       .filter(s => gameState.unlockedSausages.includes(s.id))

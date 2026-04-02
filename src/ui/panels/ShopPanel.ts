@@ -2,18 +2,17 @@
 import { EventBus } from '../../utils/EventBus';
 import { gameState, spendMoney, updateGameState } from '../../state/GameState';
 import { CART_UPGRADES, MARKETING_ITEMS } from '../../data/upgrades';
+import { WORKERS } from '../../data/workers';
 import { LOAN_CONFIGS } from '../../data/loans';
 import { canBorrow, takeLoan, repayLoan } from '../../systems/LoanEngine';
+import { refundMarketing } from '../../systems/EconomyEngine';
 
-export type ShopTab = 'upgrades' | 'marketing' | 'loans';
+export type ShopTab = 'upgrades' | 'workers' | 'marketing' | 'loans';
 
 export class ShopPanel {
   private panel: HTMLElement;
   private tabContents: Map<ShopTab, HTMLElement> = new Map();
   private tabButtons: Map<ShopTab, HTMLButtonElement> = new Map();
-
-  // Marketing purchases this session (local tracking, multi-purchase allowed)
-  private marketingPurchased: Record<string, number> = {};
 
   // Loan sliders
   private bankSlider: HTMLInputElement | null = null;
@@ -40,14 +39,17 @@ export class ShopPanel {
     contentArea.className = 'shop-tab-content';
 
     const upgradesContent = this.buildUpgradesTab();
+    const workersContent = this.buildWorkersTab();
     const marketingContent = this.buildMarketingTab();
     const loansContent = this.buildLoansTab();
 
     contentArea.appendChild(upgradesContent);
+    contentArea.appendChild(workersContent);
     contentArea.appendChild(marketingContent);
     contentArea.appendChild(loansContent);
 
     this.tabContents.set('upgrades', upgradesContent);
+    this.tabContents.set('workers', workersContent);
     this.tabContents.set('marketing', marketingContent);
     this.tabContents.set('loans', loansContent);
 
@@ -69,6 +71,7 @@ export class ShopPanel {
 
     const tabs: { key: ShopTab; label: string }[] = [
       { key: 'upgrades', label: '攤車升級' },
+      { key: 'workers', label: '工讀生' },
       { key: 'marketing', label: '行銷道具' },
       { key: 'loans', label: '資金周轉' },
     ];
@@ -226,7 +229,167 @@ export class ShopPanel {
     }
   }
 
-  // ── Tab 2: 行銷道具 ────────────────────────────────────────────────────────
+  // ── Tab 2: 工讀生 ──────────────────────────────────────────────────────────
+
+  private buildWorkersTab(): HTMLElement {
+    const container = document.createElement('div');
+    container.className = 'shop-section';
+
+    for (const worker of WORKERS) {
+      const card = this.buildWorkerCard(worker);
+      container.appendChild(card);
+    }
+
+    return container;
+  }
+
+  private buildWorkerCard(worker: (typeof WORKERS)[number]): HTMLElement {
+    const hiredWorkers: string[] = (gameState as Record<string, unknown>).hiredWorkers as string[] ?? [];
+    const isHired = hiredWorkers.includes(worker.id);
+    const canAfford = gameState.money >= worker.cost;
+
+    const card = document.createElement('div');
+    card.className = 'shop-item-card';
+    if (isHired) card.classList.add('shop-item-card--purchased');
+
+    // Top row: emoji + name + cost
+    const infoEl = document.createElement('div');
+    infoEl.className = 'shop-item-info';
+
+    const emojiEl = document.createElement('span');
+    emojiEl.className = 'shop-item-emoji';
+    emojiEl.textContent = worker.emoji;
+
+    const detailEl = document.createElement('div');
+    detailEl.className = 'shop-item-detail';
+
+    const nameEl = document.createElement('div');
+    nameEl.className = 'shop-item-name';
+    nameEl.textContent = worker.name;
+
+    const costEl = document.createElement('div');
+    costEl.className = 'shop-item-cost';
+    costEl.textContent = `僱用費 $${worker.cost}`;
+
+    const descEl = document.createElement('div');
+    descEl.className = 'shop-item-desc';
+    descEl.style.fontStyle = 'italic';
+    descEl.style.fontSize = '0.85em';
+    descEl.textContent = worker.description;
+
+    const buffEl = document.createElement('div');
+    buffEl.className = 'shop-item-buff';
+    buffEl.style.color = 'var(--color-success, #4caf50)';
+    buffEl.style.fontSize = '0.82em';
+    buffEl.textContent = `✅ ${worker.buff}`;
+
+    const debuffEl = document.createElement('div');
+    debuffEl.className = 'shop-item-debuff';
+    debuffEl.style.color = 'var(--color-warning, #ff9800)';
+    debuffEl.style.fontSize = '0.82em';
+    debuffEl.textContent = `⚠️ ${worker.debuff}`;
+
+    const salaryEl = document.createElement('div');
+    salaryEl.className = 'shop-item-salary';
+    salaryEl.style.fontSize = '0.82em';
+    salaryEl.style.color = 'var(--text-dim)';
+    salaryEl.textContent = `日薪 $${worker.dailySalary}`;
+
+    detailEl.appendChild(nameEl);
+    detailEl.appendChild(costEl);
+    detailEl.appendChild(descEl);
+    detailEl.appendChild(buffEl);
+    detailEl.appendChild(debuffEl);
+    detailEl.appendChild(salaryEl);
+
+    infoEl.appendChild(emojiEl);
+    infoEl.appendChild(detailEl);
+
+    // Right side: hire/fire buttons
+    const rightEl = document.createElement('div');
+    rightEl.className = 'shop-item-right';
+    rightEl.style.display = 'flex';
+    rightEl.style.flexDirection = 'column';
+    rightEl.style.gap = '6px';
+    rightEl.style.alignItems = 'flex-end';
+
+    if (isHired) {
+      const badge = document.createElement('div');
+      badge.className = 'shop-item-hired-badge';
+      badge.style.color = 'var(--color-success, #4caf50)';
+      badge.style.fontSize = '0.85em';
+      badge.style.marginBottom = '4px';
+      badge.textContent = '已僱用 ✓';
+
+      const fireBtn = document.createElement('button');
+      fireBtn.className = 'btn-neon shop-item-btn';
+      fireBtn.style.borderColor = 'var(--color-warning, #ff9800)';
+      fireBtn.style.color = 'var(--color-warning, #ff9800)';
+      fireBtn.textContent = '解僱';
+      fireBtn.addEventListener('click', () => this.onFireWorker(worker));
+
+      rightEl.appendChild(badge);
+      rightEl.appendChild(fireBtn);
+    } else {
+      const hireBtn = document.createElement('button');
+
+      if (!canAfford) {
+        hireBtn.className = 'btn-neon shop-item-btn shop-item-btn--disabled';
+        hireBtn.textContent = '餘額不足';
+        hireBtn.disabled = true;
+        hireBtn.style.opacity = '0.4';
+        hireBtn.style.cursor = 'not-allowed';
+        hireBtn.style.borderColor = 'var(--text-dim)';
+        hireBtn.style.color = 'var(--text-dim)';
+        hireBtn.style.textShadow = 'none';
+        hireBtn.style.boxShadow = 'none';
+      } else {
+        hireBtn.className = 'btn-neon shop-item-btn';
+        hireBtn.textContent = '僱用';
+        hireBtn.addEventListener('click', () => this.onHireWorker(worker));
+      }
+
+      rightEl.appendChild(hireBtn);
+    }
+
+    card.appendChild(infoEl);
+    card.appendChild(rightEl);
+
+    return card;
+  }
+
+  private onHireWorker(worker: (typeof WORKERS)[number]): void {
+    const success = spendMoney(worker.cost);
+    if (!success) return;
+
+    const hiredWorkers: string[] = [...((gameState as Record<string, unknown>).hiredWorkers as string[] ?? [])];
+    hiredWorkers.push(worker.id);
+    updateGameState({ hiredWorkers } as Parameters<typeof updateGameState>[0]);
+
+    this.refreshMoneyDisplay();
+    this.refreshWorkersTab();
+  }
+
+  private onFireWorker(worker: (typeof WORKERS)[number]): void {
+    const hiredWorkers: string[] = ((gameState as Record<string, unknown>).hiredWorkers as string[] ?? []).filter(
+      (id: string) => id !== worker.id,
+    );
+    updateGameState({ hiredWorkers } as Parameters<typeof updateGameState>[0]);
+
+    this.refreshWorkersTab();
+  }
+
+  private refreshWorkersTab(): void {
+    const content = this.tabContents.get('workers');
+    if (!content) return;
+    content.textContent = '';
+    for (const worker of WORKERS) {
+      const card = this.buildWorkerCard(worker);
+      content.appendChild(card);
+    }
+  }
+
+  // ── Tab 3: 行銷道具 ────────────────────────────────────────────────────────
 
   private buildMarketingTab(): HTMLElement {
     const container = document.createElement('div');
@@ -241,8 +404,10 @@ export class ShopPanel {
   }
 
   private buildMarketingCard(item: (typeof MARKETING_ITEMS)[number]): HTMLElement {
+    const marketingPurchases = (gameState as Record<string, unknown>).marketingPurchases as Record<string, number> ?? {};
     const canAfford = gameState.money >= item.cost;
-    const purchaseCount = this.marketingPurchased[item.id] ?? 0;
+    const purchaseCount = marketingPurchases[item.id] ?? 0;
+    const refundAmount = Math.floor(item.cost * 0.7);
 
     const card = document.createElement('div');
     card.className = 'shop-item-card';
@@ -277,33 +442,57 @@ export class ShopPanel {
     infoEl.appendChild(emojiEl);
     infoEl.appendChild(detailEl);
 
-    // Right side: count + buy
+    // Right side: count + buy + refund
     const rightEl = document.createElement('div');
     rightEl.className = 'shop-item-right';
+    rightEl.style.display = 'flex';
+    rightEl.style.flexDirection = 'column';
+    rightEl.style.gap = '6px';
+    rightEl.style.alignItems = 'flex-end';
 
     const countEl = document.createElement('div');
     countEl.className = 'shop-item-count';
     countEl.textContent = purchaseCount > 0 ? `×${purchaseCount}` : '';
 
-    const btn = document.createElement('button');
-    btn.textContent = '購買';
+    const buyBtn = document.createElement('button');
+    buyBtn.textContent = '購買';
 
     if (!canAfford) {
-      btn.className = 'btn-neon shop-item-btn shop-item-btn--disabled';
-      btn.disabled = true;
-      btn.style.opacity = '0.4';
-      btn.style.cursor = 'not-allowed';
-      btn.style.borderColor = 'var(--text-dim)';
-      btn.style.color = 'var(--text-dim)';
-      btn.style.textShadow = 'none';
-      btn.style.boxShadow = 'none';
+      buyBtn.className = 'btn-neon shop-item-btn shop-item-btn--disabled';
+      buyBtn.disabled = true;
+      buyBtn.style.opacity = '0.4';
+      buyBtn.style.cursor = 'not-allowed';
+      buyBtn.style.borderColor = 'var(--text-dim)';
+      buyBtn.style.color = 'var(--text-dim)';
+      buyBtn.style.textShadow = 'none';
+      buyBtn.style.boxShadow = 'none';
     } else {
-      btn.className = 'btn-neon shop-item-btn';
-      btn.addEventListener('click', () => this.onBuyMarketing(item, countEl, btn));
+      buyBtn.className = 'btn-neon shop-item-btn';
+      buyBtn.addEventListener('click', () => this.onBuyMarketing(item));
+    }
+
+    const refundBtn = document.createElement('button');
+    refundBtn.textContent = `退回 (退款 $${refundAmount})`;
+
+    if (purchaseCount === 0) {
+      refundBtn.className = 'btn-neon shop-item-btn shop-item-btn--disabled';
+      refundBtn.disabled = true;
+      refundBtn.style.opacity = '0.4';
+      refundBtn.style.cursor = 'not-allowed';
+      refundBtn.style.borderColor = 'var(--text-dim)';
+      refundBtn.style.color = 'var(--text-dim)';
+      refundBtn.style.textShadow = 'none';
+      refundBtn.style.boxShadow = 'none';
+    } else {
+      refundBtn.className = 'btn-neon shop-item-btn';
+      refundBtn.style.borderColor = 'var(--color-warning, #ff9800)';
+      refundBtn.style.color = 'var(--color-warning, #ff9800)';
+      refundBtn.addEventListener('click', () => this.onRefundMarketing(item));
     }
 
     rightEl.appendChild(countEl);
-    rightEl.appendChild(btn);
+    rightEl.appendChild(buyBtn);
+    rightEl.appendChild(refundBtn);
 
     card.appendChild(infoEl);
     card.appendChild(rightEl);
@@ -311,26 +500,21 @@ export class ShopPanel {
     return card;
   }
 
-  private onBuyMarketing(
-    item: (typeof MARKETING_ITEMS)[number],
-    countEl: HTMLElement,
-    btn: HTMLButtonElement,
-  ): void {
+  private onBuyMarketing(item: (typeof MARKETING_ITEMS)[number]): void {
     const success = spendMoney(item.cost);
-    if (!success) {
-      btn.textContent = '餘額不足';
-      btn.disabled = true;
-      btn.style.opacity = '0.4';
-      btn.style.cursor = 'not-allowed';
-      btn.style.borderColor = 'var(--text-dim)';
-      btn.style.color = 'var(--text-dim)';
-      btn.style.textShadow = 'none';
-      btn.style.boxShadow = 'none';
-      return;
-    }
+    if (!success) return;
 
-    this.marketingPurchased[item.id] = (this.marketingPurchased[item.id] ?? 0) + 1;
-    countEl.textContent = `×${this.marketingPurchased[item.id]}`;
+    const purchases = { ...((gameState as Record<string, unknown>).marketingPurchases as Record<string, number> ?? {}) };
+    purchases[item.id] = (purchases[item.id] ?? 0) + 1;
+    updateGameState({ marketingPurchases: purchases } as Parameters<typeof updateGameState>[0]);
+
+    this.refreshMoneyDisplay();
+    this.refreshMarketingTab();
+  }
+
+  private onRefundMarketing(item: (typeof MARKETING_ITEMS)[number]): void {
+    const success = refundMarketing(item.id, item.cost);
+    if (!success) return;
 
     this.refreshMoneyDisplay();
     this.refreshMarketingTab();
@@ -346,7 +530,7 @@ export class ShopPanel {
     }
   }
 
-  // ── Tab 3: 資金周轉 ────────────────────────────────────────────────────────
+  // ── Tab 4: 資金周轉 ────────────────────────────────────────────────────────
 
   private buildLoansTab(): HTMLElement {
     const container = document.createElement('div');

@@ -18,14 +18,18 @@ import { generateCustomers } from '../systems/CustomerEngine';
 import { sellSausage } from '../systems/EconomyEngine';
 import { SausageSprite } from '../objects/SausageSprite';
 import { CustomerQueue } from '../objects/CustomerQueue';
-import type { SaleRecord, Customer, WarmingSausage } from '../types';
+import type { SaleRecord, Customer, WarmingSausage, GrillEvent, GrillEventChoice, GrillEventOutcome } from '../types';
 import { sfx } from '../utils/SoundFX';
+import { rollGrillEvent } from '../data/grill-events';
 
 // ── Layout constants ────────────────────────────────────────────────────────
 const GAME_DURATION = 90;      // seconds
 const MAX_GRILL_SLOTS = 4;     // 6 if grill-expand upgrade
 const GRILL_Y_FRAC = 0.44;    // grill vertical position as fraction of screen height
 // Warming zone has no fixed limit — slots are created dynamically
+const CUSTOMER_ARRIVAL_INTERVAL = 5;  // seconds between customer batches (was 8)
+const CUSTOMER_BATCH_MIN = 2;         // minimum customers per batch (was 1)
+const CUSTOMER_BATCH_MAX = 4;         // maximum customers per batch (was 3)
 
 // ── Colors / fonts ──────────────────────────────────────────────────────────
 const COLOR_BG_TOP = 0x100500;
@@ -63,10 +67,29 @@ export class GrillScene extends Phaser.Scene {
   private customers: Customer[] = [];
   private pendingCustomerQueue: Customer[] = [];
   private customerArrivalTimer = 0;
-  private readonly customerArrivalInterval = 8; // seconds between batches
+  private readonly customerArrivalInterval = CUSTOMER_ARRIVAL_INTERVAL;
   private isDone = false;
   private sessionRevenue = 0;
   private paused = true; // Start paused until player clicks "開始營業"
+  // Session traffic bonus from events (multiplier added to base)
+  private sessionTrafficBonus = 0;
+
+  // ── Hover & keyboard state ──────────────────────────────────────────────
+  private hoveredSlotIndex: number | null = null;
+
+  // ── Grill event state ───────────────────────────────────────────────────
+  private grillEventTimer = 0;
+  private grillEventNextTrigger = 0; // randomized interval in seconds
+  private grillEventTriggered = 0;   // how many events fired this session (max 2)
+  private isShowingGrillEvent = false;
+  private triggeredEventIds: string[] = [];
+  // UI containers for event overlay (destroyed after dismissal)
+  private grillEventOverlay: Phaser.GameObjects.Container | null = null;
+
+  // ── Worker effect timers ─────────────────────────────────────────────────
+  private workerAdiTimer = 0;       // adi: random doneness boost every ~10s
+  private workerMeiTimer = 0;       // mei: steals sausage from warming every ~20s
+  private workerDadActive = false;  // dad: warming decay rate halved
 
   // ── Grill slots ─────────────────────────────────────────────────────────
   private grillSlots: GrillSlot[] = [];
@@ -119,6 +142,7 @@ export class GrillScene extends Phaser.Scene {
     this.isDone = false;
     this.paused = true;
     this.sessionRevenue = 0;
+    this.sessionTrafficBonus = 0;
     this.grillSlots = [];
     this.warmingSlots = [];
     this.heatButtons = [];
@@ -128,8 +152,20 @@ export class GrillScene extends Phaser.Scene {
     this.fireParticleTimer = 0;
     this.selectedInventoryType = null;
     this.inventoryButtonMap = new Map();
+    this.hoveredSlotIndex = null;
+    this.grillEventTimer = 0;
+    this.grillEventNextTrigger = Phaser.Math.Between(25, 40);
+    this.grillEventTriggered = 0;
+    this.isShowingGrillEvent = false;
+    this.triggeredEventIds = [];
+    this.grillEventOverlay = null;
+    this.workerAdiTimer = 0;
+    this.workerMeiTimer = 0;
+    this.workerDadActive = gameState.hiredWorkers.includes('dad');
 
-    const maxSlots = gameState.upgrades['grill-expand'] ? 6 : MAX_GRILL_SLOTS;
+    // Worker: adi → extra grill slot
+    let maxSlots = gameState.upgrades['grill-expand'] ? 6 : MAX_GRILL_SLOTS;
+    if (gameState.hiredWorkers.includes('adi')) maxSlots += 1;
 
     this.drawBackground(width, height);
     this.drawGrillRack(width, height);
@@ -153,12 +189,23 @@ export class GrillScene extends Phaser.Scene {
     this.cameras.main.fadeIn(400, 0, 0, 0);
     EventBus.emit('scene-ready', 'GrillScene');
 
+    // Keyboard: spacebar flips the hovered grill slot's sausage
+    this.input.keyboard!.on('keydown-SPACE', () => {
+      if (this.isDone || this.paused || this.isShowingGrillEvent) return;
+      if (this.hoveredSlotIndex === null) return;
+      const slot = this.grillSlots[this.hoveredSlotIndex];
+      if (!slot?.sausage || !slot.sprite || slot.sausage.served) return;
+      this.doFlipSlot(slot);
+    });
+
     // Show ready overlay (paused until player clicks start)
     this.showReadyOverlay(width, height);
   }
 
   update(_time: number, delta: number): void {
     if (this.isDone || this.paused) return;
+    // Freeze all game logic while a grill event overlay is shown
+    if (this.isShowingGrillEvent) return;
 
     const dt = (delta / 1000) * this.speedMultiplier;
 
@@ -172,10 +219,18 @@ export class GrillScene extends Phaser.Scene {
       this.pendingCustomerQueue.length > 0
     ) {
       this.customerArrivalTimer = 0;
-      const batch = Math.min(Phaser.Math.Between(1, 3), this.pendingCustomerQueue.length);
+      const batch = Math.min(
+        Phaser.Math.Between(CUSTOMER_BATCH_MIN, CUSTOMER_BATCH_MAX),
+        this.pendingCustomerQueue.length,
+      );
       for (let i = 0; i < batch; i++) {
         const c = this.pendingCustomerQueue.shift();
         if (c) {
+          // Worker: wangcai → 10% chance to scare away each arriving customer
+          if (gameState.hiredWorkers.includes('wangcai') && Math.random() < 0.1) {
+            this.showFeedback('🐕 旺財對客人亂吠！客人嚇跑了', this.scale.width / 2, this.scale.height * 0.1, '#ffaa44');
+            continue;
+          }
           this.customers.push(c);
           this.customerQueue.addCustomer(c);
         }
@@ -183,21 +238,22 @@ export class GrillScene extends Phaser.Scene {
     }
 
     // Tick sausages on grill
-    for (const slot of this.grillSlots) {
+    for (let si = 0; si < this.grillSlots.length; si++) {
+      const slot = this.grillSlots[si];
       if (!slot.sausage || !slot.sprite || slot.sausage.served) continue;
 
       const updated = updateSausage(slot.sausage, this.heatLevel, dt);
       slot.sausage = updated;
       slot.sprite.updateData(updated);
 
-      // ── Contextual action buttons above sausage ──
+      // ── Contextual feedback ──
       const heatedSide = updated.currentSide === 'bottom' ? updated.bottomDoneness : updated.topDoneness;
       const nonHeated = updated.currentSide === 'bottom' ? updated.topDoneness : updated.bottomDoneness;
 
-      // Show "翻面！" prompt when heated side hits green zone (70+) and other side not yet cooked
+      // Show "空白鍵翻面！" hint when heated side hits green zone (70+) and other side not yet cooked
       if (heatedSide >= 70 && nonHeated < 30 && !(slot as any).__flipPromptShown) {
         (slot as any).__flipPromptShown = true;
-        this.showFeedback('點香腸翻面！', slot.x, slot.y - 55, '#39ff14');
+        this.showFeedback('懸停+空白鍵翻面！', slot.x, slot.y - 55, '#39ff14');
       }
 
       // Show warning for overcooked
@@ -211,31 +267,27 @@ export class GrillScene extends Phaser.Scene {
         (slot as any).__burntWarnShown = true;
       }
 
-      // Show "放入保溫箱" button when both sides cooked (non-heated >= 30)
-      if (nonHeated >= 30 && !slot.serveBtn) {
-        const btn = this.add.text(slot.x, slot.y - 72, '[ 放入保溫箱 ]', {
-          fontSize: '14px',
-          fontFamily: FONT,
-          color: '#39ff14',
-          backgroundColor: '#000000dd',
-          padding: { x: 10, y: 5 },
-        }).setOrigin(0.5).setDepth(50).setInteractive({ cursor: 'pointer' });
-
-        btn.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
-          pointer.event.stopPropagation();
-          if (slot.sprite) this.moveToWarming(slot, slot.sprite);
-        });
-        btn.on('pointerover', () => btn.setColor('#ffffff'));
-        btn.on('pointerout', () => btn.setColor('#39ff14'));
-
-        slot.serveBtn = btn;
+      // Auto-grill: if upgrade active, auto-flip when heated side >= 70 and other < 70
+      if (gameState.upgrades['auto-grill']) {
+        if (heatedSide >= 70 && nonHeated < 70 && !(slot as any).__autoFlipped) {
+          (slot as any).__autoFlipped = true;
+          (slot as any).__flipPromptShown = true;
+          this.doFlipSlot(slot);
+          this.showFeedback('🤖 自動翻面', slot.x, slot.y - 40, '#44ccff');
+        }
+        // Reset auto-flip flag when the new side becomes active
+        if (heatedSide < 70) {
+          (slot as any).__autoFlipped = false;
+        }
       }
     }
 
     // Tick warming zone timers
     for (const ws of this.warmingSlots) {
       if (!ws.sausage) continue;
-      ws.sausage = { ...ws.sausage, timeInWarming: ws.sausage.timeInWarming + dt };
+      // Worker: dad → warming decay rate halved
+      const warmDt = this.workerDadActive ? dt * 0.5 : dt;
+      ws.sausage = { ...ws.sausage, timeInWarming: ws.sausage.timeInWarming + warmDt };
 
       // Update warming state — 30s perfect, 30s ok, then cold
       if (ws.sausage.timeInWarming < 30) {
@@ -248,6 +300,12 @@ export class GrillScene extends Phaser.Scene {
 
       this.updateWarmingSlotDisplay(ws);
     }
+
+    // Tick worker effects
+    this.tickWorkerEffects(dt);
+
+    // Tick grill events
+    this.tickGrillEvents(dt);
 
     // Fire particle emitter (scales with heat)
     this.tickFireParticles(dt);
@@ -520,7 +578,12 @@ export class GrillScene extends Phaser.Scene {
       }
     });
     hitZone.on('pointerout', () => {
-      if (slot.bgGfx) this.redrawWarmingSlotBg(slot, this.wzX, sy, this.wzSlotW, this.wzSlotH);
+      if (!slot.bgGfx) return;
+      if (slot.sausage) {
+        this.redrawWarmingSlotBgQuality(slot, this.wzX, sy, this.wzSlotW, this.wzSlotH);
+      } else {
+        this.redrawWarmingSlotBg(slot, this.wzX, sy, this.wzSlotW, this.wzSlotH);
+      }
     });
 
     (slot as any).__x = this.wzX;
@@ -557,6 +620,17 @@ export class GrillScene extends Phaser.Scene {
     slot.bgGfx.strokeRoundedRect(x, y, w, h, 4);
   }
 
+  // Quality-tinted warming slot background: border color based on grill quality
+  private redrawWarmingSlotBgQuality(slot: WarmingSlot, x: number, y: number, w: number, h: number): void {
+    if (!slot.bgGfx || !slot.sausage) return;
+    const qualityColor = this.getQualityColor(slot.sausage.grillQuality);
+    slot.bgGfx.clear();
+    slot.bgGfx.lineStyle(2, qualityColor, 0.75);
+    slot.bgGfx.fillStyle(0x0a0500, 0.88);
+    slot.bgGfx.fillRoundedRect(x, y, w, h, 4);
+    slot.bgGfx.strokeRoundedRect(x, y, w, h, 4);
+  }
+
   private updateWarmingSlotDisplay(slot: WarmingSlot): void {
     if (!slot.sausage || !slot.infoText || !slot.stateText) return;
 
@@ -564,34 +638,46 @@ export class GrillScene extends Phaser.Scene {
     const sausageInfo = SAUSAGE_MAP[ws.sausageTypeId];
     const emoji = sausageInfo?.emoji ?? '🌭';
 
-    let stateLabel = '';
-    let stateColor = '#888888';
-    let timeLeft = '';
+    // Warming state label and color
+    let warmingLabel = '';
+    let warmingColor = '#888888';
     if (ws.warmingState === 'perfect-warm') {
-      stateLabel = '熱騰騰 ×1.2';
-      stateColor = '#44ff88';
-      timeLeft = `${Math.max(0, Math.ceil(30 - ws.timeInWarming))}s`;
+      warmingLabel = '完美保溫';
+      warmingColor = '#44ff88';
     } else if (ws.warmingState === 'ok-warm') {
-      stateLabel = '微溫 ×1.0';
-      stateColor = '#ffcc44';
-      timeLeft = `${Math.max(0, Math.ceil(60 - ws.timeInWarming))}s`;
+      warmingLabel = '微溫';
+      warmingColor = '#ffcc44';
     } else {
-      stateLabel = '冷掉 ×0.7';
-      stateColor = '#6699aa';
-      timeLeft = '冷了但還能賣';
+      warmingLabel = '冷了';
+      warmingColor = '#6699aa';
     }
 
-    const overnightTag = ws.isOvernight ? '[隔夜]' : '';
-    slot.infoText.setText(`${emoji} ${overnightTag} 點擊出餐`);
-    slot.stateText.setText(`${stateLabel}  ${timeLeft}`);
-    slot.stateText.setColor(stateColor);
+    // Grill quality label
+    const qualityLabel = this.getQualityLabel(ws.grillQuality);
+    const overnightTag = ws.isOvernight ? '[隔夜] ' : '';
 
-    // Redraw background based on state
+    // Primary text: emoji + quality + warming state
+    slot.infoText.setText(`${emoji} ${overnightTag}${qualityLabel} | ${warmingLabel}`);
+    slot.infoText.setColor(warmingColor);
+
+    // State text: time remaining or cold
+    if (ws.warmingState === 'perfect-warm') {
+      slot.stateText.setText(`${Math.max(0, Math.ceil(30 - ws.timeInWarming))}s`);
+      slot.stateText.setColor('#44ff88');
+    } else if (ws.warmingState === 'ok-warm') {
+      slot.stateText.setText(`${Math.max(0, Math.ceil(60 - ws.timeInWarming))}s`);
+      slot.stateText.setColor('#ffcc44');
+    } else {
+      slot.stateText.setText('冷');
+      slot.stateText.setColor('#6699aa');
+    }
+
+    // Redraw background with quality-tinted border
     const x = (slot as any).__x as number;
     const y = (slot as any).__y as number;
     const w = (slot as any).__w as number;
     const h = (slot as any).__h as number;
-    this.redrawWarmingSlotBg(slot, x, y, w, h);
+    this.redrawWarmingSlotBgQuality(slot, x, y, w, h);
   }
 
   private clearWarmingSlotDisplay(slot: WarmingSlot): void {
@@ -1029,6 +1115,375 @@ export class GrillScene extends Phaser.Scene {
     this.pendingCustomerQueue = pool;
   }
 
+  // ── Flip helper (shared by keyboard and auto-grill) ──────────────────────
+
+  private doFlipSlot(slot: GrillSlot): void {
+    if (!slot.sausage || !slot.sprite || slot.sausage.served) return;
+    slot.sausage = flipSausage(slot.sausage);
+    slot.sprite.triggerFlip();
+    slot.sprite.updateData(slot.sausage);
+    sfx.playFlip();
+    (slot as any).__flipPromptShown = false;
+    this.showFeedback('翻面！', slot.x, slot.y + 35, '#ffcc44');
+  }
+
+  // ── Worker effect ticks ───────────────────────────────────────────────────
+
+  private tickWorkerEffects(dt: number): void {
+    const workers = gameState.hiredWorkers;
+
+    // Worker: adi — every ~10s, 15% chance to add +20 doneness to a random grill sausage
+    if (workers.includes('adi')) {
+      this.workerAdiTimer += dt;
+      if (this.workerAdiTimer >= 10) {
+        this.workerAdiTimer = 0;
+        if (Math.random() < 0.15) {
+          const active = this.grillSlots.filter(s => s.sausage && !s.sausage.served && s.sprite);
+          if (active.length > 0) {
+            const target = active[Math.floor(Math.random() * active.length)];
+            if (target.sausage) {
+              const boosted = target.sausage.currentSide === 'bottom'
+                ? { ...target.sausage, bottomDoneness: Math.min(100, target.sausage.bottomDoneness + 20) }
+                : { ...target.sausage, topDoneness: Math.min(100, target.sausage.topDoneness + 20) };
+              target.sausage = boosted;
+              target.sprite!.updateData(boosted);
+              this.showFeedback('📱 阿迪在滑手機...', target.x, target.y - 40, '#aaaaff');
+            }
+          }
+        }
+      }
+    }
+
+    // Worker: mei — every ~20s, 10% chance to remove 1 sausage from warming zone
+    if (workers.includes('mei')) {
+      this.workerMeiTimer += dt;
+      if (this.workerMeiTimer >= 20) {
+        this.workerMeiTimer = 0;
+        if (Math.random() < 0.10) {
+          const occupied = this.warmingSlots.filter(ws => ws.sausage);
+          if (occupied.length > 0) {
+            const target = occupied[0]; // steal oldest
+            target.sausage = null;
+            this.clearWarmingSlotDisplay(target);
+            this.showFeedback('💅 小妹偷吃了一根香腸...', this.scale.width * 0.70 + this.wzSlotW / 2, target.y, '#ff88cc');
+          }
+        }
+      }
+    }
+  }
+
+  // ── Grill event tick ──────────────────────────────────────────────────────
+
+  private tickGrillEvents(dt: number): void {
+    if (this.grillEventTriggered >= 2) return;
+
+    this.grillEventTimer += dt;
+    if (this.grillEventTimer < this.grillEventNextTrigger) return;
+
+    // Reset timer and pick next trigger interval
+    this.grillEventTimer = 0;
+    this.grillEventNextTrigger = Phaser.Math.Between(25, 40);
+
+    // 60% chance an event fires
+    if (Math.random() > 0.6) return;
+
+    const event = rollGrillEvent(gameState.day, this.triggeredEventIds);
+    if (!event) return;
+
+    // Worker: wangcai auto-dismisses nuisance/thug events 50% of the time
+    if (
+      gameState.hiredWorkers.includes('wangcai') &&
+      (event.category === 'nuisance' || event.category === 'thug') &&
+      Math.random() < 0.5
+    ) {
+      this.showFeedback('🐕 旺財衝出去把他們嚇跑了！', this.scale.width / 2, this.scale.height * 0.35, '#ffcc44');
+      this.triggeredEventIds.push(event.id);
+      this.grillEventTriggered++;
+      return;
+    }
+
+    this.triggeredEventIds.push(event.id);
+    this.grillEventTriggered++;
+    this.showGrillEventOverlay(event);
+  }
+
+  // ── Grill event overlay UI ────────────────────────────────────────────────
+
+  private showGrillEventOverlay(event: GrillEvent): void {
+    this.isShowingGrillEvent = true;
+    const { width, height } = this.scale;
+
+    const container = this.add.container(0, 0).setDepth(300);
+    this.grillEventOverlay = container;
+
+    // Semi-transparent black overlay
+    const overlay = this.add.graphics();
+    overlay.fillStyle(0x000000, 0.7);
+    overlay.fillRect(0, 0, width, height);
+    container.add(overlay);
+
+    // Panel dimensions
+    const panelW = width * 0.7;
+    const panelX = (width - panelW) / 2;
+    const panelY = height * 0.15;
+
+    // Measure content height: header ~80px + description ~60px + choices * 50px + padding
+    const choiceCount = event.choices.length;
+    const panelH = 80 + 70 + choiceCount * 58 + 30;
+
+    // Panel background
+    const panelGfx = this.add.graphics();
+    panelGfx.fillStyle(0x1a0a00, 0.97);
+    panelGfx.lineStyle(2, 0xff9900, 0.9);
+    panelGfx.fillRoundedRect(panelX, panelY, panelW, panelH, 10);
+    panelGfx.strokeRoundedRect(panelX, panelY, panelW, panelH, 10);
+    container.add(panelGfx);
+
+    const cx = panelX + panelW / 2;
+
+    // Event emoji + name
+    const headerTxt = this.add.text(cx, panelY + 22, `${event.emoji} ${event.name}`, {
+      fontSize: '22px',
+      fontFamily: FONT,
+      color: '#ffcc44',
+      fontStyle: 'bold',
+    }).setOrigin(0.5, 0);
+    container.add(headerTxt);
+
+    // Description
+    const descTxt = this.add.text(cx, panelY + 58, event.description, {
+      fontSize: '13px',
+      fontFamily: FONT,
+      color: '#ffeecc',
+      wordWrap: { width: panelW - 40 },
+      align: 'center',
+    }).setOrigin(0.5, 0);
+    container.add(descTxt);
+
+    // Choice buttons
+    const choiceStartY = panelY + 130;
+    event.choices.forEach((choice, idx) => {
+      const by = choiceStartY + idx * 58;
+      const btnH = 46;
+
+      const btnGfx = this.add.graphics();
+      btnGfx.fillStyle(0x2a1000, 0.9);
+      btnGfx.lineStyle(1, 0xff6b00, 0.6);
+      btnGfx.fillRoundedRect(panelX + 20, by, panelW - 40, btnH, 5);
+      btnGfx.strokeRoundedRect(panelX + 20, by, panelW - 40, btnH, 5);
+      container.add(btnGfx);
+
+      const btnTxt = this.add.text(cx, by + btnH / 2, `${choice.emoji} ${choice.text}`, {
+        fontSize: '14px',
+        fontFamily: FONT,
+        color: COLOR_ORANGE,
+        align: 'center',
+      }).setOrigin(0.5);
+      container.add(btnTxt);
+
+      const hitZone = this.add.zone(cx, by + btnH / 2, panelW - 40, btnH).setInteractive({ cursor: 'pointer' });
+      hitZone.on('pointerover', () => {
+        btnGfx.clear();
+        btnGfx.fillStyle(0xff6b00, 0.25);
+        btnGfx.lineStyle(2, 0xff9900, 1.0);
+        btnGfx.fillRoundedRect(panelX + 20, by, panelW - 40, btnH, 5);
+        btnGfx.strokeRoundedRect(panelX + 20, by, panelW - 40, btnH, 5);
+        btnTxt.setColor('#ffffff');
+      });
+      hitZone.on('pointerout', () => {
+        btnGfx.clear();
+        btnGfx.fillStyle(0x2a1000, 0.9);
+        btnGfx.lineStyle(1, 0xff6b00, 0.6);
+        btnGfx.fillRoundedRect(panelX + 20, by, panelW - 40, btnH, 5);
+        btnGfx.strokeRoundedRect(panelX + 20, by, panelW - 40, btnH, 5);
+        btnTxt.setColor(COLOR_ORANGE);
+      });
+      hitZone.on('pointerdown', () => {
+        this.resolveGrillEventChoice(event, choice, container, panelX, panelY, panelW, panelH, cx);
+      });
+      container.add(hitZone);
+    });
+  }
+
+  private resolveGrillEventChoice(
+    _event: GrillEvent,
+    choice: GrillEventChoice,
+    container: Phaser.GameObjects.Container,
+    panelX: number,
+    panelY: number,
+    panelW: number,
+    _panelH: number,
+    cx: number,
+  ): void {
+    // Roll outcome
+    const roll = Math.random();
+    let cumulative = 0;
+    let chosenOutcome: GrillEventOutcome = choice.outcomes[choice.outcomes.length - 1];
+    for (const outcome of choice.outcomes) {
+      cumulative += outcome.probability;
+      if (roll < cumulative) {
+        chosenOutcome = outcome;
+        break;
+      }
+    }
+
+    // Apply effects
+    const fx = chosenOutcome.effects;
+    if (fx.money !== undefined) addMoney(fx.money);
+    if (fx.reputation !== undefined) changeReputation(fx.reputation);
+    if (fx.trafficBonus !== undefined) this.sessionTrafficBonus += fx.trafficBonus;
+
+    if (fx.loseSausages !== undefined && fx.loseSausages > 0) {
+      let removed = 0;
+      for (const ws of this.warmingSlots) {
+        if (ws.sausage && removed < fx.loseSausages) {
+          ws.sausage = null;
+          this.clearWarmingSlotDisplay(ws);
+          removed++;
+        }
+      }
+    }
+
+    if (fx.loseGrillSausages !== undefined && fx.loseGrillSausages > 0) {
+      const removeAll = fx.loseGrillSausages >= 999;
+      let removed = 0;
+      for (const slot of this.grillSlots) {
+        if (!slot.sausage || slot.sausage.served) continue;
+        if (!removeAll && removed >= fx.loseGrillSausages) break;
+        if (slot.sprite) {
+          slot.sprite.playBurntAnimation();
+        }
+        if (slot.serveBtn) { slot.serveBtn.destroy(); slot.serveBtn = null; }
+        slot.sausage = { ...slot.sausage, served: true };
+        slot.sprite = null;
+        const capturedSlot = slot;
+        this.time.delayedCall(600, () => {
+          capturedSlot.sausage = null;
+          this.drawEmptySlotPlaceholder(capturedSlot);
+        });
+        removed++;
+      }
+    }
+
+    if (fx.extraSlot) {
+      const { height } = this.scale;
+      const extraSlotCount = this.grillSlots.length + 1;
+      this.setupGrillSlots(this.scale.width, height, extraSlotCount);
+      this.showFeedback('烤架 +1 格！', this.scale.width / 2, this.scale.height * 0.35, '#44ff88');
+    }
+
+    if (fx.noMoreEventType && fx.noMoreDays) {
+      updateGameState({
+        grillEventCooldowns: {
+          ...gameState.grillEventCooldowns,
+          [fx.noMoreEventType]: gameState.day + fx.noMoreDays,
+        },
+      });
+    }
+
+    // Rebuild panel with result
+    container.removeAll(true);
+    container.setDepth(300);
+
+    const { width, height } = this.scale;
+
+    const overlay2 = this.add.graphics();
+    overlay2.fillStyle(0x000000, 0.7);
+    overlay2.fillRect(0, 0, width, height);
+    container.add(overlay2);
+
+    const resultPanelH = 180;
+    const panelGfx2 = this.add.graphics();
+    panelGfx2.fillStyle(0x1a0a00, 0.97);
+    panelGfx2.lineStyle(2, 0xff9900, 0.9);
+    panelGfx2.fillRoundedRect(panelX, panelY, panelW, resultPanelH, 10);
+    panelGfx2.strokeRoundedRect(panelX, panelY, panelW, resultPanelH, 10);
+    container.add(panelGfx2);
+
+    const resultTxt = this.add.text(cx, panelY + 25, chosenOutcome.resultText, {
+      fontSize: '14px',
+      fontFamily: FONT,
+      color: '#ffeecc',
+      wordWrap: { width: panelW - 50 },
+      align: 'center',
+    }).setOrigin(0.5, 0);
+    container.add(resultTxt);
+
+    // Show effects summary
+    const effectParts: string[] = [];
+    if (fx.money !== undefined) effectParts.push(fx.money >= 0 ? `+$${fx.money}` : `-$${Math.abs(fx.money)}`);
+    if (fx.reputation !== undefined) effectParts.push(fx.reputation >= 0 ? `+${fx.reputation}聲望` : `${fx.reputation}聲望`);
+    if (fx.trafficBonus !== undefined && fx.trafficBonus !== 0) effectParts.push(fx.trafficBonus > 0 ? '客流+' : '客流-');
+    if (fx.loseSausages !== undefined && fx.loseSausages > 0) effectParts.push(`保溫箱-${fx.loseSausages}根`);
+    if (fx.loseGrillSausages !== undefined && fx.loseGrillSausages > 0) effectParts.push(fx.loseGrillSausages >= 999 ? '烤架全毀' : `烤架-${fx.loseGrillSausages}根`);
+    if (fx.extraSlot) effectParts.push('烤架+1格');
+
+    if (effectParts.length > 0) {
+      const effectTxt = this.add.text(cx, panelY + 90, effectParts.join('  '), {
+        fontSize: '13px',
+        fontFamily: FONT,
+        color: '#ffcc44',
+        align: 'center',
+      }).setOrigin(0.5, 0);
+      container.add(effectTxt);
+    }
+
+    // Dismiss button
+    const dismissY = panelY + resultPanelH - 40;
+    const dismissBtnH = 32;
+    const dismissBtnW = 120;
+    const dismissGfx = this.add.graphics();
+    dismissGfx.fillStyle(0xff6b00, 0.25);
+    dismissGfx.lineStyle(2, 0xff9900, 1.0);
+    dismissGfx.fillRoundedRect(cx - dismissBtnW / 2, dismissY, dismissBtnW, dismissBtnH, 5);
+    dismissGfx.strokeRoundedRect(cx - dismissBtnW / 2, dismissY, dismissBtnW, dismissBtnH, 5);
+    container.add(dismissGfx);
+
+    const dismissTxt = this.add.text(cx, dismissY + dismissBtnH / 2, '繼續烤肉', {
+      fontSize: '14px',
+      fontFamily: FONT,
+      color: '#ffffff',
+    }).setOrigin(0.5);
+    container.add(dismissTxt);
+
+    const dismissZone = this.add.zone(cx, dismissY + dismissBtnH / 2, dismissBtnW, dismissBtnH)
+      .setInteractive({ cursor: 'pointer' });
+    dismissZone.on('pointerdown', () => {
+      container.destroy();
+      this.grillEventOverlay = null;
+      this.isShowingGrillEvent = false;
+    });
+    container.add(dismissZone);
+  }
+
+  // ── Quality label helpers ─────────────────────────────────────────────────
+
+  private getQualityLabel(quality: string): string {
+    const labels: Record<string, string> = {
+      'raw': '生的',
+      'half-cooked': '半熟',
+      'ok': '普通',
+      'perfect': '完美',
+      'slightly-burnt': '微焦',
+      'burnt': '焦',
+      'carbonized': '碳化',
+    };
+    return labels[quality] ?? quality;
+  }
+
+  private getQualityColor(quality: string): number {
+    const colors: Record<string, number> = {
+      'raw': 0x888888,
+      'half-cooked': 0x4488cc,
+      'ok': 0xcccc44,
+      'perfect': 0x44cc44,
+      'slightly-burnt': 0xcc8844,
+      'burnt': 0xcc4444,
+      'carbonized': 0x444444,
+    };
+    return colors[quality] ?? 0x888888;
+  }
+
   // Manual sausage placement — called when player clicks empty grill slot after selecting inventory type
   private placeOnGrill(slot: GrillSlot, sausageTypeId: string): void {
     if (slot.sausage) return; // Already occupied
@@ -1045,23 +1500,28 @@ export class GrillScene extends Phaser.Scene {
 
     const sausage = createGrillingSausage(sausageTypeId);
     const sprite = new SausageSprite(this, slot.x, slot.y, sausage);
+    const slotIndex = this.grillSlots.indexOf(slot);
 
-    sprite.onFlip(() => {
+    // onFlip: still supported for future use (keyboard flip calls doFlipSlot directly)
+    // Click = move to warming zone
+    sprite.onServe(() => {
       const currentSlot = this.grillSlots.find(s => s.sprite === sprite);
-      if (currentSlot?.sausage) {
-        currentSlot.sausage = flipSausage(currentSlot.sausage);
-        sprite.updateData(currentSlot.sausage);
-        sfx.playFlip();
-        // Reset flip prompt so it can show again for the new side
-        (currentSlot as any).__flipPromptShown = false;
-        this.showFeedback('翻面！', currentSlot.x, currentSlot.y + 35, '#ffcc44');
-      }
+      if (currentSlot?.sprite) this.moveToWarming(currentSlot, currentSlot.sprite);
+    });
+
+    // Hover tracking for spacebar flip
+    sprite.on('pointerover', () => {
+      this.hoveredSlotIndex = slotIndex;
+    });
+    sprite.on('pointerout', () => {
+      if (this.hoveredSlotIndex === slotIndex) this.hoveredSlotIndex = null;
     });
 
     slot.sausage = sausage;
     slot.sprite = sprite;
     (slot as any).__carbonWarnShown = false;
     (slot as any).__burntWarnShown = false;
+    (slot as any).__autoFlipped = false;
 
     // Reset selection and update inventory display
     this.selectedInventoryType = null;
@@ -1405,8 +1865,8 @@ export class GrillScene extends Phaser.Scene {
         '',
         '── 三步驟 ──',
         '① 底部選香腸 → 點烤架空位放上去',
-        '② 點香腸翻面，看顏色烤到金黃色最棒',
-        '③ 雙擊起鍋到保溫區 → 點保溫區出餐給客人',
+        '② 滑鼠懸停香腸 + 按空白鍵翻面',
+        '③ 點香腸起鍋到保溫區 → 點保溫區出餐給客人',
         '',
         '── 熟度看顏色 ──',
         '灰色=生的  藍色=半熟  黃色=普通  綠色=完美',
@@ -1418,6 +1878,8 @@ export class GrillScene extends Phaser.Scene {
         '保溫區：30秒內最佳 → 再30秒普通 → 之後冷掉（都能賣！）',
         '隔夜香腸也能賣，但客人 50% 機率拉肚子投訴',
         '客人看到價格牌才來排隊，不會嫌貴！',
+        '',
+        '烤架中間偶爾會發生突發事件，選擇決定後果！',
         '',
       );
     }
@@ -1479,5 +1941,13 @@ export class GrillScene extends Phaser.Scene {
       if (p?.active) p.destroy();
     });
     this.fireParticles = [];
+
+    if (this.grillEventOverlay) {
+      this.grillEventOverlay.destroy();
+      this.grillEventOverlay = null;
+    }
+
+    // Remove keyboard listeners
+    this.input.keyboard?.removeAllListeners();
   }
 }

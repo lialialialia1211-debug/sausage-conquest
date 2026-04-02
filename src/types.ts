@@ -123,3 +123,52 @@ export interface LoanState {
   active: ActiveLoan | null;
   bankBlacklisted: boolean;
 }
+
+// ── Worker types ───────────────────────────────────────────────────────────────
+
+// Worker (part-time employee)
+export interface Worker {
+  id: string;
+  name: string;
+  emoji: string;
+  description: string;
+  cost: number;        // one-time hire cost
+  dailySalary: number; // daily pay
+  buff: string;        // description of benefit
+  debuff: string;      // description of downside
+}
+
+// ── Grill event types ──────────────────────────────────────────────────────────
+
+// Mid-grill event (happens during grilling)
+export interface GrillEvent {
+  id: string;
+  name: string;
+  emoji: string;
+  category: 'nuisance' | 'thug' | 'beggar' | 'authority';
+  description: string;
+  minDay: number;
+  choices: GrillEventChoice[];
+}
+
+export interface GrillEventChoice {
+  emoji: string;
+  text: string;
+  // Each outcome has a probability. If multiple outcomes, they are rolled.
+  outcomes: GrillEventOutcome[];
+}
+
+export interface GrillEventOutcome {
+  probability: number;  // 0-1, outcomes for a choice should sum to 1
+  resultText: string;
+  effects: {
+    money?: number;
+    reputation?: number;
+    trafficBonus?: number;
+    loseSausages?: number;       // lose N from warming zone
+    loseGrillSausages?: number;  // lose N (or 'all') from grill
+    extraSlot?: boolean;         // temporary +1 grill slot
+    noMoreEventType?: string;    // prevent this event category for N days
+    noMoreDays?: number;
+  };
+}

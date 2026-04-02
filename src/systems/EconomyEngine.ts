@@ -1,6 +1,7 @@
 // EconomyEngine — pure logic, no Phaser dependency, no UI code
 import { gameState, addMoney, spendMoney, updateGameState } from '../state/GameState';
 import { SAUSAGE_MAP } from '../data/sausages';
+import { WORKERS } from '../data/workers';
 import type { DailySummary, SaleRecord } from '../types';
 
 /**
@@ -109,6 +110,61 @@ export function clearEndOfDayWaste(): { grillWaste: number; warmingWaste: number
     grillWaste: gameState.dailyWaste?.grillRemaining ?? 0,
     warmingWaste: gameState.dailyWaste?.warmingRemaining ?? 0,
   };
+}
+
+/**
+ * Refund a previously purchased marketing item at 70% of its original price.
+ * Decrements the purchase count in gameState.marketingPurchases.
+ * Returns true if the refund succeeded.
+ */
+export function refundMarketing(itemId: string, price: number): boolean {
+  const purchases = gameState.marketingPurchases || {};
+  if (!purchases[itemId] || purchases[itemId] <= 0) return false;
+  const refundAmount = Math.floor(price * 0.7);
+  addMoney(refundAmount);
+  const updatedPurchases = { ...purchases, [itemId]: purchases[itemId] - 1 };
+  updateGameState({ marketingPurchases: updatedPurchases });
+  return true;
+}
+
+/**
+ * Deduct daily salaries for all hired workers.
+ * Returns the total amount paid.
+ */
+export function payWorkerSalaries(): number {
+  const hired = gameState.hiredWorkers ?? [];
+  if (hired.length === 0) return 0;
+
+  const totalSalary = hired.reduce((sum, workerId) => {
+    const worker = WORKERS.find(w => w.id === workerId);
+    return sum + (worker?.dailySalary ?? 0);
+  }, 0);
+
+  if (totalSalary > 0) {
+    spendMoney(totalSalary);
+    const updatedStats = {
+      ...gameState.stats,
+      totalExpenses: (gameState.stats['totalExpenses'] ?? 0) + totalSalary,
+    };
+    updateGameState({
+      stats: updatedStats,
+      dailyExpenses: (gameState.dailyExpenses ?? 0) + totalSalary,
+      workerSalaryPaid: true,
+    });
+  }
+
+  return totalSalary;
+}
+
+/**
+ * Calculate the cut dad takes from today's revenue (10% if 'dad' is hired).
+ * Returns the amount deducted. Caller should pass actual revenue earned.
+ */
+export function applyDadTax(revenue: number): number {
+  if (!gameState.hiredWorkers.includes('dad')) return 0;
+  const dadCut = Math.floor(revenue * 0.1);
+  spendMoney(dadCut);
+  return dadCut;
 }
 
 /**

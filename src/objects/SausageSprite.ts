@@ -39,8 +39,9 @@ export class SausageSprite extends Phaser.GameObjects.Container {
   private readyGlow: Phaser.GameObjects.Graphics;
 
   private isFlipping = false;
-  private onFlipCallback: (() => void) | null = null;
-  // onServe is no longer used — serving is handled via "起鍋" button in GrillScene
+  private onServeCallback: (() => void) | null = null;
+  // Hover glow graphics (white outline around sausage)
+  private hoverGlowGfx: Phaser.GameObjects.Graphics;
   private smokeParticles: Phaser.GameObjects.Text[] = [];
   private _data: GrillingSausage;
 
@@ -58,6 +59,10 @@ export class SausageSprite extends Phaser.GameObjects.Container {
     super(scene, x, y);
     this._data = sausage;
     scene.add.existing(this);
+
+    // Hover glow (white outline, hidden by default)
+    this.hoverGlowGfx = scene.add.graphics();
+    this.add(this.hoverGlowGfx);
 
     // Ready glow (hidden by default)
     this.readyGlow = scene.add.graphics();
@@ -95,9 +100,11 @@ export class SausageSprite extends Phaser.GameObjects.Container {
     hitZone.on('pointerdown', () => this.handleClick());
     hitZone.on('pointerover', () => {
       this.sausageGfx.setAlpha(0.82);
+      this.drawHoverGlow(true);
     });
     hitZone.on('pointerout', () => {
       this.sausageGfx.setAlpha(1);
+      this.drawHoverGlow(false);
     });
 
     this.redraw();
@@ -113,19 +120,35 @@ export class SausageSprite extends Phaser.GameObjects.Container {
     this.redraw();
   }
 
-  onFlip(cb: () => void): this {
-    this.onFlipCallback = cb;
+  onServe(cb: () => void): this {
+    this.onServeCallback = cb;
     return this;
   }
 
-  // onServe removed — serving handled via "起鍋" button in GrillScene
-
   private handleClick(): void {
     if (this._data.served || this.isFlipping) return;
-    // Click on sausage = ALWAYS flip. Serving is done via separate "起鍋" button.
-    this.triggerFlip();
+    // Click on sausage = move to warming zone (onServe callback)
+    if (this.onServeCallback) this.onServeCallback();
   }
 
+  private drawHoverGlow(visible: boolean): void {
+    this.hoverGlowGfx.clear();
+    if (!visible) return;
+    // Subtle white glow outline around sausage body
+    this.hoverGlowGfx.lineStyle(3, 0xffffff, 0.3);
+    this.hoverGlowGfx.strokeRoundedRect(
+      -SAUSAGE_W / 2 - 2,
+      -SAUSAGE_H / 2 - 2,
+      SAUSAGE_W + 4,
+      SAUSAGE_H + 4,
+      SAUSAGE_H / 2 + 2,
+    );
+  }
+
+  /**
+   * Plays the flip animation only (no game-logic callback).
+   * GrillScene.doFlipSlot is responsible for flipping the data before calling this.
+   */
   triggerFlip(): void {
     if (this.isFlipping || this._data.served) return;
     this.isFlipping = true;
@@ -137,7 +160,6 @@ export class SausageSprite extends Phaser.GameObjects.Container {
       duration: 30,
       ease: 'Power1',
       onComplete: () => {
-        if (this.onFlipCallback) this.onFlipCallback();
         this.redraw();
         this.scene.tweens.add({
           targets: this,
@@ -576,6 +598,7 @@ export class SausageSprite extends Phaser.GameObjects.Container {
       this._malaPulseTween.stop();
       this._malaPulseTween = null;
     }
+    this.hoverGlowGfx.clear();
     this.smokeParticles.forEach(s => {
       if (s && s.active) s.destroy();
     });

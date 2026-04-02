@@ -23,6 +23,14 @@ export const CART_UPGRADES: CartUpgrade[] = [
   { id: 'mini-fridge', name: '迷你冰箱', emoji: '❄️', cost: 800, description: '隔夜損耗降為 10%', effect: { spoilReduction: 0.1 } },
   { id: 'neon-sign', name: '霓虹招牌', emoji: '💡', cost: 600, description: '基礎客流 +15%', effect: { trafficBonus: 0.15 } },
   { id: 'seating', name: '座位區', emoji: '🪑', cost: 1200, description: '平均消費 +20%', effect: { spendBonus: 0.2 } },
+  {
+    id: 'auto-grill',
+    name: '自動烤香腸機',
+    emoji: '🤖',
+    description: '全自動翻面機，熟度到了自動翻！但機器不便宜...',
+    cost: 3500,
+    effect: { autoFlip: 1 },
+  },
 ];
 
 export const MARKETING_ITEMS: MarketingItem[] = [

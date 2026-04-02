@@ -44,6 +44,14 @@ export const gameState = {
   // Daily event effects (reset each day)
   dailyTrafficBonus: 0,
   skipDay: false,
+  // Hired part-time workers (array of worker IDs)
+  hiredWorkers: [] as string[],
+  // Track purchased marketing items for refund support: itemId -> purchase count
+  marketingPurchases: {} as Record<string, number>,
+  // Grill event cooldowns: category -> day number when cooldown expires
+  grillEventCooldowns: {} as Record<string, number>,
+  // Whether worker salaries have been paid today (reset each day)
+  workerSalaryPaid: false,
 };
 
 // Update state and notify UI via EventBus
@@ -69,6 +77,8 @@ export function advanceDay(): void {
     dailyWaste: { grillRemaining: 0, warmingRemaining: 0 },
     dailyTrafficBonus: 0,
     skipDay: false,
+    workerSalaryPaid: false,
+    // grillEventCooldowns persist across days — do NOT reset here
   });
 }
 
