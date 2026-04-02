@@ -23,7 +23,10 @@ import { sfx } from '../utils/SoundFX';
 import { rollGrillEvent } from '../data/grill-events';
 import { CombatPanel } from '../ui/panels/CombatPanel';
 import { getPersonalityEmoji } from '../systems/CustomerEngine';
-import { changeUndergroundRep, addChaos } from '../state/GameState';
+import { changeUndergroundRep, addChaos, spendMoney } from '../state/GameState';
+import { canPlayerLeave, tickWorkerAI } from '../systems/WorkerGrillAI';
+import { AWAY_ACTIVITIES, rollActivityOutcome } from '../data/activities';
+import type { AwayActivity } from '../data/activities';
 
 // ── Layout constants ────────────────────────────────────────────────────────
 const GAME_DURATION = 90;      // seconds
@@ -125,6 +128,15 @@ export class GrillScene extends Phaser.Scene {
   private currentCombatPanel: CombatPanel | null = null;
   private combatCustomersHandled: Set<string> = new Set();
 
+  // ── Player away state ─────────────────────────────────────────────────────
+  private isPlayerAway: boolean = false;
+  private awayActivityTimer: number = 0;
+  private currentActivity: AwayActivity | null = null;
+  private leaveButton: Phaser.GameObjects.Text | null = null;
+  private workerActionTimer: number = 0;
+  private awayOverlay: Phaser.GameObjects.Container | null = null;
+  private meiServeTimer: number = 0;
+
   constructor() {
     super({ key: 'GrillScene' });
   }
@@ -171,6 +183,13 @@ export class GrillScene extends Phaser.Scene {
     this.workerAdiTimer = 0;
     this.workerMeiTimer = 0;
     this.workerDadActive = gameState.hiredWorkers.includes('dad');
+    this.isPlayerAway = false;
+    this.awayActivityTimer = 0;
+    this.currentActivity = null;
+    this.leaveButton = null;
+    this.workerActionTimer = 0;
+    this.awayOverlay = null;
+    this.meiServeTimer = 0;
 
     // Worker: adi → extra grill slot
     let maxSlots = gameState.upgrades['grill-expand'] ? 6 : MAX_GRILL_SLOTS;
@@ -186,6 +205,20 @@ export class GrillScene extends Phaser.Scene {
     this.setupInventoryPanel(width, height);
     this.setupHUD(width, height);
     this.setupEndButton(width, height);
+
+    // "Leave stall" button - only if workers can grill
+    if (canPlayerLeave()) {
+      this.leaveButton = this.add.text(
+        this.scale.width - 10,
+        this.scale.height - 40,
+        '🚶 離開攤位',
+        { fontSize: '16px', color: '#44aaff', backgroundColor: '#1a1a2e', padding: { x: 10, y: 6 } }
+      ).setOrigin(1, 1).setInteractive({ useHandCursor: true }).setDepth(11);
+
+      this.leaveButton.on('pointerdown', () => this.showActivityMenu());
+      this.leaveButton.on('pointerover', () => this.leaveButton?.setColor('#88ccff'));
+      this.leaveButton.on('pointerout', () => this.leaveButton?.setColor('#44aaff'));
+    }
 
     // Bodyguard indicator
     if (gameState.hasBodyguard) {
@@ -340,6 +373,82 @@ export class GrillScene extends Phaser.Scene {
 
     // Fire particle emitter (scales with heat)
     this.tickFireParticles(dt);
+
+    // Worker auto-grill when player is away
+    if (this.isPlayerAway && this.currentActivity) {
+      this.awayActivityTimer -= dt;
+
+      // Update banner text
+      const bannerText = (this as any).__awayBannerText as Phaser.GameObjects.Text | null;
+      if (bannerText) {
+        bannerText.setText(
+          `${this.currentActivity.emoji} ${this.currentActivity.name}中... (${Math.ceil(this.awayActivityTimer)}秒)`
+        );
+      }
+
+      // Worker AI tick every 2 seconds
+      this.workerActionTimer += dt;
+      if (this.workerActionTimer >= 2.0) {
+        const actions = tickWorkerAI(
+          this.grillSlots.map(s => ({ sausage: s.sausage, isEmpty: !s.sausage })),
+          this.warmingSlots.length,
+          this.heatLevel,
+          dt,
+          this.inventoryCopy,
+          this.workerActionTimer
+        );
+
+        const cx = this.scale.width / 2;
+        const cy = this.scale.height * 0.35;
+
+        for (const action of actions) {
+          if (action.type === 'flip' && action.slotIndex !== undefined) {
+            const slot = this.grillSlots[action.slotIndex];
+            if (slot?.sausage && slot.sprite) {
+              this.doFlipSlot(slot);
+              this.showFeedback(action.message, slot.x, slot.y - 40, '#44aaff');
+            }
+          } else if (action.type === 'serve' && action.slotIndex !== undefined) {
+            const slot = this.grillSlots[action.slotIndex];
+            if (slot?.sprite) {
+              this.moveToWarming(slot, slot.sprite);
+              this.showFeedback(action.message, slot.x, slot.y - 40, '#44ff44');
+            }
+          } else if (action.type === 'place' && action.slotIndex !== undefined) {
+            const availableEntry = Object.entries(this.inventoryCopy).find(([, qty]) => qty > 0);
+            if (availableEntry) {
+              const slot = this.grillSlots[action.slotIndex];
+              if (slot && !slot.sausage) {
+                this.placeOnGrill(slot, availableEntry[0]);
+                this.showFeedback(action.message, slot.x, slot.y - 40, '#44ff44');
+              }
+            }
+          } else if (action.type === 'distracted') {
+            this.showFeedback(action.message, cx, cy, '#ff8800');
+          }
+        }
+        this.workerActionTimer = 0;
+      }
+
+      // Activity complete
+      if (this.awayActivityTimer <= 0) {
+        this.completeActivity();
+      }
+    }
+
+    // Mei auto-serve: if hired, she serves warming sausages to customers automatically
+    if (gameState.hiredWorkers?.includes('mei')) {
+      this.meiServeTimer += dt;
+      if (this.meiServeTimer >= 3.0) {
+        this.meiServeTimer = 0;
+        const filledSlot = this.warmingSlots.find(s => s.sausage);
+        const nextCustomer = this.customerQueue?.getNextCustomer();
+        if (filledSlot && nextCustomer && filledSlot.sausage) {
+          this.serveFromWarming(filledSlot);
+          this.showFeedback('💅 小妹幫你出餐了', filledSlot.x, filledSlot.y - 40, '#ff88cc');
+        }
+      }
+    }
 
     // Countdown
     this.timeLeft -= dt;
@@ -1874,11 +1983,232 @@ export class GrillScene extends Phaser.Scene {
     });
   }
 
+  // ── Leave stall / activity system ────────────────────────────────────────
+
+  private showActivityMenu(): void {
+    if (this.isPlayerAway || this.isDone || this.paused || this.isShowingGrillEvent) return;
+
+    this.paused = true;
+
+    const w = this.scale.width;
+    const h = this.scale.height;
+
+    this.awayOverlay = this.add.container(0, 0).setDepth(250);
+
+    // Semi-transparent backdrop
+    const bg = this.add.rectangle(w / 2, h / 2, w, h, 0x000000, 0.8).setInteractive();
+    this.awayOverlay.add(bg);
+
+    // Title
+    const title = this.add.text(w / 2, 60, '🚶 離開攤位做什麼？', {
+      fontSize: '22px', color: '#44aaff', fontStyle: 'bold', fontFamily: FONT
+    }).setOrigin(0.5);
+    this.awayOverlay.add(title);
+
+    const subtitle = this.add.text(w / 2, 90, '工讀生會幫你顧攤位（但品質看他們心情）', {
+      fontSize: '13px', color: '#888888', fontFamily: FONT
+    }).setOrigin(0.5);
+    this.awayOverlay.add(subtitle);
+
+    // Filter available activities
+    const available = AWAY_ACTIVITIES.filter(a => {
+      if (gameState.day < a.minDay) return false;
+      if (a.requiresBlackMarket && !gameState.blackMarketUnlocked) return false;
+      return true;
+    });
+
+    // Activity cards — 2 columns
+    const cardW = 180;
+    const cardH = 100;
+    const gap = 12;
+    const cols = 2;
+    const startX = w / 2 - (cols * cardW + (cols - 1) * gap) / 2;
+    const startY = 120;
+
+    available.forEach((activity, i) => {
+      const col = i % cols;
+      const row = Math.floor(i / cols);
+      const x = startX + col * (cardW + gap);
+      const y = startY + row * (cardH + gap);
+
+      const card = this.add.rectangle(x + cardW / 2, y + cardH / 2, cardW, cardH, 0x1a1a3e, 0.9)
+        .setStrokeStyle(1, 0x44aaff)
+        .setInteractive({ useHandCursor: true });
+
+      const nameText = this.add.text(x + cardW / 2, y + 18, `${activity.emoji} ${activity.name}`, {
+        fontSize: '15px', color: '#ffffff', fontStyle: 'bold', fontFamily: FONT
+      }).setOrigin(0.5);
+
+      const desc = activity.description.substring(0, 20) + '...';
+      const descText = this.add.text(x + cardW / 2, y + 42, desc, {
+        fontSize: '11px', color: '#aaaaaa', fontFamily: FONT
+      }).setOrigin(0.5);
+
+      const durText = this.add.text(x + cardW / 2, y + 62, `⏱ ${activity.duration}秒`, {
+        fontSize: '12px', color: '#ffcc00', fontFamily: FONT
+      }).setOrigin(0.5);
+
+      card.on('pointerover', () => card.setStrokeStyle(2, 0x88ccff));
+      card.on('pointerout', () => card.setStrokeStyle(1, 0x44aaff));
+      card.on('pointerdown', () => this.startActivity(activity));
+
+      this.awayOverlay!.add([card, nameText, descText, durText]);
+    });
+
+    // Cancel button
+    const cancelBtn = this.add.text(
+      w / 2,
+      startY + Math.ceil(available.length / cols) * (cardH + gap) + 20,
+      '❌ 算了，繼續烤',
+      {
+        fontSize: '14px', color: '#ff6666', backgroundColor: '#2a1a1a',
+        padding: { x: 12, y: 6 }, fontFamily: FONT
+      }
+    ).setOrigin(0.5).setInteractive({ useHandCursor: true });
+
+    cancelBtn.on('pointerdown', () => {
+      this.awayOverlay?.destroy();
+      this.awayOverlay = null;
+      this.paused = false;
+    });
+    this.awayOverlay.add(cancelBtn);
+  }
+
+  private startActivity(activity: AwayActivity): void {
+    // Clean up menu
+    this.awayOverlay?.destroy();
+    this.awayOverlay = null;
+
+    this.isPlayerAway = true;
+    this.currentActivity = activity;
+    this.awayActivityTimer = activity.duration;
+    this.paused = false; // Resume — workers are grilling!
+
+    // Show "away" indicator overlay
+    this.awayOverlay = this.add.container(0, 0).setDepth(20);
+
+    const w = this.scale.width;
+
+    // Top banner
+    const banner = this.add.rectangle(w / 2, 25, w - 20, 40, 0x1a1a3e, 0.9)
+      .setStrokeStyle(1, 0x44aaff);
+    const bannerText = this.add.text(w / 2, 25,
+      `${activity.emoji} ${activity.name}中... (${Math.ceil(this.awayActivityTimer)}秒)`, {
+      fontSize: '14px', color: '#44aaff', fontFamily: FONT
+    }).setOrigin(0.5);
+
+    // "Return early" button
+    const returnBtn = this.add.text(w - 20, 25, '🏃 提早回來', {
+      fontSize: '12px', color: '#ffcc00', backgroundColor: '#2a2a1a',
+      padding: { x: 6, y: 3 }, fontFamily: FONT
+    }).setOrigin(1, 0.5).setInteractive({ useHandCursor: true });
+
+    returnBtn.on('pointerdown', () => this.completeActivity());
+
+    this.awayOverlay.add([banner, bannerText, returnBtn]);
+
+    // Store reference for update loop
+    (this as any).__awayBannerText = bannerText;
+
+    // Hide leave button while away
+    if (this.leaveButton) this.leaveButton.setVisible(false);
+  }
+
+  private completeActivity(): void {
+    if (!this.currentActivity) return;
+
+    const activity = this.currentActivity;
+
+    // Clean up away overlay
+    this.awayOverlay?.destroy();
+    this.awayOverlay = null;
+    (this as any).__awayBannerText = null;
+
+    // Roll outcome
+    const outcome = rollActivityOutcome(activity);
+
+    // Apply effects
+    if (outcome.effects.money) {
+      if (outcome.effects.money > 0) addMoney(outcome.effects.money);
+      else spendMoney(Math.abs(outcome.effects.money));
+    }
+    if (outcome.effects.reputation) changeReputation(outcome.effects.reputation);
+    if (outcome.effects.undergroundRep) changeUndergroundRep(outcome.effects.undergroundRep);
+    if (outcome.effects.chaosPoints) addChaos(outcome.effects.chaosPoints, `活動：${activity.name}`);
+
+    // Show result overlay
+    this.paused = true;
+    this.isPlayerAway = false;
+    this.currentActivity = null;
+
+    const w = this.scale.width;
+    const h = this.scale.height;
+
+    this.awayOverlay = this.add.container(0, 0).setDepth(250);
+
+    const bg = this.add.rectangle(w / 2, h / 2, w, h, 0x000000, 0.8).setInteractive();
+    this.awayOverlay.add(bg);
+
+    const titleText = this.add.text(w / 2, h / 2 - 80, `${activity.emoji} ${activity.name}`, {
+      fontSize: '20px', color: '#44aaff', fontStyle: 'bold', fontFamily: FONT
+    }).setOrigin(0.5);
+    this.awayOverlay.add(titleText);
+
+    const resultText = this.add.text(w / 2, h / 2 - 30, outcome.resultText, {
+      fontSize: '14px', color: '#ffffff', wordWrap: { width: w - 80 }, align: 'center', fontFamily: FONT
+    }).setOrigin(0.5);
+    this.awayOverlay.add(resultText);
+
+    // Effects summary
+    const effects: string[] = [];
+    if (outcome.effects.money) effects.push(`💰 ${outcome.effects.money > 0 ? '+' : ''}$${outcome.effects.money}`);
+    if (outcome.effects.reputation) effects.push(`⭐ ${outcome.effects.reputation > 0 ? '+' : ''}${outcome.effects.reputation}`);
+    if (outcome.effects.undergroundRep) effects.push(`💀 ${outcome.effects.undergroundRep > 0 ? '+' : ''}${outcome.effects.undergroundRep}`);
+    if (outcome.effects.trafficBonus) effects.push(`📢 客流 +${Math.round(outcome.effects.trafficBonus * 100)}%`);
+    if (outcome.effects.chaosPoints) effects.push(`🌀 混沌 +${outcome.effects.chaosPoints}`);
+    if (outcome.effects.battleBonus) effects.push(`⚔️ 戰鬥加成 +${Math.round(outcome.effects.battleBonus * 100)}%`);
+
+    if (effects.length > 0) {
+      const effectsText = this.add.text(w / 2, h / 2 + 20, effects.join('  '), {
+        fontSize: '13px', color: '#ffcc00', fontFamily: FONT
+      }).setOrigin(0.5);
+      this.awayOverlay.add(effectsText);
+    }
+
+    // Continue button
+    const continueBtn = this.add.text(w / 2, h / 2 + 70, '回到攤位繼續烤', {
+      fontSize: '16px', color: '#44ff44', backgroundColor: '#1a2a1a',
+      padding: { x: 14, y: 8 }, fontFamily: FONT
+    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+
+    continueBtn.on('pointerdown', () => {
+      this.awayOverlay?.destroy();
+      this.awayOverlay = null;
+      this.paused = false;
+      if (this.leaveButton) this.leaveButton.setVisible(true);
+
+      if (outcome.effects.openBlackMarket) {
+        EventBus.emit('show-panel', 'black-market');
+        EventBus.once('black-market-done', () => {
+          EventBus.emit('hide-panel');
+        });
+      }
+    });
+    this.awayOverlay.add(continueBtn);
+  }
+
   // ── End session ──────────────────────────────────────────────────────────
 
   private endGrilling(): void {
     if (this.isDone) return;
     this.isDone = true;
+
+    // Clean up away state
+    this.isPlayerAway = false;
+    this.currentActivity = null;
+    this.awayOverlay?.destroy();
+    this.awayOverlay = null;
+    (this as any).__awayBannerText = null;
 
     // Clean up any active combat panel
     if (this.currentCombatPanel) {
@@ -2047,6 +2377,15 @@ export class GrillScene extends Phaser.Scene {
       this.grillEventOverlay.destroy();
       this.grillEventOverlay = null;
     }
+
+    // Clean up away state
+    this.isPlayerAway = false;
+    this.currentActivity = null;
+    if (this.awayOverlay) {
+      this.awayOverlay.destroy();
+      this.awayOverlay = null;
+    }
+    (this as any).__awayBannerText = null;
 
     // Remove keyboard listeners
     this.input.keyboard?.removeAllListeners();

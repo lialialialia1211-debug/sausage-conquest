@@ -129,6 +129,14 @@ export interface LoanState {
 // ── Worker types ───────────────────────────────────────────────────────────────
 
 // Worker (part-time employee)
+export interface WorkerGrillSkill {
+  canGrill: boolean;
+  speed: number;          // 0-1, multiplier
+  flipAccuracy: number;   // 0-1, chance of flipping at right time
+  burnChance: number;     // 0-1, chance of distraction per action
+  description: string;
+}
+
 export interface Worker {
   id: string;
   name: string;
@@ -138,6 +146,7 @@ export interface Worker {
   dailySalary: number; // daily pay
   buff: string;        // description of benefit
   debuff: string;      // description of downside
+  grillSkill: WorkerGrillSkill;
 }
 
 // ── Grill event types ──────────────────────────────────────────────────────────

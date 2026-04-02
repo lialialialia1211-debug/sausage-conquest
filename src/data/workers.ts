@@ -10,6 +10,7 @@ export const WORKERS: Worker[] = [
     dailySalary: 30,
     buff: '烤架 +1 格',
     debuff: '15% 機率滑手機忘記翻面（隨機一根 +20 熟度）',
+    grillSkill: { canGrill: true, speed: 1.0, flipAccuracy: 0.85, burnChance: 0.15, description: '手腳快但常滑手機' },
   },
   {
     id: 'mei',
@@ -20,6 +21,7 @@ export const WORKERS: Worker[] = [
     dailySalary: 50,
     buff: '客流量 +30%',
     debuff: '10% 機率偷吃保溫箱的香腸',
+    grillSkill: { canGrill: false, speed: 0, flipAccuracy: 0, burnChance: 0, description: '不會烤，但會幫忙出餐' },
   },
   {
     id: 'wangcai',
@@ -30,6 +32,7 @@ export const WORKERS: Worker[] = [
     dailySalary: 10,  // dog food cost
     buff: '50% 機率嚇跑奧客和流氓',
     debuff: '10% 機率對普通客人亂吠（客人嚇跑）',
+    grillSkill: { canGrill: false, speed: 0, flipAccuracy: 0, burnChance: 0, description: '牠是狗' },
   },
   {
     id: 'dad',
@@ -40,6 +43,7 @@ export const WORKERS: Worker[] = [
     dailySalary: 0,  // takes a cut from daily revenue instead
     buff: '保溫箱衰退速度減半',
     debuff: '每日營收抽 10% 當零用錢',
+    grillSkill: { canGrill: true, speed: 0.5, flipAccuracy: 0.95, burnChance: 0.05, description: '慢工出細活，品質穩定' },
   },
 ];
 
