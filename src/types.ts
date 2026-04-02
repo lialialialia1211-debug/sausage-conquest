@@ -50,6 +50,14 @@ export interface SausageBattleStats {
   type: BattleType;
 }
 
+export interface SausageSpecialEffect {
+  id: string;
+  name: string;
+  description: string;
+  triggerText: string;       // text shown when effect triggers (customer reaction)
+  customerReaction: string;  // emoji animation to show on the customer
+}
+
 export interface SausageType {
   id: string;
   name: string;
@@ -59,6 +67,7 @@ export interface SausageType {
   grillDifficulty: number; // 1-3 stars
   description: string;
   battle: SausageBattleStats;
+  specialEffect?: SausageSpecialEffect;
 }
 
 // ── Sale & customer types ──────────────────────────────────────────────────────

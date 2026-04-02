@@ -31,6 +31,8 @@ import { changeUndergroundRep, addChaos, spendMoney } from '../state/GameState';
 import { canPlayerLeave, tickWorkerAI } from '../systems/WorkerGrillAI';
 import { AWAY_ACTIVITIES, rollActivityOutcome } from '../data/activities';
 import type { AwayActivity } from '../data/activities';
+import { getSpecialEffect } from '../data/sausage-effects';
+import type { SpecialEffectResult } from '../data/sausage-effects';
 
 // ── Layout constants ────────────────────────────────────────────────────────
 const GAME_DURATION = 90;      // seconds
@@ -155,6 +157,12 @@ export class GrillScene extends Phaser.Scene {
   private selectedCondiments: string[] = [];
   private isShowingCondimentStation: boolean = false;
 
+  // ── Special sausage effect state ─────────────────────────────────────────
+  private activeTipMultiplier: number = 1;
+  private tipMultiplierServesLeft: number = 0;
+  private patienceBoostNext: number = 0;
+  private patienceBoostAmount: number = 1;
+
   constructor() {
     super({ key: 'GrillScene' });
   }
@@ -211,6 +219,10 @@ export class GrillScene extends Phaser.Scene {
     this.condimentOverlay = null;
     this.selectedCondiments = [];
     this.isShowingCondimentStation = false;
+    this.activeTipMultiplier = 1;
+    this.tipMultiplierServesLeft = 0;
+    this.patienceBoostNext = 0;
+    this.patienceBoostAmount = 1;
 
     // Worker: adi → extra grill slot
     let maxSlots = gameState.upgrades['grill-expand'] ? 6 : MAX_GRILL_SLOTS;
@@ -312,6 +324,12 @@ export class GrillScene extends Phaser.Scene {
           }
           this.customers.push(c);
           this.customerQueue.addCustomer(c);
+
+          // Apply patience boost from special sausage effect
+          if (this.patienceBoostNext > 0) {
+            c.patience *= this.patienceBoostAmount;
+            this.patienceBoostNext--;
+          }
 
           // Personality-based triggers
           if (c.personality === 'influencer') {
@@ -1882,6 +1900,15 @@ export class GrillScene extends Phaser.Scene {
       (this.grillStats as Record<string, number>)[grillQuality]++;
     }
 
+    // Capture tip multiplier before decrementing (for this serve)
+    const directTipMultiplier = this.tipMultiplierServesLeft > 0 ? this.activeTipMultiplier : 1;
+    if (this.tipMultiplierServesLeft > 0) {
+      this.tipMultiplierServesLeft--;
+      if (this.tipMultiplierServesLeft <= 0) {
+        this.activeTipMultiplier = 1;
+      }
+    }
+
     // ── Consequence system: probability-based outcomes ──
     let tipAmount = 0;
     let feedbackMsg = `+$${price}`;
@@ -1892,7 +1919,7 @@ export class GrillScene extends Phaser.Scene {
       changeReputation(1);
       sfx.playPerfect();
       if (Math.random() < 0.3) {
-        tipAmount = 5 + Math.floor(Math.random() * 11);
+        tipAmount = Math.round((5 + Math.floor(Math.random() * 11)) * directTipMultiplier);
         addMoney(tipAmount);
       }
       feedbackMsg += tipAmount > 0 ? ` +$${tipAmount}小費 ★` : ' ★';
@@ -1973,6 +2000,12 @@ export class GrillScene extends Phaser.Scene {
     // Clear warming slot
     warmSlot.sausage = null;
     this.clearWarmingSlotDisplay(warmSlot);
+
+    // Check for special sausage effect
+    const directEffect = getSpecialEffect(ws.sausageTypeId);
+    if (directEffect) {
+      this.applySpecialEffect(directEffect);
+    }
 
     this.updateStatsDisplay();
   }
@@ -2166,6 +2199,15 @@ export class GrillScene extends Phaser.Scene {
       (this.grillStats as Record<string, number>)[grillQuality]++;
     }
 
+    // Apply active tip multiplier from special sausage effect
+    if (this.tipMultiplierServesLeft > 0) {
+      score.tipAmount = Math.round(score.tipAmount * this.activeTipMultiplier);
+      this.tipMultiplierServesLeft--;
+      if (this.tipMultiplierServesLeft <= 0) {
+        this.activeTipMultiplier = 1;
+      }
+    }
+
     // Add tip
     if (score.tipAmount > 0) {
       addMoney(score.tipAmount);
@@ -2195,6 +2237,12 @@ export class GrillScene extends Phaser.Scene {
 
     this.bounceRevenue();
     this.updateStatsDisplay();
+
+    // Check for special sausage effect
+    const finalizeEffect = getSpecialEffect(sausage.sausageTypeId);
+    if (finalizeEffect) {
+      this.applySpecialEffect(finalizeEffect);
+    }
 
     // Reset selected condiments for next serve
     this.selectedCondiments = [];
@@ -2253,6 +2301,71 @@ export class GrillScene extends Phaser.Scene {
     changeReputation(-1);
     this.customers = this.customers.filter(c => c.id !== customerId);
     this.showFeedback('-1 聲望', 80, this.scale.height * 0.13, '#ff4444');
+  }
+
+  // ── Special sausage effect application ───────────────────────────────────
+
+  private applySpecialEffect(effect: SpecialEffectResult): void {
+    // Show main feedback text
+    this.showFeedback(effect.feedbackText, this.scale.width / 2, this.scale.height / 2 - 30, '#ffcc00');
+
+    // Scare customers out of queue
+    if (effect.scareCount && effect.scareCount > 0) {
+      const waiting = this.customerQueue.getWaitingCustomers();
+      let scared = 0;
+      for (const cust of waiting) {
+        if (scared >= effect.scareCount) break;
+        if (effect.scareSpecialOnly && cust.personality === 'normal') continue;
+        this.customerQueue.serveCustomer(cust.id, false);
+        this.customers = this.customers.filter(c => c.id !== cust.id);
+        scared++;
+      }
+    }
+
+    // Reset all waiting customers' patience to full
+    if (effect.patienceResetAll) {
+      this.customerQueue.resetAllPatience();
+    }
+
+    // Multiply all waiting customers' patience (penalty)
+    if (effect.patiencePenaltyAll !== undefined) {
+      this.customerQueue.multiplyAllPatience(effect.patiencePenaltyAll);
+    }
+
+    // Patience boost for next customer(s)
+    if (effect.patienceBoostNext !== undefined && effect.patienceBoostNext > 0) {
+      this.patienceBoostNext = effect.patienceBoostNext;
+      this.patienceBoostAmount = effect.patienceBoostAmount ?? 1.5;
+    }
+
+    // Tip multiplier for next serves
+    if (effect.tipMultiplierNext !== undefined && effect.tipMultiplierNext > 0) {
+      this.tipMultiplierServesLeft = effect.tipMultiplierNext;
+      this.activeTipMultiplier = effect.tipMultiplierAmount ?? 2.0;
+    }
+
+    // Reputation change
+    if (effect.reputationDelta !== undefined && effect.reputationDelta !== 0) {
+      changeReputation(effect.reputationDelta);
+    }
+
+    // Show customer reaction emoji as floating text near the customer queue area
+    const reactionText = this.add.text(
+      this.scale.width * 0.7,
+      this.scale.height * 0.3,
+      effect.customerEmoji,
+      { fontSize: '40px' }
+    ).setOrigin(0.5).setDepth(30);
+
+    this.tweens.add({
+      targets: reactionText,
+      y: reactionText.y - 60,
+      alpha: 0,
+      scale: 2,
+      duration: 1500,
+      ease: 'Power2',
+      onComplete: () => reactionText.destroy(),
+    });
   }
 
   // ── Display helpers ────────────────────────────────────────────────────────

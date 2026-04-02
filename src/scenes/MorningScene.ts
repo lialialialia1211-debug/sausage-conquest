@@ -9,8 +9,13 @@ import { checkAndUnlockBlackMarket } from '../systems/BlackMarketEngine';
 // Sausage unlock schedule: [day, sausageId, name]
 const UNLOCK_SCHEDULE: [number, string, string][] = [
   [5, 'cheese', '起司爆漿'],
+  [7, 'wasabi-bomb', '芥末炸彈'],
   [8, 'squidink', '墨魚香腸'],
+  [10, 'love-sausage', '戀愛香腸'],
   [12, 'mala', '麻辣螺螄'],
+  [14, 'ghost-pepper', '鬼椒地獄腸'],
+  [15, 'rainbow', '彩虹派對腸'],
+  [18, 'truffle', '松露黑金腸'],
 ];
 
 export class MorningScene extends Phaser.Scene {

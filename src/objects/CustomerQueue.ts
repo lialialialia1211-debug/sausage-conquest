@@ -205,6 +205,24 @@ export class CustomerQueue extends Phaser.GameObjects.Container {
     return Math.max(0, display.remainingPatience / display.initialPatience);
   }
 
+  // Reset all waiting customers' patience to full
+  resetAllPatience(): void {
+    for (const display of this.displays) {
+      if (display.state !== 'waiting') continue;
+      display.remainingPatience = display.initialPatience;
+      this.redrawPatienceBar(display);
+    }
+  }
+
+  // Multiply all waiting customers' remaining patience by a factor
+  multiplyAllPatience(multiplier: number): void {
+    for (const display of this.displays) {
+      if (display.state !== 'waiting') continue;
+      display.remainingPatience *= multiplier;
+      this.redrawPatienceBar(display);
+    }
+  }
+
   private playLeaveAnimation(display: CustomerDisplay, dismissedByServe: boolean): void {
     if (!dismissedByServe) {
       display.emojiText.setText('😤');
