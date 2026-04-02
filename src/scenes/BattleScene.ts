@@ -294,20 +294,55 @@ export class BattleScene extends Phaser.Scene {
 
     const hit = this.isHitOnOpponent(pointer);
     const headshot = hit && this.isHeadshot(pointer);
+    const { width, height } = this.scale;
 
-    // Sausage swing animation
-    this.spawnAttackEmoji('🌭', pointer.x, pointer.y, { dy: -80, scale: 1.4 });
+    // Sausage arc swing: spawns at bottom-center, arcs toward pointer
+    const sausage = this.add.text(width / 2, height * 0.85, '🌭', {
+      fontSize: '48px',
+      fontFamily: FONT,
+    }).setOrigin(0.5).setDepth(40).setAngle(-45).setScale(1.5);
+
+    this.tweens.add({
+      targets: sausage,
+      x: pointer.x,
+      y: pointer.y,
+      angle: 45,
+      scale: 0.8,
+      duration: 200,
+      ease: 'Power2',
+      onComplete: () => {
+        if (hit) {
+          // Impact burst at hit point
+          const burst = this.add.text(pointer.x, pointer.y, '💥', {
+            fontSize: '60px',
+            fontFamily: FONT,
+          }).setOrigin(0.5).setDepth(41);
+          this.tweens.add({
+            targets: burst,
+            scale: { from: 0.5, to: 2 },
+            alpha: { from: 1, to: 0 },
+            duration: 300,
+            onComplete: () => burst.destroy(),
+          });
+        }
+        sausage.destroy();
+      },
+    });
 
     if (hit) {
       const dmg = headshot ? 15 : 8;
       this.dealDamageToOpponent(dmg);
       this.energy = Math.min(100, this.energy + 10);
+      this.showOpponentReaction(dmg, headshot, false);
 
       if (headshot) {
         this.spawnDamageNumber(pointer.x, pointer.y - 20, `爆頭！ -${dmg}`, '#ffee00');
         this.cameras.main.shake(120, 0.008);
+        this.flashFullScreen(0xffff00, 0.18, 80);
       } else {
         this.spawnDamageNumber(pointer.x, pointer.y - 20, `-${dmg}`, '#ffffff');
+        this.cameras.main.shake(100, 0.01);
+        this.flashFullScreen(0xffffff, 0.15, 50);
       }
     } else {
       this.spawnDamageNumber(pointer.x, pointer.y - 10, '未中', '#666666');
@@ -328,12 +363,20 @@ export class BattleScene extends Phaser.Scene {
 
     const { width, height } = this.scale;
 
-    // Dash animation from bottom center toward pointer
-    this.spawnAttackEmoji('🌭', width / 2, height - 80, {
-      tx: pointer.x,
-      ty: pointer.y,
-      scale: 2.0,
-      duration: 280,
+    // Heavy thrust: big sausage from bottom center, straight toward opponent
+    const bigSausage = this.add.text(width / 2, height * 0.85, '🌭', {
+      fontSize: '64px',
+      fontFamily: FONT,
+    }).setOrigin(0.5).setDepth(40).setScale(1.8);
+
+    this.tweens.add({
+      targets: bigSausage,
+      x: pointer.x,
+      y: pointer.y,
+      scale: 1.0,
+      duration: 220,
+      ease: 'Power3',
+      onComplete: () => bigSausage.destroy(),
     });
 
     const hit = this.isHitOnOpponent(pointer);
@@ -341,17 +384,30 @@ export class BattleScene extends Phaser.Scene {
       this.dealDamageToOpponent(20);
       this.opponentStunTimer = 1.0;
       this.energy = Math.min(100, this.energy + 5);
-      this.cameras.main.shake(200, 0.015);
+      this.cameras.main.shake(250, 0.018);
+      this.flashFullScreen(0xffffff, 0.20, 50);
       this.spawnDamageNumber(pointer.x, pointer.y - 20, '重擊！ -20', '#ff6600');
+      this.showOpponentReaction(20, false, false);
 
-      // Opponent stun visual
+      // Opponent pushed back: brief y offset tween
+      const origY = this.opponentEmoji.y;
       this.tweens.add({
         targets: this.opponentEmoji,
-        alpha: 0.4,
-        duration: 150,
+        y: origY - 22,
+        alpha: 0.5,
+        duration: 120,
         yoyo: true,
-        repeat: 2,
+        repeat: 1,
+        onComplete: () => {
+          if (this.opponentEmoji.active) {
+            this.opponentEmoji.y = origY;
+            this.opponentEmoji.setAlpha(1);
+          }
+        },
       });
+
+      // "塞住了！" text
+      this.spawnInfoFloat(pointer.x + 50, pointer.y - 50, '塞住了！', '#ff9900');
     } else {
       this.spawnDamageNumber(pointer.x, pointer.y - 10, '未中', '#666666');
     }
@@ -370,22 +426,52 @@ export class BattleScene extends Phaser.Scene {
 
     const { width, height } = this.scale;
 
-    // Full screen red flash
+    // Full screen dramatic red flash (stronger than before)
     const flash = this.add.graphics().setDepth(30);
-    flash.fillStyle(0xff0000, 0.55);
+    flash.fillStyle(0xff0000, 0.70);
     flash.fillRect(0, 0, width, height);
     this.tweens.add({
       targets: flash,
       alpha: 0,
-      duration: 350,
+      duration: 500,
+      ease: 'Power2',
       onComplete: () => flash.destroy(),
     });
 
-    // Charcoal falls from top
-    const charcoal = this.add.text(width / 2, -40, '🪨', {
-      fontSize: '60px',
+    // Bigger charcoal (80px) falls from top
+    const charcoal = this.add.text(width / 2, -60, '🪨', {
+      fontSize: '80px',
       fontFamily: FONT,
     }).setOrigin(0.5).setDepth(35);
+
+    // Fire particles scattered outward after impact
+    const spawnFireParticles = (): void => {
+      const offsets = [
+        { ox: -70, oy: 20 },
+        { ox: 70, oy: 10 },
+        { ox: -30, oy: -30 },
+        { ox: 40, oy: -20 },
+      ];
+      offsets.forEach(({ ox, oy }) => {
+        const fire = this.add.text(
+          width / 2 + ox,
+          this.opponentEmoji.y + oy,
+          '🔥',
+          { fontSize: '32px', fontFamily: FONT },
+        ).setOrigin(0.5).setDepth(36);
+
+        this.tweens.add({
+          targets: fire,
+          x: fire.x + ox * 1.5,
+          y: fire.y - 60 - Math.random() * 40,
+          alpha: 0,
+          scale: { from: 1.2, to: 0.3 },
+          duration: 600 + Math.random() * 200,
+          ease: 'Power1',
+          onComplete: () => fire.destroy(),
+        });
+      });
+    };
 
     this.tweens.add({
       targets: charcoal,
@@ -395,13 +481,21 @@ export class BattleScene extends Phaser.Scene {
       onComplete: () => {
         charcoal.destroy();
         this.dealDamageToOpponent(35);
-        this.cameras.main.shake(300, 0.022);
+        // Stronger screen shake
+        this.cameras.main.shake(300, 0.03);
+        this.flashFullScreen(0xff2200, 0.45, 120);
         this.spawnDamageNumber(width / 2, this.opponentEmoji.y, '木炭轟炸！ -35', '#ff4400');
+        spawnFireParticles();
+        this.showOpponentReaction(35, false, true);
 
-        // Burnt effect on opponent
+        // Opponent turns dark for 1 second
         this.opponentEmoji.setTint(0x222222);
-        this.time.delayedCall(700, () => {
-          if (this.opponentEmoji.active) this.opponentEmoji.clearTint();
+        this.opponentEmoji.setAlpha(0.7);
+        this.time.delayedCall(1000, () => {
+          if (this.opponentEmoji.active) {
+            this.opponentEmoji.clearTint();
+            this.opponentEmoji.setAlpha(1);
+          }
         });
       },
     });
@@ -411,15 +505,37 @@ export class BattleScene extends Phaser.Scene {
 
   private doOpponentAttack(): void {
     if (this.isDone) return;
+    const { width, height } = this.scale;
 
-    // Lunge animation
+    // Opponent lunges: scale up AND move forward (downward toward player)
+    const origY = this.opponentEmoji.y;
     this.tweens.add({
       targets: this.opponentEmoji,
-      scaleX: this.opponentBaseScale * 1.5,
-      scaleY: this.opponentBaseScale * 1.5,
-      duration: 180,
+      scaleX: this.opponentBaseScale * 1.6,
+      scaleY: this.opponentBaseScale * 1.6,
+      y: origY + 30,
+      duration: 150,
       yoyo: true,
       ease: 'Quad.Out',
+      onComplete: () => {
+        if (this.opponentEmoji.active) this.opponentEmoji.y = origY;
+      },
+    });
+
+    // Fist emoji flies toward camera (grows + fades)
+    const fist = this.add.text(this.opponentEmoji.x, this.opponentEmoji.y + 40, '👊', {
+      fontSize: '44px',
+      fontFamily: FONT,
+    }).setOrigin(0.5).setDepth(37).setScale(0.5);
+
+    this.tweens.add({
+      targets: fist,
+      y: height * 0.75,
+      scale: { from: 0.5, to: 2.5 },
+      alpha: { from: 1, to: 0 },
+      duration: 320,
+      ease: 'Power2',
+      onComplete: () => fist.destroy(),
     });
 
     const hitChance = Math.random();
@@ -427,12 +543,14 @@ export class BattleScene extends Phaser.Scene {
       this.playerHp = Math.max(0, this.playerHp - this.aiDamage);
       this.energy = Math.min(100, this.energy + 15); // getting hit charges energy
       this.flashScreenEdges();
-      this.cameras.main.shake(100, 0.006);
+      // Red vignette + camera shake on player hit
+      this.cameras.main.shake(140, 0.010);
+      this.flashFullScreen(0xff0000, 0.25, 80);
 
       const dmgLabel = Math.round(this.aiDamage);
       this.spawnDamageNumber(
-        this.scale.width / 2,
-        this.scale.height - 120,
+        width / 2,
+        height - 120,
         `受傷 -${dmgLabel}`,
         '#ff4455',
       );
@@ -442,8 +560,8 @@ export class BattleScene extends Phaser.Scene {
       }
     } else {
       this.spawnInfoFloat(
-        this.scale.width / 2,
-        this.scale.height - 120,
+        width / 2,
+        height - 120,
         '閃開了！',
         '#44ff88',
       );
@@ -898,39 +1016,6 @@ export class BattleScene extends Phaser.Scene {
 
   // ── Animation helpers ─────────────────────────────────────────────────────────
 
-  /**
-   * Spawn an attack emoji and tween it.
-   * Options: dy (relative upward offset), tx/ty (absolute target), scale, duration.
-   */
-  private spawnAttackEmoji(
-    emoji: string,
-    startX: number,
-    startY: number,
-    opts: { dy?: number; tx?: number; ty?: number; scale?: number; duration?: number },
-  ): void {
-    const { dy = -60, tx, ty, scale = 1.2, duration = 350 } = opts;
-
-    const obj = this.add.text(startX, startY, emoji, {
-      fontSize: '36px',
-      fontFamily: FONT,
-    }).setOrigin(0.5).setDepth(35);
-
-    const targetX = tx ?? startX;
-    const targetY = ty ?? (startY + dy);
-
-    this.tweens.add({
-      targets: obj,
-      x: targetX,
-      y: targetY,
-      scaleX: scale,
-      scaleY: scale,
-      alpha: 0,
-      duration,
-      ease: 'Quad.Out',
-      onComplete: () => obj.destroy(),
-    });
-  }
-
   /** Floating damage number at a position. */
   private spawnDamageNumber(x: number, y: number, text: string, color: string): void {
     const obj = this.add.text(x, y, text, {
@@ -973,6 +1058,71 @@ export class BattleScene extends Phaser.Scene {
       delay: duration * 0.6,
       duration: duration * 0.4,
       onComplete: () => obj.destroy(),
+    });
+  }
+
+  // ── Opponent speech bubble reaction ──────────────────────────────────────────
+
+  /**
+   * Show a random speech bubble near the opponent after a hit.
+   * @param _damage - damage dealt (reserved for future scaling)
+   * @param isHeadshot - true if headshot hit
+   * @param isSpecial - true if special attack
+   */
+  private showOpponentReaction(_damage: number, isHeadshot: boolean, isSpecial: boolean): void {
+    if (!this.opponentEmoji || !this.opponentEmoji.active) return;
+
+    const reactions = isSpecial
+      ? ['好燙！！！', '我的臉！！', '你瘋了嗎！', '救命啊！']
+      : isHeadshot
+      ? ['好痛！頭！', '我的頭！', '你打頭！', '犯規啦！']
+      : ['好燙！', '哎呦！', '痛死了！', '你敢打我！', '香腸也太硬！', '等等...好香？'];
+
+    const text = reactions[Math.floor(Math.random() * reactions.length)];
+
+    const bubble = this.add.text(
+      this.opponentEmoji.x + 80,
+      this.opponentEmoji.y - 40,
+      text,
+      {
+        fontSize: '18px',
+        fontFamily: FONT,
+        color: '#ffffff',
+        backgroundColor: '#333333',
+        padding: { x: 8, y: 4 },
+        fontStyle: 'bold',
+      },
+    ).setOrigin(0, 1).setDepth(35);
+
+    this.tweens.add({
+      targets: bubble,
+      y: bubble.y - 30,
+      alpha: { from: 1, to: 0 },
+      duration: 1200,
+      ease: 'Power1',
+      onComplete: () => bubble.destroy(),
+    });
+  }
+
+  // ── Full-screen color flash ───────────────────────────────────────────────────
+
+  /**
+   * Brief full-screen tinted flash overlay.
+   * @param color - hex color (e.g. 0xffffff)
+   * @param alpha - peak alpha opacity
+   * @param duration - fade duration in ms
+   */
+  private flashFullScreen(color: number, alpha: number, duration: number): void {
+    const { width, height } = this.scale;
+    const overlay = this.add.graphics().setDepth(39);
+    overlay.fillStyle(color, alpha);
+    overlay.fillRect(0, 0, width, height);
+    this.tweens.add({
+      targets: overlay,
+      alpha: 0,
+      duration,
+      ease: 'Quad.Out',
+      onComplete: () => overlay.destroy(),
     });
   }
 

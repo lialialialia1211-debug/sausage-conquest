@@ -5,9 +5,9 @@ import type { Customer } from '../types';
 import { SAUSAGE_MAP } from '../data/sausages';
 import { CONDIMENTS } from '../data/condiments';
 
-const CUSTOMER_SLOT_W = 168;
-const PATIENCE_BAR_H = 12;
-const PATIENCE_BAR_W = 144;
+const CUSTOMER_SLOT_W = 100;
+const PATIENCE_BAR_H = 7;
+const PATIENCE_BAR_W = 86;
 
 // Emoji based on patience fraction
 function getCustomerEmoji(frac: number): string {
@@ -49,19 +49,19 @@ export class CustomerQueue extends Phaser.GameObjects.Container {
     // Spawn far right, then tween to proper slot position
     const slotIndex = this.displays.filter(d => d.state === 'waiting').length;
     const targetX = slotIndex * CUSTOMER_SLOT_W;
-    const spawnX = targetX + 660; // enter from right
+    const spawnX = targetX + 400; // enter from right
 
     const container = this.scene.add.container(spawnX, 0);
     this.add(container);
 
     const emojiText = this.scene.add.text(0, 0, getCustomerEmoji(1), {
-      fontSize: '84px',
+      fontSize: '50px',
       align: 'center',
     }).setOrigin(0.5);
 
     const patBarBg = this.scene.add.graphics();
     patBarBg.fillStyle(0x333333, 1);
-    patBarBg.fillRect(-PATIENCE_BAR_W / 2, 66, PATIENCE_BAR_W, PATIENCE_BAR_H);
+    patBarBg.fillRect(-PATIENCE_BAR_W / 2, 40, PATIENCE_BAR_W, PATIENCE_BAR_H);
 
     const patBarFill = this.scene.add.graphics();
 
@@ -77,8 +77,8 @@ export class CustomerQueue extends Phaser.GameObjects.Container {
         .join('');
       const bubbleText = condimentEmojis ? `${sausageEmoji}${condimentEmojis}` : sausageEmoji;
 
-      orderBubble = this.scene.add.text(0, -108, bubbleText, {
-        fontSize: '39px',
+      orderBubble = this.scene.add.text(0, -65, bubbleText, {
+        fontSize: '23px',
         align: 'center',
       }).setOrigin(0.5);
     }
@@ -86,8 +86,8 @@ export class CustomerQueue extends Phaser.GameObjects.Container {
     if (customer.loyaltyBadge && customer.loyaltyBadge !== 'none') {
       const badgeEmoji = customer.loyaltyBadge === 'gold' ? '🥇'
         : customer.loyaltyBadge === 'silver' ? '🥈' : '🥉';
-      badgeBubble = this.scene.add.text(CUSTOMER_SLOT_W / 2 - 18, -90, badgeEmoji, {
-        fontSize: '33px',
+      badgeBubble = this.scene.add.text(CUSTOMER_SLOT_W / 2 - 11, -54, badgeEmoji, {
+        fontSize: '20px',
       }).setOrigin(0.5);
     }
 
@@ -296,7 +296,7 @@ export class CustomerQueue extends Phaser.GameObjects.Container {
 
     if (fillW > 0) {
       display.patBarFill.fillStyle(color, 1);
-      display.patBarFill.fillRect(-PATIENCE_BAR_W / 2, 66, fillW, PATIENCE_BAR_H);
+      display.patBarFill.fillRect(-PATIENCE_BAR_W / 2, 40, fillW, PATIENCE_BAR_H);
     }
   }
 }
