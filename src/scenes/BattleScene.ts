@@ -44,6 +44,10 @@ export class BattleScene extends Phaser.Scene {
     super({ key: 'BattleScene' });
   }
 
+  preload(): void {
+    this.load.image('battle-cover', 'battle-cover.png');
+  }
+
   create(): void {
     const { width, height } = this.scale;
 
@@ -134,6 +138,37 @@ export class BattleScene extends Phaser.Scene {
 
   private startBattle(selectedSausages: Record<string, number>): void {
     const { width, height } = this.scale;
+
+    // Show FEVER TIME splash before battle begins
+    if (this.textures.exists('battle-cover')) {
+      const splash = this.add.container(0, 0).setDepth(50);
+      const overlay = this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.9);
+      const img = this.add.image(width / 2, height / 2 - 20, 'battle-cover');
+      const maxW = width * 0.6;
+      const maxH = height * 0.5;
+      const scale = Math.min(maxW / img.width, maxH / img.height);
+      img.setScale(0).setAlpha(0);
+      splash.add([overlay, img]);
+
+      // Punch-in animation
+      this.tweens.add({
+        targets: img,
+        scale: { from: 0, to: scale },
+        alpha: { from: 0, to: 1 },
+        duration: 400,
+        ease: 'Back.Out',
+      });
+
+      // Auto-dismiss after 1.5s
+      this.time.delayedCall(1500, () => {
+        this.tweens.add({
+          targets: splash,
+          alpha: 0,
+          duration: 300,
+          onComplete: () => splash.destroy(),
+        });
+      });
+    }
 
     // Deduct selected sausages from inventory
     const newInventory = { ...gameState.inventory };
