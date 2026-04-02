@@ -1,79 +1,146 @@
-// BattleScene — 換位血戰（Auto-chess battle system）
+// BattleScene — 第一人稱香腸格鬥（First-person sausage fighting）
 import Phaser from 'phaser';
 import { EventBus } from '../utils/EventBus';
 import { gameState, spendMoney } from '../state/GameState';
-import { GRID_SLOTS, OPPONENT_INFO } from '../data/map';
+
 import {
-  generateOpponentArmy,
   calculateBattleCost,
-  initBattleState,
-  executeRound,
-  checkBattleEnd,
   applyBattleResult,
   applySimulationBuff,
 } from '../systems/AutoChessEngine';
-import type { ChessPiece, AutoChessState } from '../types';
 
 // ── Layout constants ───────────────────────────────────────────────────────────
 const FONT = 'Microsoft JhengHei, PingFang TC, sans-serif';
 
-const PLAYER_SIDE_X_FRAC  = 0.22;
-const OPP_SIDE_X_FRAC     = 0.78;
-const PIECES_START_Y_FRAC = 0.28;
-const PIECE_SPACING_Y     = 52;
-const LOG_Y_FRAC          = 0.70;
-const LOG_LINE_H          = 20;
-const MAX_LOG_LINES       = 3;
+// Opponent hitbox region (center of screen)
+const OPP_CENTER_X_FRAC = 0.50;
+const OPP_CENTER_Y_FRAC = 0.38;
+
+/** Opponent emoji data per difficulty */
+const DIFFICULTY_OPPONENTS: Record<number, { emoji: string; name: string }> = {
+  1: { emoji: '🧑‍🍳', name: '路邊攤阿婆' },
+  2: { emoji: '👨‍🍳', name: '夜市老闆' },
+  3: { emoji: '🧙', name: '香腸巫師' },
+  4: { emoji: '👹', name: '烤爐魔王' },
+  5: { emoji: '🔥', name: '傳說香腸王' },
+};
+
+// ── Helper types ───────────────────────────────────────────────────────────────
+interface NeonConfig {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  color: number;
+  glowColor: number;
+}
 
 export class BattleScene extends Phaser.Scene {
-  // Battle state
-  private battleState: AutoChessState | null = null;
-  private playerPieces: ChessPiece[] = [];
-  private isRunningRounds = false;
+  // ── HP ──────────────────────────────────────────────────────────────────────
+  private playerHp = 100;
+  private playerMaxHp = 100;
+  private opponentHp = 100;
+  private opponentMaxHp = 100;
 
-  // UI text refs
-  private titleText!: Phaser.GameObjects.Text;
-  private roundText!: Phaser.GameObjects.Text;
-  private playerHpText!: Phaser.GameObjects.Text;
-  private oppHpText!: Phaser.GameObjects.Text;
+  // ── Energy ──────────────────────────────────────────────────────────────────
+  private energy = 0; // 0–100
+
+  // ── Cooldowns (seconds) ──────────────────────────────────────────────────────
+  private normalCd = 0;
+  private heavyCd = 0;
+  private opponentStunTimer = 0;
+
+  // ── AI ──────────────────────────────────────────────────────────────────────
+  private aiAttackTimer = 0;
+  private aiAttackInterval = 2.5;
+  private aiDamage = 10;
+  private difficulty = 1;
+
+  // ── Timer ────────────────────────────────────────────────────────────────────
+  private battleTimer = 60;
+  private isFighting = false;
+  private isDone = false;
+
+  // ── Display objects ──────────────────────────────────────────────────────────
+  private crosshairH!: Phaser.GameObjects.Graphics;
+  private crosshairV!: Phaser.GameObjects.Graphics;
+  private opponentEmoji!: Phaser.GameObjects.Text;
+  private playerHpBar!: Phaser.GameObjects.Graphics;
+  private opponentHpBarFill!: Phaser.GameObjects.Graphics;
+  private energyBarFill!: Phaser.GameObjects.Graphics;
+  private timerText!: Phaser.GameObjects.Text;
+  private energyLabel!: Phaser.GameObjects.Text;
   private resultText!: Phaser.GameObjects.Text;
   private continueBtn!: Phaser.GameObjects.Container;
-  private logTexts: Phaser.GameObjects.Text[] = [];
+  private playerHpLabel!: Phaser.GameObjects.Text;
+  private opponentHpLabel!: Phaser.GameObjects.Text;
+  private screenVignette!: Phaser.GameObjects.Graphics;
 
-  // Piece display objects: pieceId → { emoji, hpBar, hpBg }
-  private pieceDisplays: Map<string, {
-    emojiText: Phaser.GameObjects.Text;
-    hpBg: Phaser.GameObjects.Graphics;
-    hpBar: Phaser.GameObjects.Graphics;
-    hpLabel: Phaser.GameObjects.Text;
-  }> = new Map();
+  // ── Tween / animation state ──────────────────────────────────────────────────
+  private opponentBaseScale = 1;
+  private energyPulseTween: Phaser.Tweens.Tween | null = null;
 
   constructor() {
     super({ key: 'BattleScene' });
   }
 
+  // ── preload (KEEP AS-IS) ─────────────────────────────────────────────────────
+
   preload(): void {
     this.load.image('battle-cover', 'battle-cover.png');
   }
 
-  // ── create ─────────────────────────────────────────────────────────────────
+  // ── create ───────────────────────────────────────────────────────────────────
 
   create(): void {
     const { width, height } = this.scale;
 
-    // Reset
-    this.battleState = null;
-    this.playerPieces = [];
-    this.isRunningRounds = false;
-    this.logTexts = [];
-    this.pieceDisplays = new Map();
+    // Reset state
+    this.playerHp = 100;
+    this.playerMaxHp = 100;
+    this.opponentHp = 100;
+    this.opponentMaxHp = 100;
+    this.energy = 0;
+    this.normalCd = 0;
+    this.heavyCd = 0;
+    this.opponentStunTimer = 0;
+    this.aiAttackTimer = 0;
+    this.isFighting = false;
+    this.isDone = false;
+    this.battleTimer = 60;
+    this.energyPulseTween = null;
 
+    // Determine difficulty from playerSlot
+    this.difficulty = Math.max(1, Math.min(5, gameState.playerSlot));
+
+    // Simulation mode adjustments
+    const isSimulation = applySimulationBuff([]) !== undefined;
+    if (isSimulation) {
+      this.playerMaxHp = 150;
+      this.playerHp = 150;
+    }
+
+    // Set opponent HP based on difficulty
+    this.opponentMaxHp = this.difficulty * 20;
+    this.opponentHp = this.opponentMaxHp;
+
+    // AI settings
+    // Interval: 2.5s at diff 1, 1.5s at diff 5 (linear interp)
+    this.aiAttackInterval = 2.5 - (this.difficulty - 1) * 0.25;
+    // Damage: 8 at diff 1, 15 at diff 5
+    this.aiDamage = 8 + (this.difficulty - 1) * 1.75;
+
+    // Disable right-click context menu on canvas
+    this.game.canvas.addEventListener('contextmenu', (e: Event) => e.preventDefault());
+
+    // Draw scene
     this.drawBackground(width, height);
-    this.setupTitleText(width, height);
-    this.setupRoundText(width, height);
-    this.setupBaseHpText(width, height);
-    this.setupLogArea(width, height);
-    this.setupContinueButton(width, height);
+    this.drawOpponentStall(width, height);
+    this.spawnOpponentEmoji(width, height);
+    this.setupHUD(width, height);
+    this.setupCrosshair(width, height);
+    this.setupScreenVignette(width, height);
+    this.setupResultUI(width, height);
 
     this.cameras.main.fadeIn(500, 0, 0, 0);
     EventBus.emit('scene-ready', 'BattleScene');
@@ -83,81 +150,81 @@ export class BattleScene extends Phaser.Scene {
     });
   }
 
-  // ── Battle day gate ────────────────────────────────────────────────────────
+  // ── Battle day gate ──────────────────────────────────────────────────────────
 
   private handleBattleDay(): void {
     const isBattleDay = gameState.day % 2 === 0;
     if (!isBattleDay) {
-      this.titleText.setText('今日無戰事，直接結算');
+      this.showInfoMessage('今日無戰事，直接結算', '#aaaaaa');
       this.time.delayedCall(1200, () => this.transitionToSummary());
       return;
     }
 
     const costInfo = calculateBattleCost();
-    if (!costInfo.canAfford) {
-      this.showCannotAffordUI();
-      return;
+    this.showChallengeChoice(costInfo);
+  }
+
+  private showChallengeChoice(costInfo: { canAfford: boolean; playerCost: number }): void {
+    const { width, height } = this.scale;
+    const overlay = this.add.graphics().setDepth(20);
+    overlay.fillStyle(0x000000, 0.75);
+    overlay.fillRect(0, 0, width, height);
+
+    const panel = this.add.container(width / 2, height / 2).setDepth(21);
+
+    const oppInfo = DIFFICULTY_OPPONENTS[this.difficulty] ?? { emoji: '👹', name: '神秘對手' };
+    const infoLines = [
+      `挑戰者：${oppInfo.emoji} ${oppInfo.name}`,
+      `對手體力：${this.opponentMaxHp}`,
+      costInfo.canAfford
+        ? `入場費：$${costInfo.playerCost}（你有 $${gameState.money}）`
+        : `資金不足！需要 $${costInfo.playerCost}，你只有 $${gameState.money}`,
+    ].join('\n');
+
+    const infoText = this.add.text(0, -60, infoLines, {
+      fontSize: '15px',
+      fontFamily: FONT,
+      color: '#ffddaa',
+      align: 'center',
+      lineSpacing: 6,
+    }).setOrigin(0.5);
+
+    panel.add(infoText);
+
+    if (costInfo.canAfford) {
+      const fightBtn = this.makeTextButton(0, 20, '出戰！', () => {
+        overlay.destroy();
+        panel.destroy();
+        this.beginFight(costInfo.playerCost);
+      });
+      const skipBtn = this.makeTextButton(0, 70, '跳過，直接結算', () => {
+        overlay.destroy();
+        panel.destroy();
+        this.transitionToSummary();
+      });
+      panel.add([fightBtn, skipBtn]);
+    } else {
+      const skipBtn = this.makeTextButton(0, 20, '跳過，直接結算', () => {
+        overlay.destroy();
+        panel.destroy();
+        this.transitionToSummary();
+      });
+      panel.add(skipBtn);
     }
-
-    this.showPrepOverlay();
   }
 
-  // ── Cannot afford ──────────────────────────────────────────────────────────
+  // ── Begin fight ──────────────────────────────────────────────────────────────
 
-  private showCannotAffordUI(): void {
+  private beginFight(cost: number): void {
+    spendMoney(cost);
+    this.showFeverTimeSplash(() => this.startFight());
+  }
+
+  // ── FEVER TIME splash (KEEP EXISTING CODE) ───────────────────────────────────
+
+  private showFeverTimeSplash(onComplete: () => void): void {
     const { width, height } = this.scale;
 
-    this.titleText.setText('資金不足，無法發起挑戰');
-
-    const msgText = this.add.text(width / 2, height * 0.40,
-      `需要 $${calculateBattleCost().playerCost}（現有 $${gameState.money}）\n選擇逃跑或繼續`,
-      {
-        fontSize: '15px',
-        fontFamily: FONT,
-        color: '#ff9944',
-        align: 'center',
-      },
-    ).setOrigin(0.5);
-
-    const skipBtn = this.makeTextButton(width / 2, height * 0.55, '跳過，直接結算', () => {
-      msgText.destroy();
-      skipBtn.destroy();
-      this.transitionToSummary();
-    });
-  }
-
-  // ── Prep overlay ───────────────────────────────────────────────────────────
-
-  private showPrepOverlay(): void {
-    this.titleText.setText('準備戰鬥⋯⋯');
-
-    EventBus.emit('show-panel', 'battle-prep', {
-      playerSlot: gameState.playerSlot,
-    });
-
-    const startHandler = (data: unknown) => {
-      EventBus.off('battle-skip', skipHandler);
-      EventBus.emit('hide-panel');
-      const { pieces } = data as { pieces: ChessPiece[] };
-      this.startBattle(pieces);
-    };
-
-    const skipHandler = () => {
-      EventBus.off('battle-start', startHandler);
-      EventBus.emit('hide-panel');
-      this.transitionToSummary();
-    };
-
-    EventBus.once('battle-start', startHandler);
-    EventBus.once('battle-skip', skipHandler);
-  }
-
-  // ── Start battle ───────────────────────────────────────────────────────────
-
-  private startBattle(selectedPieces: ChessPiece[]): void {
-    const { width, height } = this.scale;
-
-    // ── FEVER TIME splash (keep existing code) ─────────────────────────────
     if (this.textures.exists('battle-cover')) {
       const splash = this.add.container(0, 0).setDepth(50);
       const overlay = this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.9);
@@ -181,188 +248,260 @@ export class BattleScene extends Phaser.Scene {
           targets: splash,
           alpha: 0,
           duration: 300,
-          onComplete: () => splash.destroy(),
+          onComplete: () => {
+            splash.destroy();
+            onComplete();
+          },
         });
       });
+    } else {
+      this.time.delayedCall(300, onComplete);
     }
+  }
 
-    // Deduct battle entry cost
-    const costInfo = calculateBattleCost();
-    spendMoney(costInfo.playerCost);
+  // ── Start fight ──────────────────────────────────────────────────────────────
 
-    // Use a fallback piece if player bought nothing
-    this.playerPieces = selectedPieces.length > 0
-      ? selectedPieces
-      : [];
+  private startFight(): void {
+    this.isFighting = true;
+    this.isDone = false;
+    this.aiAttackTimer = 0;
+    this.battleTimer = 60;
 
-    // Apply simulation buff if applicable
-    applySimulationBuff(this.playerPieces);
+    this.setupInputListeners();
+    this.showInfoMessage('戰鬥開始！', '#44ff88', 1200);
+  }
 
-    // Generate opponent army
-    const opponentSlot = gameState.playerSlot + 1;
-    const opponentPieces = generateOpponentArmy(opponentSlot);
+  // ── Input listeners ──────────────────────────────────────────────────────────
 
-    // Init battle state
-    this.battleState = initBattleState(this.playerPieces, opponentPieces, 0);
-    this.battleState = { ...this.battleState, phase: 'battle' };
-
-    // Draw initial piece display
-    this.spawnPieceDisplays(width, height);
-
-    // Update base HP display
-    this.updateBaseHpText();
-
-    // Set title
-    const opponentSlotData = GRID_SLOTS.find(s => s.tier === opponentSlot);
-    const oppInfo = opponentSlotData ? OPPONENT_INFO[opponentSlotData.opponentId] : null;
-    const oppLabel = oppInfo ? `${oppInfo.emoji} ${oppInfo.name}` : '神秘對手';
-    this.titleText.setText(`第 ${gameState.playerSlot} 層 vs ${oppLabel}`);
-
-    // Start round loop after splash finishes (1.8s delay)
-    this.time.delayedCall(1800, () => {
-      this.runNextRound();
+  private setupInputListeners(): void {
+    this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+      if (this.isDone || !this.isFighting) return;
+      if (pointer.leftButtonDown()) this.doNormalAttack(pointer);
+      if (pointer.rightButtonDown()) this.doHeavyAttack(pointer);
     });
+
+    if (this.input.keyboard) {
+      this.input.keyboard.on('keydown-SPACE', () => this.doSpecialAttack());
+      this.input.keyboard.on('keydown-E', () => this.doSpecialAttack());
+    }
   }
 
-  // ── Piece display ──────────────────────────────────────────────────────────
+  // ── Attack: Normal (left click) ──────────────────────────────────────────────
 
-  private spawnPieceDisplays(width: number, height: number): void {
-    if (!this.battleState) return;
+  private doNormalAttack(pointer: Phaser.Input.Pointer): void {
+    if (this.normalCd > 0) return;
+    this.normalCd = 0.5;
 
-    const allPieces: Array<{ piece: ChessPiece; isPlayer: boolean }> = [
-      ...this.battleState.playerPieces.map(p => ({ piece: p, isPlayer: true })),
-      ...this.battleState.opponentPieces.map(p => ({ piece: p, isPlayer: false })),
-    ];
+    const hit = this.isHitOnOpponent(pointer);
+    const headshot = hit && this.isHeadshot(pointer);
 
-    const playerPieces   = allPieces.filter(e => e.isPlayer);
-    const opponentPieces = allPieces.filter(e => !e.isPlayer);
+    // Sausage swing animation
+    this.spawnAttackEmoji('🌭', pointer.x, pointer.y, { dy: -80, scale: 1.4 });
 
-    const spawnSide = (
-      entries: typeof allPieces,
-      baseX: number,
-    ) => {
-      entries.forEach(({ piece }, i) => {
-        const py = height * PIECES_START_Y_FRAC + i * PIECE_SPACING_Y;
+    if (hit) {
+      const dmg = headshot ? 15 : 8;
+      this.dealDamageToOpponent(dmg);
+      this.energy = Math.min(100, this.energy + 10);
 
-        const emojiText = this.add.text(baseX, py, piece.emoji, {
-          fontSize: '24px',
-          fontFamily: FONT,
-        }).setOrigin(0.5);
-
-        const barW = 48;
-        const barH = 6;
-        const barX = baseX - barW / 2;
-        const barY = py + 18;
-
-        const hpBg = this.add.graphics();
-        hpBg.fillStyle(0x330022, 1);
-        hpBg.fillRect(barX, barY, barW, barH);
-
-        const hpBar = this.add.graphics();
-        hpBar.fillStyle(0x44ff88, 1);
-        hpBar.fillRect(barX, barY, barW, barH);
-
-        const hpLabel = this.add.text(baseX, barY + barH + 2, `${piece.hp}`, {
-          fontSize: '10px',
-          fontFamily: FONT,
-          color: '#aaaaaa',
-        }).setOrigin(0.5, 0);
-
-        this.pieceDisplays.set(piece.id, { emojiText, hpBg, hpBar, hpLabel });
-      });
-    };
-
-    spawnSide(playerPieces,   width * PLAYER_SIDE_X_FRAC);
-    spawnSide(opponentPieces, width * OPP_SIDE_X_FRAC);
-  }
-
-  private refreshPieceDisplays(): void {
-    if (!this.battleState) return;
-
-    const allPieces = [
-      ...this.battleState.playerPieces,
-      ...this.battleState.opponentPieces,
-    ];
-
-    allPieces.forEach(piece => {
-      const display = this.pieceDisplays.get(piece.id);
-      if (!display) return;
-
-      if (!piece.isAlive) {
-        // Dim defeated pieces
-        display.emojiText.setAlpha(0.25);
-        display.hpBar.clear();
-        display.hpLabel.setText('✕');
-        display.hpLabel.setColor('#ff4455');
-        return;
+      if (headshot) {
+        this.spawnDamageNumber(pointer.x, pointer.y - 20, `爆頭！ -${dmg}`, '#ffee00');
+        this.cameras.main.shake(120, 0.008);
+      } else {
+        this.spawnDamageNumber(pointer.x, pointer.y - 20, `-${dmg}`, '#ffffff');
       }
-
-      // Recalculate HP bar fill
-      const ratio = Math.max(0, piece.hp / piece.maxHp);
-      display.hpBar.clear();
-      const color = ratio > 0.5 ? 0x44ff88 : ratio > 0.25 ? 0xffcc00 : 0xff4455;
-      display.hpBar.fillStyle(color, 1);
-
-      // We need bar geometry — derive from emojiText position
-      const barW = 48;
-      const barH = 6;
-      const barX = display.emojiText.x - barW / 2;
-      const barY = display.emojiText.y + 18;
-      display.hpBar.fillRect(barX, barY, barW * ratio, barH);
-
-      display.hpLabel.setText(`${piece.hp}`);
-    });
+    } else {
+      this.spawnDamageNumber(pointer.x, pointer.y - 10, '未中', '#666666');
+    }
   }
 
-  // ── Round loop ─────────────────────────────────────────────────────────────
+  // ── Attack: Heavy (right click) ──────────────────────────────────────────────
 
-  private runNextRound(): void {
-    if (!this.battleState || this.isRunningRounds) return;
-
-    const endCheck = checkBattleEnd(this.battleState);
-    if (endCheck.ended) {
-      this.showResult(endCheck.winner ?? 'draw');
+  private doHeavyAttack(pointer: Phaser.Input.Pointer): void {
+    if (this.heavyCd > 0) return;
+    if (this.energy < 25) {
+      this.spawnInfoFloat(pointer.x, pointer.y, '能量不足！', '#ff8800');
       return;
     }
 
-    this.isRunningRounds = true;
-    this.battleState = executeRound(this.battleState);
+    this.heavyCd = 2;
+    this.energy = Math.max(0, this.energy - 25);
 
-    const roundNum = this.battleState.round;
-    this.roundText.setText(`第 ${roundNum} 回合`);
+    const { width, height } = this.scale;
 
-    // Show last 3 log lines
-    const log = this.battleState.battleLog;
-    const recent = log.slice(-MAX_LOG_LINES);
-    recent.forEach(line => this.addLogEntry(line));
+    // Dash animation from bottom center toward pointer
+    this.spawnAttackEmoji('🌭', width / 2, height - 80, {
+      tx: pointer.x,
+      ty: pointer.y,
+      scale: 2.0,
+      duration: 280,
+    });
 
-    // Refresh piece HP bars
-    this.refreshPieceDisplays();
-    this.updateBaseHpText();
+    const hit = this.isHitOnOpponent(pointer);
+    if (hit) {
+      this.dealDamageToOpponent(20);
+      this.opponentStunTimer = 1.0;
+      this.energy = Math.min(100, this.energy + 5);
+      this.cameras.main.shake(200, 0.015);
+      this.spawnDamageNumber(pointer.x, pointer.y - 20, '重擊！ -20', '#ff6600');
 
-    // Check end condition after executing this round
-    const afterCheck = checkBattleEnd(this.battleState);
-
-    this.isRunningRounds = false;
-
-    if (afterCheck.ended) {
-      this.time.delayedCall(600, () => this.showResult(afterCheck.winner ?? 'draw'));
+      // Opponent stun visual
+      this.tweens.add({
+        targets: this.opponentEmoji,
+        alpha: 0.4,
+        duration: 150,
+        yoyo: true,
+        repeat: 2,
+      });
     } else {
-      this.time.delayedCall(1000, () => this.runNextRound());
+      this.spawnDamageNumber(pointer.x, pointer.y - 10, '未中', '#666666');
     }
   }
 
-  // ── Result ─────────────────────────────────────────────────────────────────
+  // ── Attack: Special (space/E, needs 100% energy) ──────────────────────────────
 
-  private showResult(winner: 'player' | 'opponent' | 'draw'): void {
+  private doSpecialAttack(): void {
+    if (!this.isFighting || this.isDone) return;
+    if (this.energy < 100) {
+      this.showInfoMessage('能量不足，需要 100%！', '#ff8800', 900);
+      return;
+    }
+
+    this.energy = 0;
+
+    const { width, height } = this.scale;
+
+    // Full screen red flash
+    const flash = this.add.graphics().setDepth(30);
+    flash.fillStyle(0xff0000, 0.55);
+    flash.fillRect(0, 0, width, height);
+    this.tweens.add({
+      targets: flash,
+      alpha: 0,
+      duration: 350,
+      onComplete: () => flash.destroy(),
+    });
+
+    // Charcoal falls from top
+    const charcoal = this.add.text(width / 2, -40, '🪨', {
+      fontSize: '60px',
+      fontFamily: FONT,
+    }).setOrigin(0.5).setDepth(35);
+
+    this.tweens.add({
+      targets: charcoal,
+      y: this.opponentEmoji.y + 20,
+      duration: 450,
+      ease: 'Bounce.Out',
+      onComplete: () => {
+        charcoal.destroy();
+        this.dealDamageToOpponent(35);
+        this.cameras.main.shake(300, 0.022);
+        this.spawnDamageNumber(width / 2, this.opponentEmoji.y, '木炭轟炸！ -35', '#ff4400');
+
+        // Burnt effect on opponent
+        this.opponentEmoji.setTint(0x222222);
+        this.time.delayedCall(700, () => {
+          if (this.opponentEmoji.active) this.opponentEmoji.clearTint();
+        });
+      },
+    });
+  }
+
+  // ── Opponent AI attack ────────────────────────────────────────────────────────
+
+  private doOpponentAttack(): void {
+    if (this.isDone) return;
+
+    // Lunge animation
+    this.tweens.add({
+      targets: this.opponentEmoji,
+      scaleX: this.opponentBaseScale * 1.5,
+      scaleY: this.opponentBaseScale * 1.5,
+      duration: 180,
+      yoyo: true,
+      ease: 'Quad.Out',
+    });
+
+    const hitChance = Math.random();
+    if (hitChance < 0.70) {
+      this.playerHp = Math.max(0, this.playerHp - this.aiDamage);
+      this.energy = Math.min(100, this.energy + 15); // getting hit charges energy
+      this.flashScreenEdges();
+      this.cameras.main.shake(100, 0.006);
+
+      const dmgLabel = Math.round(this.aiDamage);
+      this.spawnDamageNumber(
+        this.scale.width / 2,
+        this.scale.height - 120,
+        `受傷 -${dmgLabel}`,
+        '#ff4455',
+      );
+
+      if (this.playerHp <= 0) {
+        this.endFight('opponent');
+      }
+    } else {
+      this.spawnInfoFloat(
+        this.scale.width / 2,
+        this.scale.height - 120,
+        '閃開了！',
+        '#44ff88',
+      );
+    }
+  }
+
+  // ── Damage helper ─────────────────────────────────────────────────────────────
+
+  private dealDamageToOpponent(dmg: number): void {
+    this.opponentHp = Math.max(0, this.opponentHp - dmg);
+    if (this.opponentHp <= 0) {
+      this.endFight('player');
+    }
+  }
+
+  // ── Hit detection ─────────────────────────────────────────────────────────────
+
+  private isHitOnOpponent(pointer: Phaser.Input.Pointer): boolean {
+    if (!this.opponentEmoji || !this.opponentEmoji.active) return false;
+    const bounds = this.opponentEmoji.getBounds();
+    return bounds.contains(pointer.x, pointer.y);
+  }
+
+  private isHeadshot(pointer: Phaser.Input.Pointer): boolean {
+    if (!this.opponentEmoji || !this.opponentEmoji.active) return false;
+    const bounds = this.opponentEmoji.getBounds();
+    return pointer.y < bounds.y + bounds.height / 3;
+  }
+
+  // ── Fight end ─────────────────────────────────────────────────────────────────
+
+  private endByTimeout(): void {
+    if (this.isDone) return;
+    const playerPct = this.playerHp / this.playerMaxHp;
+    const oppPct = this.opponentHp / this.opponentMaxHp;
+    const winner = playerPct > oppPct ? 'player' : oppPct > playerPct ? 'opponent' : 'draw';
+    this.endFight(winner as 'player' | 'opponent' | 'draw');
+  }
+
+  private endFight(winner: 'player' | 'opponent' | 'draw'): void {
+    if (this.isDone) return;
+    this.isDone = true;
+    this.isFighting = false;
+
     const resultMsg = applyBattleResult(winner);
 
     let color = '#ffcc00';
-    if (winner === 'player')   color = '#44ff88';
+    if (winner === 'player') color = '#44ff88';
     if (winner === 'opponent') color = '#ff4455';
 
+    this.time.delayedCall(600, () => {
+      this.showResult(resultMsg, color);
+    });
+  }
+
+  private showResult(msg: string, color: string): void {
     this.resultText
-      .setText(resultMsg)
+      .setText(msg)
       .setColor(color)
       .setVisible(true)
       .setAlpha(0);
@@ -375,150 +514,363 @@ export class BattleScene extends Phaser.Scene {
     });
   }
 
-  // ── Log area ───────────────────────────────────────────────────────────────
+  // ── update ────────────────────────────────────────────────────────────────────
 
-  private setupLogArea(width: number, height: number): void {
-    this.add.text(width / 2, height * LOG_Y_FRAC - 18, '戰鬥記錄', {
-      fontSize: '12px',
-      fontFamily: FONT,
-      color: '#443355',
-    }).setOrigin(0.5);
-  }
+  update(_time: number, delta: number): void {
+    const dt = delta / 1000;
 
-  private addLogEntry(text: string): void {
-    const { width, height } = this.scale;
-    const baseY = height * LOG_Y_FRAC;
+    if (!this.isFighting || this.isDone) return;
 
-    // Shift existing lines up
-    this.logTexts.forEach(t => t.setY(t.y - LOG_LINE_H));
+    // Cooldown ticks
+    this.normalCd = Math.max(0, this.normalCd - dt);
+    this.heavyCd = Math.max(0, this.heavyCd - dt);
+    this.opponentStunTimer = Math.max(0, this.opponentStunTimer - dt);
 
-    // Remove oldest beyond limit
-    while (this.logTexts.length >= MAX_LOG_LINES) {
-      const old = this.logTexts.shift();
-      if (old) {
-        this.tweens.add({
-          targets: old,
-          alpha: 0,
-          duration: 150,
-          onComplete: () => old.destroy(),
-        });
+    // Move crosshair
+    const pointer = this.input.activePointer;
+    this.updateCrosshair(pointer.x, pointer.y);
+
+    // AI attack tick
+    if (this.opponentStunTimer <= 0) {
+      this.aiAttackTimer += dt;
+      if (this.aiAttackTimer >= this.aiAttackInterval) {
+        this.doOpponentAttack();
+        this.aiAttackTimer = 0;
       }
     }
 
-    const entry = this.add.text(
-      width / 2,
-      baseY + (MAX_LOG_LINES - 1) * LOG_LINE_H,
-      text,
-      {
-        fontSize: '12px',
-        fontFamily: FONT,
-        color: '#aa88cc',
-        align: 'center',
-        wordWrap: { width: width * 0.85 },
-      },
-    ).setOrigin(0.5).setAlpha(0);
+    // Battle timer
+    this.battleTimer -= dt;
+    if (this.battleTimer <= 0) {
+      this.battleTimer = 0;
+      this.endByTimeout();
+    }
 
-    this.logTexts.push(entry);
-    this.tweens.add({ targets: entry, alpha: 1, duration: 200 });
+    this.redrawBars();
+    this.updateTimerText();
+    this.updateEnergyPulse();
   }
 
-  // ── UI setup ───────────────────────────────────────────────────────────────
+  // ── Redraw HUD bars ───────────────────────────────────────────────────────────
+
+  private redrawBars(): void {
+    const { width, height } = this.scale;
+    const barH = 14;
+    const playerBarW = width * 0.32;
+    const oppBarW = width * 0.32;
+    const barY = height - 56;
+    const energyBarW = width * 0.20;
+
+    // Player HP bar
+    const pRatio = Math.max(0, this.playerHp / this.playerMaxHp);
+    this.playerHpBar.clear();
+    this.playerHpBar.fillStyle(0x113311, 1);
+    this.playerHpBar.fillRoundedRect(10, barY, playerBarW, barH, 4);
+    const pColor = pRatio > 0.5 ? 0x44ff88 : pRatio > 0.25 ? 0xffcc00 : 0xff4455;
+    this.playerHpBar.fillStyle(pColor, 1);
+    this.playerHpBar.fillRoundedRect(10, barY, playerBarW * pRatio, barH, 4);
+    this.playerHpLabel.setText(`我方 HP: ${Math.ceil(this.playerHp)}/${this.playerMaxHp}`);
+
+    // Opponent HP bar
+    const oRatio = Math.max(0, this.opponentHp / this.opponentMaxHp);
+    this.opponentHpBarFill.clear();
+    this.opponentHpBarFill.fillStyle(0x331111, 1);
+    this.opponentHpBarFill.fillRoundedRect(width - 10 - oppBarW, barY, oppBarW, barH, 4);
+    const oColor = oRatio > 0.5 ? 0xff4455 : oRatio > 0.25 ? 0xff8800 : 0xffff00;
+    this.opponentHpBarFill.fillStyle(oColor, 1);
+    this.opponentHpBarFill.fillRoundedRect(
+      width - 10 - oppBarW + oppBarW * (1 - oRatio),
+      barY,
+      oppBarW * oRatio,
+      barH,
+      4,
+    );
+    this.opponentHpLabel.setText(`對手 HP: ${Math.ceil(this.opponentHp)}/${this.opponentMaxHp}`);
+
+    // Energy bar (center)
+    const eRatio = this.energy / 100;
+    const energyBarX = (width - energyBarW) / 2;
+    const energyBarY = height - 36;
+    this.energyBarFill.clear();
+    this.energyBarFill.fillStyle(0x111133, 1);
+    this.energyBarFill.fillRoundedRect(energyBarX, energyBarY, energyBarW, 10, 3);
+    const eColor = this.energy >= 100 ? 0xffee00 : 0x4488ff;
+    this.energyBarFill.fillStyle(eColor, 1);
+    this.energyBarFill.fillRoundedRect(energyBarX, energyBarY, energyBarW * eRatio, 10, 3);
+    this.energyLabel.setText(`能量 ${Math.floor(this.energy)}%`);
+  }
+
+  private updateTimerText(): void {
+    const secs = Math.ceil(this.battleTimer);
+    this.timerText.setText(`${secs}s`);
+    if (secs <= 10) {
+      this.timerText.setColor('#ff4455');
+      const alpha = (Math.sin(Date.now() / 200) + 1) / 2;
+      this.timerText.setAlpha(0.5 + alpha * 0.5);
+    } else {
+      this.timerText.setColor('#ffffff');
+      this.timerText.setAlpha(1);
+    }
+  }
+
+  private updateEnergyPulse(): void {
+    if (this.energy >= 100 && !this.energyPulseTween) {
+      this.energyPulseTween = this.tweens.add({
+        targets: this.energyLabel,
+        scaleX: 1.15,
+        scaleY: 1.15,
+        duration: 350,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.InOut',
+      });
+      this.showInfoMessage('特殊技能可用！按 空白鍵 / E', '#ffee00', 2000);
+    } else if (this.energy < 100 && this.energyPulseTween) {
+      this.energyPulseTween.stop();
+      this.energyPulseTween = null;
+      this.energyLabel.setScale(1);
+    }
+  }
+
+  // ── Background drawing ───────────────────────────────────────────────────────
 
   private drawBackground(width: number, height: number): void {
     const bg = this.add.graphics();
-    bg.fillGradientStyle(0x050010, 0x050010, 0x100020, 0x100020, 1);
+    bg.fillGradientStyle(0x050015, 0x050015, 0x0f001a, 0x0f001a, 1);
     bg.fillRect(0, 0, width, height);
 
+    // Floor (night market ground)
+    bg.fillGradientStyle(0x1a0011, 0x1a0011, 0x080008, 0x080008, 1);
+    bg.fillRect(0, height * 0.65, width, height * 0.35);
+
+    // Neon ambient glow blobs
     const glow = this.add.graphics();
-    glow.fillStyle(0xff1144, 0.04);
-    glow.fillEllipse(width / 2, height * 0.45, width * 0.9, height * 0.5);
+    glow.fillStyle(0xff1144, 0.05);
+    glow.fillEllipse(width * 0.25, height * 0.4, width * 0.5, height * 0.45);
+    glow.fillStyle(0x2244ff, 0.04);
+    glow.fillEllipse(width * 0.75, height * 0.4, width * 0.5, height * 0.45);
+    glow.fillStyle(0xff6600, 0.03);
+    glow.fillEllipse(width * 0.5, height * 0.7, width * 0.8, height * 0.25);
 
-    // Team label row
-    this.add.text(width * PLAYER_SIDE_X_FRAC, height * 0.18, '我方', {
-      fontSize: '13px',
-      fontFamily: FONT,
-      color: '#4488ff',
-    }).setOrigin(0.5);
+    // Distant stalls (decorative rectangles)
+    this.drawDistantStalls(width, height);
 
-    this.add.text(width * OPP_SIDE_X_FRAC, height * 0.18, '對手', {
-      fontSize: '13px',
-      fontFamily: FONT,
-      color: '#ff4455',
-    }).setOrigin(0.5);
-
-    // Center divider
-    const line = this.add.graphics();
-    line.lineStyle(1, 0x441155, 0.5);
-    line.beginPath();
-    line.moveTo(width / 2, height * 0.20);
-    line.lineTo(width / 2, height * 0.65);
-    line.strokePath();
-
-    this.add.text(width / 2, height * 0.42, 'VS', {
-      fontSize: '18px',
-      fontFamily: FONT,
-      color: '#331144',
-      fontStyle: 'bold',
-    }).setOrigin(0.5);
+    // Neon ground line
+    const groundLine = this.add.graphics();
+    groundLine.lineStyle(2, 0xff2266, 0.25);
+    groundLine.beginPath();
+    groundLine.moveTo(0, height * 0.65);
+    groundLine.lineTo(width, height * 0.65);
+    groundLine.strokePath();
   }
 
-  private setupTitleText(width: number, height: number): void {
-    this.titleText = this.add.text(width / 2, height * 0.08, '換位血戰', {
-      fontSize: '20px',
+  private drawDistantStalls(width: number, height: number): void {
+    const stalls: NeonConfig[] = [
+      { x: width * 0.08, y: height * 0.35, w: 60, h: 40, color: 0x220011, glowColor: 0xff2255 },
+      { x: width * 0.85, y: height * 0.38, w: 55, h: 35, color: 0x001122, glowColor: 0x2266ff },
+      { x: width * 0.14, y: height * 0.55, w: 45, h: 30, color: 0x112200, glowColor: 0x44ff44 },
+      { x: width * 0.80, y: height * 0.58, w: 50, h: 28, color: 0x221100, glowColor: 0xff8800 },
+    ];
+
+    const g = this.add.graphics();
+    stalls.forEach(({ x, y, w, h, color, glowColor }) => {
+      g.fillStyle(color, 1);
+      g.fillRect(x, y, w, h);
+      g.lineStyle(1, glowColor, 0.6);
+      g.strokeRect(x, y, w, h);
+    });
+  }
+
+  // ── Opponent stall ────────────────────────────────────────────────────────────
+
+  private drawOpponentStall(width: number, height: number): void {
+    const stallW = 200;
+    const stallH = 55;
+    const stallX = width / 2 - stallW / 2;
+    const stallY = height * 0.06;
+
+    const g = this.add.graphics();
+    // Stall body
+    g.fillStyle(0x0a0022, 1);
+    g.fillRoundedRect(stallX, stallY, stallW, stallH, 6);
+    // Neon border
+    g.lineStyle(2, 0xff1166, 0.9);
+    g.strokeRoundedRect(stallX, stallY, stallW, stallH, 6);
+    // Inner glow
+    g.lineStyle(4, 0xff1166, 0.15);
+    g.strokeRoundedRect(stallX + 2, stallY + 2, stallW - 4, stallH - 4, 5);
+
+    // Awning strips
+    const stripeG = this.add.graphics();
+    for (let i = 0; i < 5; i++) {
+      stripeG.fillStyle(i % 2 === 0 ? 0x330011 : 0x110022, 0.8);
+      stripeG.fillRect(stallX + i * (stallW / 5), stallY, stallW / 5, 10);
+    }
+
+    const oppInfo = DIFFICULTY_OPPONENTS[this.difficulty] ?? { emoji: '👹', name: '神秘攤位' };
+    this.add.text(width / 2, stallY + stallH / 2, oppInfo.name, {
+      fontSize: '16px',
       fontFamily: FONT,
-      color: '#ff2d55',
+      color: '#ff88aa',
       fontStyle: 'bold',
       shadow: { blur: 10, color: '#ff0055', fill: true },
     }).setOrigin(0.5);
+  }
 
-    this.resultText = this.add.text(width / 2, height * 0.62, '', {
-      fontSize: '16px',
+  // ── Opponent emoji ─────────────────────────────────────────────────────────────
+
+  private spawnOpponentEmoji(width: number, height: number): void {
+    const oppInfo = DIFFICULTY_OPPONENTS[this.difficulty] ?? { emoji: '👹', name: '神秘對手' };
+    const fontSize = 80;
+
+    this.opponentEmoji = this.add.text(
+      width * OPP_CENTER_X_FRAC,
+      height * OPP_CENTER_Y_FRAC,
+      oppInfo.emoji,
+      {
+        fontSize: `${fontSize}px`,
+        fontFamily: FONT,
+      },
+    ).setOrigin(0.5);
+
+    this.opponentBaseScale = 1;
+
+    // Idle breathing animation
+    this.tweens.add({
+      targets: this.opponentEmoji,
+      scaleX: 1.04,
+      scaleY: 1.04,
+      duration: 1200,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.InOut',
+    });
+  }
+
+  // ── HUD ───────────────────────────────────────────────────────────────────────
+
+  private setupHUD(width: number, height: number): void {
+    // Graphics objects (filled in redrawBars)
+    this.playerHpBar = this.add.graphics().setDepth(10);
+    this.opponentHpBarFill = this.add.graphics().setDepth(10);
+    this.energyBarFill = this.add.graphics().setDepth(10);
+
+    const labelStyle = {
+      fontSize: '11px',
+      fontFamily: FONT,
+      color: '#ffffff',
+    };
+
+    this.playerHpLabel = this.add.text(10, height - 76, '', labelStyle).setDepth(11);
+    this.opponentHpLabel = this.add.text(width - 10, height - 76, '', {
+      ...labelStyle,
+    }).setOrigin(1, 0).setDepth(11);
+
+    this.energyLabel = this.add.text(width / 2, height - 50, '能量 0%', {
+      fontSize: '12px',
+      fontFamily: FONT,
+      color: '#4488ff',
+    }).setOrigin(0.5).setDepth(11);
+
+    // Timer (top center)
+    this.timerText = this.add.text(width / 2, height * 0.15, '60s', {
+      fontSize: '20px',
+      fontFamily: FONT,
+      color: '#ffffff',
+      fontStyle: 'bold',
+    }).setOrigin(0.5).setDepth(11);
+
+    // HUD help text
+    this.add.text(width / 2, height - 12, '左鍵：揮香腸  右鍵：強力衝刺  空白/E：特殊技能', {
+      fontSize: '10px',
+      fontFamily: FONT,
+      color: '#554466',
+    }).setOrigin(0.5).setDepth(11);
+
+    // Initial bar draw
+    this.redrawBars();
+  }
+
+  // ── Crosshair ─────────────────────────────────────────────────────────────────
+
+  private setupCrosshair(width: number, height: number): void {
+    this.crosshairH = this.add.graphics().setDepth(40);
+    this.crosshairV = this.add.graphics().setDepth(40);
+    this.updateCrosshair(width / 2, height / 2);
+  }
+
+  private updateCrosshair(x: number, y: number): void {
+    const len = 18;
+    const gap = 5;
+
+    this.crosshairH.clear();
+    this.crosshairH.lineStyle(1.5, 0xffffff, 0.85);
+    this.crosshairH.beginPath();
+    this.crosshairH.moveTo(x - len - gap, y);
+    this.crosshairH.lineTo(x - gap, y);
+    this.crosshairH.moveTo(x + gap, y);
+    this.crosshairH.lineTo(x + len + gap, y);
+    this.crosshairH.strokePath();
+
+    this.crosshairV.clear();
+    this.crosshairV.lineStyle(1.5, 0xffffff, 0.85);
+    this.crosshairV.beginPath();
+    this.crosshairV.moveTo(x, y - len - gap);
+    this.crosshairV.lineTo(x, y - gap);
+    this.crosshairV.moveTo(x, y + gap);
+    this.crosshairV.lineTo(x, y + len + gap);
+    this.crosshairV.strokePath();
+  }
+
+  // ── Screen vignette (damage flash) ───────────────────────────────────────────
+
+  private setupScreenVignette(width: number, height: number): void {
+    this.screenVignette = this.add.graphics().setDepth(38).setAlpha(0);
+    this.screenVignette.fillStyle(0xff0000, 0.0);
+    // Draw red edges
+    const edgeW = 60;
+    this.screenVignette.fillStyle(0xff0000, 0.35);
+    this.screenVignette.fillRect(0, 0, edgeW, height);
+    this.screenVignette.fillRect(width - edgeW, 0, edgeW, height);
+    this.screenVignette.fillRect(0, 0, width, edgeW);
+    this.screenVignette.fillRect(0, height - edgeW, width, edgeW);
+  }
+
+  private flashScreenEdges(): void {
+    this.screenVignette.setAlpha(1);
+    this.tweens.add({
+      targets: this.screenVignette,
+      alpha: 0,
+      duration: 400,
+      ease: 'Quad.Out',
+    });
+  }
+
+  // ── Result UI ─────────────────────────────────────────────────────────────────
+
+  private setupResultUI(width: number, height: number): void {
+    this.resultText = this.add.text(width / 2, height * 0.52, '', {
+      fontSize: '18px',
       fontFamily: FONT,
       color: '#44ff88',
       fontStyle: 'bold',
       align: 'center',
       wordWrap: { width: width * 0.85 },
-    }).setOrigin(0.5).setAlpha(0).setVisible(false);
-  }
+    }).setOrigin(0.5).setAlpha(0).setVisible(false).setDepth(25);
 
-  private setupRoundText(width: number, height: number): void {
-    this.roundText = this.add.text(width / 2, height * 0.13, '', {
-      fontSize: '13px',
-      fontFamily: FONT,
-      color: '#665577',
-    }).setOrigin(0.5);
-  }
-
-  private setupBaseHpText(width: number, height: number): void {
-    this.playerHpText = this.add.text(width * PLAYER_SIDE_X_FRAC, height * 0.22, '', {
-      fontSize: '12px',
-      fontFamily: FONT,
-      color: '#4488ff',
-    }).setOrigin(0.5);
-
-    this.oppHpText = this.add.text(width * OPP_SIDE_X_FRAC, height * 0.22, '', {
-      fontSize: '12px',
-      fontFamily: FONT,
-      color: '#ff4455',
-    }).setOrigin(0.5);
-  }
-
-  private updateBaseHpText(): void {
-    if (!this.battleState) return;
-    this.playerHpText.setText(`基地 HP：${this.battleState.playerHp}`);
-    this.oppHpText.setText(`基地 HP：${this.battleState.opponentHp}`);
+    this.setupContinueButton(width, height);
   }
 
   private setupContinueButton(width: number, height: number): void {
     const bx = width / 2;
-    const by = height * 0.90;
+    const by = height * 0.72;
     const btnW = 140;
     const btnH = 44;
 
-    const container = this.add.container(bx, by);
+    const container = this.add.container(bx, by).setDepth(26);
 
     const bg = this.add.graphics();
-    const drawBg = (hover: boolean) => {
+    const drawBg = (hover: boolean): void => {
       bg.clear();
       bg.fillStyle(hover ? 0xff2d55 : 0x0a0015, hover ? 0.25 : 0.95);
       bg.lineStyle(2, 0xff2d55, hover ? 1 : 0.9);
@@ -536,7 +888,7 @@ export class BattleScene extends Phaser.Scene {
 
     const hit = this.add.zone(0, 0, btnW, btnH).setInteractive({ cursor: 'pointer' });
     hit.on('pointerover', () => drawBg(true));
-    hit.on('pointerout',  () => drawBg(false));
+    hit.on('pointerout', () => drawBg(false));
     hit.on('pointerdown', () => this.transitionToSummary());
 
     container.add([bg, label, hit]);
@@ -544,11 +896,88 @@ export class BattleScene extends Phaser.Scene {
     this.continueBtn = container;
   }
 
-  // ── Helpers ────────────────────────────────────────────────────────────────
+  // ── Animation helpers ─────────────────────────────────────────────────────────
 
   /**
-   * Create a simple inline text-based button for quick informational prompts.
+   * Spawn an attack emoji and tween it.
+   * Options: dy (relative upward offset), tx/ty (absolute target), scale, duration.
    */
+  private spawnAttackEmoji(
+    emoji: string,
+    startX: number,
+    startY: number,
+    opts: { dy?: number; tx?: number; ty?: number; scale?: number; duration?: number },
+  ): void {
+    const { dy = -60, tx, ty, scale = 1.2, duration = 350 } = opts;
+
+    const obj = this.add.text(startX, startY, emoji, {
+      fontSize: '36px',
+      fontFamily: FONT,
+    }).setOrigin(0.5).setDepth(35);
+
+    const targetX = tx ?? startX;
+    const targetY = ty ?? (startY + dy);
+
+    this.tweens.add({
+      targets: obj,
+      x: targetX,
+      y: targetY,
+      scaleX: scale,
+      scaleY: scale,
+      alpha: 0,
+      duration,
+      ease: 'Quad.Out',
+      onComplete: () => obj.destroy(),
+    });
+  }
+
+  /** Floating damage number at a position. */
+  private spawnDamageNumber(x: number, y: number, text: string, color: string): void {
+    const obj = this.add.text(x, y, text, {
+      fontSize: '16px',
+      fontFamily: FONT,
+      color,
+      fontStyle: 'bold',
+      shadow: { blur: 6, color: '#000000', fill: true },
+    }).setOrigin(0.5).setDepth(36);
+
+    this.tweens.add({
+      targets: obj,
+      y: y - 55,
+      alpha: 0,
+      duration: 900,
+      ease: 'Quad.Out',
+      onComplete: () => obj.destroy(),
+    });
+  }
+
+  /** Floating info float (non-damage). */
+  private spawnInfoFloat(x: number, y: number, text: string, color: string): void {
+    this.spawnDamageNumber(x, y, text, color);
+  }
+
+  /** Brief center message (fades out). */
+  private showInfoMessage(msg: string, color: string, duration = 1500): void {
+    const { width, height } = this.scale;
+    const obj = this.add.text(width / 2, height * 0.46, msg, {
+      fontSize: '18px',
+      fontFamily: FONT,
+      color,
+      fontStyle: 'bold',
+      shadow: { blur: 8, color: '#000000', fill: true },
+    }).setOrigin(0.5).setDepth(45);
+
+    this.tweens.add({
+      targets: obj,
+      alpha: 0,
+      delay: duration * 0.6,
+      duration: duration * 0.4,
+      onComplete: () => obj.destroy(),
+    });
+  }
+
+  // ── Text button helper ────────────────────────────────────────────────────────
+
   private makeTextButton(
     x: number,
     y: number,
@@ -564,13 +993,13 @@ export class BattleScene extends Phaser.Scene {
     }).setOrigin(0.5).setInteractive({ cursor: 'pointer' });
 
     btn.on('pointerover', () => btn.setColor('#ff6688'));
-    btn.on('pointerout',  () => btn.setColor('#ff2d55'));
+    btn.on('pointerout', () => btn.setColor('#ff2d55'));
     btn.on('pointerdown', onClick);
 
     return btn;
   }
 
-  // ── Transition ─────────────────────────────────────────────────────────────
+  // ── Transition ────────────────────────────────────────────────────────────────
 
   private transitionToSummary(): void {
     this.cameras.main.fadeOut(500, 0, 0, 0);
@@ -579,11 +1008,17 @@ export class BattleScene extends Phaser.Scene {
     });
   }
 
+  // ── Shutdown ──────────────────────────────────────────────────────────────────
+
   shutdown(): void {
     this.time.removeAllEvents();
-    this.logTexts.forEach(t => { if (t?.active) t.destroy(); });
-    this.logTexts = [];
-    this.pieceDisplays.clear();
+    this.energyPulseTween?.stop();
+    this.energyPulseTween = null;
+    this.input.off('pointerdown');
+    if (this.input.keyboard) {
+      this.input.keyboard.off('keydown-SPACE');
+      this.input.keyboard.off('keydown-E');
+    }
     EventBus.off('battle-start');
     EventBus.off('battle-skip');
   }
