@@ -239,6 +239,16 @@ export class GrillScene extends Phaser.Scene {
     this.setupHUD(width, height);
     this.setupEndButton(width, height);
 
+    // Simulation mode HUD label
+    if (gameState.gameMode === 'simulation') {
+      this.add.text(10, 30, '🧪 模擬模式', {
+        fontSize: '13px',
+        color: '#00cc88',
+        backgroundColor: '#0a1a0f',
+        padding: { x: 6, y: 3 },
+      }).setDepth(100);
+    }
+
     // "Leave stall" button - only if workers can grill
     if (canPlayerLeave()) {
       this.leaveButton = this.add.text(
@@ -350,7 +360,8 @@ export class GrillScene extends Phaser.Scene {
       const slot = this.grillSlots[si];
       if (!slot.sausage || !slot.sprite || slot.sausage.served) continue;
 
-      const updated = updateSausage(slot.sausage, this.heatLevel, dt);
+      const isSimulation = gameState.gameMode === 'simulation';
+      const updated = updateSausage(slot.sausage, this.heatLevel, dt, isSimulation);
       slot.sausage = updated;
       slot.sprite.updateData(updated);
 
@@ -373,7 +384,7 @@ export class GrillScene extends Phaser.Scene {
       }
 
       // Show warning for overcooked
-      const currentQuality = judgeQuality(updated);
+      const currentQuality = judgeQuality(updated, isSimulation);
       if (currentQuality === 'carbonized' && !(slot as any).__carbonWarnShown) {
         sfx.playBurnt();
         this.showFeedback('碳化了！快起鍋', slot.x, slot.y - 55, '#ff3300');
@@ -1781,7 +1792,7 @@ export class GrillScene extends Phaser.Scene {
   private moveToWarming(slot: GrillSlot, sprite: SausageSprite): void {
     if (!slot.sausage || slot.sausage.served) return;
 
-    const quality = judgeQuality(slot.sausage) as GrillQuality;
+    const quality = judgeQuality(slot.sausage, gameState.gameMode === 'simulation') as GrillQuality;
 
     // Warn but don't block — player decides what to serve
     if (quality === 'raw') {

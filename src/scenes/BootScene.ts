@@ -110,36 +110,16 @@ export class BootScene extends Phaser.Scene {
       paused: true,
     });
 
-    // Start button (hidden until all pages done)
-    const btnBg = this.add.graphics();
-    const btnX = cx - 80;
-    const btnY = cy + 110;
-    const btnW = 160;
-    const btnH = 44;
+    // ── Mode selection cards (hidden until all pages done) ───────────────
+    const cardWidth = 160;
+    const cardHeight = 180;
+    const gap = 20;
+    const leftX = cx - cardWidth - gap / 2;
+    const rightX = cx + gap / 2;
+    const cardY = cy - 40;
 
-    const drawBtn = (hover: boolean) => {
-      btnBg.clear();
-      btnBg.fillStyle(hover ? 0xffe600 : 0x0a0a0f, hover ? 0.15 : 0.95);
-      btnBg.lineStyle(2, 0xffe600, 1);
-      btnBg.fillRoundedRect(btnX, btnY, btnW, btnH, 4);
-      btnBg.strokeRoundedRect(btnX, btnY, btnW, btnH, 4);
-    };
-    drawBtn(false);
-    btnBg.setAlpha(0);
-
-    const btnText = this.add.text(cx, btnY + btnH / 2, '開始擺攤 🌭', {
-      fontSize: '18px',
-      fontFamily: 'Microsoft JhengHei, PingFang TC, sans-serif',
-      color: '#ffe600',
-    }).setOrigin(0.5).setAlpha(0);
-
-    const hitZone = this.add.zone(cx, btnY + btnH / 2, btnW, btnH)
-      .setInteractive({ cursor: 'pointer' });
-    hitZone.setActive(false);
-
-    hitZone.on('pointerover', () => { drawBtn(true); this.tweens.add({ targets: btnText, scaleX: 1.05, scaleY: 1.05, duration: 100 }); });
-    hitZone.on('pointerout',  () => { drawBtn(false); this.tweens.add({ targets: btnText, scaleX: 1, scaleY: 1, duration: 100 }); });
-    hitZone.on('pointerdown', () => {
+    // Helper: start the game with a chosen mode
+    const startGame = (mode: string) => {
       sfx.initOnUserGesture();
       const initialMap: Record<number, string> = {};
       for (const slot of GRID_SLOTS) {
@@ -147,12 +127,71 @@ export class BootScene extends Phaser.Scene {
           initialMap[slot.id] = slot.opponentId;
         }
       }
-      updateGameState({ map: initialMap });
+      updateGameState({ map: initialMap, gameMode: mode });
       this.cameras.main.fadeOut(500, 0, 0, 0);
       this.cameras.main.once('camerafadeoutcomplete', () => {
         this.scene.start('MorningScene');
       });
-    });
+    };
+
+    // Normal mode card
+    const normalCard = this.add.rectangle(
+      leftX + cardWidth / 2, cardY + cardHeight / 2,
+      cardWidth, cardHeight, 0x1a1a3e, 0.9,
+    ).setStrokeStyle(2, 0xff6600).setInteractive({ useHandCursor: true }).setAlpha(0);
+
+    const normalEmoji = this.add.text(leftX + cardWidth / 2, cardY + 30, '🔥', {
+      fontSize: '40px',
+    }).setOrigin(0.5).setAlpha(0);
+
+    const normalTitle = this.add.text(leftX + cardWidth / 2, cardY + 75, '直接烤', {
+      fontSize: '20px',
+      fontFamily: 'Microsoft JhengHei, PingFang TC, sans-serif',
+      color: '#ff6600',
+      fontStyle: 'bold',
+    }).setOrigin(0.5).setAlpha(0);
+
+    const normalDesc = this.add.text(leftX + cardWidth / 2, cardY + 110, '正常難度\n香腸要你自己顧', {
+      fontSize: '12px',
+      fontFamily: 'Microsoft JhengHei, PingFang TC, sans-serif',
+      color: '#aaaaaa',
+      align: 'center',
+    }).setOrigin(0.5).setAlpha(0);
+
+    normalCard.on('pointerover', () => normalCard.setStrokeStyle(3, 0xff8833));
+    normalCard.on('pointerout',  () => normalCard.setStrokeStyle(2, 0xff6600));
+    normalCard.on('pointerdown', () => startGame('normal'));
+
+    // Simulation mode card
+    const simCard = this.add.rectangle(
+      rightX + cardWidth / 2, cardY + cardHeight / 2,
+      cardWidth, cardHeight, 0x1a1a3e, 0.9,
+    ).setStrokeStyle(2, 0x00cc88).setInteractive({ useHandCursor: true }).setAlpha(0);
+
+    const simEmoji = this.add.text(rightX + cardWidth / 2, cardY + 30, '🧪', {
+      fontSize: '40px',
+    }).setOrigin(0.5).setAlpha(0);
+
+    const simTitle = this.add.text(rightX + cardWidth / 2, cardY + 75, '模擬烤', {
+      fontSize: '20px',
+      fontFamily: 'Microsoft JhengHei, PingFang TC, sans-serif',
+      color: '#00cc88',
+      fontStyle: 'bold',
+    }).setOrigin(0.5).setAlpha(0);
+
+    const simDesc = this.add.text(rightX + cardWidth / 2, cardY + 110, '難度降低 50%\n適合新手練習', {
+      fontSize: '12px',
+      fontFamily: 'Microsoft JhengHei, PingFang TC, sans-serif',
+      color: '#aaaaaa',
+      align: 'center',
+    }).setOrigin(0.5).setAlpha(0);
+
+    simCard.on('pointerover', () => simCard.setStrokeStyle(3, 0x33ffaa));
+    simCard.on('pointerout',  () => simCard.setStrokeStyle(2, 0x00cc88));
+    simCard.on('pointerdown', () => startGame('simulation'));
+
+    // Collect all card objects for fade-in together
+    const modeCardObjects = [normalCard, normalEmoji, normalTitle, normalDesc, simCard, simEmoji, simTitle, simDesc];
 
     // ── Typing engine ──────────────────────────────────────────────────
     const showPage = (pageIndex: number) => {
@@ -211,15 +250,14 @@ export class BootScene extends Phaser.Scene {
       this.currentPage++;
 
       if (this.currentPage >= PROLOGUE_PAGES.length) {
-        // All pages done — show start button
+        // All pages done — show mode selection cards
         hintPulse.stop();
         this.tweens.add({ targets: [hintText, ...dots], alpha: 0, duration: 300 });
         this.tweens.add({
-          targets: [btnBg, btnText],
+          targets: modeCardObjects,
           alpha: 1,
           duration: 600,
           ease: 'Power2',
-          onComplete: () => { hitZone.setActive(true); },
         });
         return;
       }

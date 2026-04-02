@@ -37,10 +37,12 @@ export function updateSausage(
   sausage: GrillingSausage,
   heatLevel: HeatLevel,
   deltaSeconds: number,
+  isSimulation?: boolean,
 ): GrillingSausage {
   if (sausage.served) return sausage;
 
-  const rate = HEAT_RATES[heatLevel] * deltaSeconds;
+  const simMultiplier = isSimulation ? 0.5 : 1.0;
+  const rate = HEAT_RATES[heatLevel] * deltaSeconds * simMultiplier;
 
   // The side facing DOWN gets heat; cap at 120 to allow carbonization range
   if (sausage.currentSide === 'bottom') {
@@ -64,9 +66,20 @@ export function flipSausage(sausage: GrillingSausage): GrillingSausage {
   };
 }
 
-export function judgeQuality(sausage: GrillingSausage): GrillQuality {
+export function judgeQuality(sausage: GrillingSausage, isSimulation?: boolean): GrillQuality {
   const { topDoneness, bottomDoneness } = sausage;
   const avg = (topDoneness + bottomDoneness) / 2;
+
+  if (isSimulation) {
+    // Wider perfect zone: 55-95 instead of 71-90
+    if (avg > 110)  return 'carbonized';
+    if (avg >= 100) return 'burnt';
+    if (avg >= 96)  return 'slightly-burnt';
+    if (avg >= 55)  return 'perfect';
+    if (avg >= 35)  return 'ok';
+    if (avg >= 20)  return 'half-cooked';
+    return 'raw';
+  }
 
   if (avg > 100)  return 'carbonized';
   if (avg >= 96)  return 'burnt';

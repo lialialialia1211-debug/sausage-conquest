@@ -23,6 +23,7 @@ export const gameState = {
     battlesLost: 0,
     totalPerfect: 0,
     totalBurnt: 0,
+    totalCarbonized: 0,
     totalLoansRepaid: 0,
   } as Record<string, number>,
   dailyExpenses: 0,
@@ -85,6 +86,7 @@ export const gameState = {
     totalPaidIn: 0,
     totalCollected: 0,
   } as HuiState,
+  gameMode: '' as string,  // 'normal' | 'simulation' | '' (not yet chosen)
 };
 
 // Update state and notify UI via EventBus

@@ -1,6 +1,6 @@
 // ShopPanel — 收攤後商店 HTML panel (pure DOM, no Phaser dependency)
 import { EventBus } from '../../utils/EventBus';
-import { gameState, spendMoney, updateGameState } from '../../state/GameState';
+import { gameState, spendMoney, updateGameState, changeReputation } from '../../state/GameState';
 import { CART_UPGRADES, MARKETING_ITEMS } from '../../data/upgrades';
 import { WORKERS } from '../../data/workers';
 import { LOAN_CONFIGS } from '../../data/loans';
@@ -34,6 +34,11 @@ export class ShopPanel {
   // Loan shark (player as lender) state
   private pendingBorrower: { name: string; emoji: string; reliability: number; requestAmount: number } | null = null;
   private loanSharkRateSlider: HTMLInputElement | null = null;
+
+  // Bottom bar skip button reference (for dynamic text update)
+  private skipBtn: HTMLButtonElement | null = null;
+  // Whether any purchase (worker or marketing) was made this session
+  private hasPurchasedThisSession = false;
 
   constructor() {
     this.panel = document.createElement('div');
@@ -259,8 +264,7 @@ export class ShopPanel {
   }
 
   private buildWorkerCard(worker: (typeof WORKERS)[number]): HTMLElement {
-    const hiredWorkers: string[] = (gameState as Record<string, unknown>).hiredWorkers as string[] ?? [];
-    const isHired = hiredWorkers.includes(worker.id);
+    const isHired = gameState.hiredWorkers.includes(worker.id);
     const canAfford = gameState.money >= worker.cost;
 
     const card = document.createElement('div');
@@ -373,23 +377,34 @@ export class ShopPanel {
     return card;
   }
 
+  private getWorkerFeedback(workerId: string): string {
+    const feedbackMap: Record<string, string> = {
+      adi: '👦 阿迪仔上班了！烤架 +1 格，但他會滑手機...',
+      mei: '💅 學生妹來了！她會自動幫你出餐',
+      wangcai: '🐕 旺財趴在攤位旁邊了！奧客小心',
+      dad: '👴 老爸放下遙控器來幫忙了！保溫箱衰退減半',
+    };
+    return feedbackMap[workerId] ?? '員工上班了！';
+  }
+
   private onHireWorker(worker: (typeof WORKERS)[number]): void {
     const success = spendMoney(worker.cost);
     if (!success) return;
 
-    const hiredWorkers: string[] = [...((gameState as Record<string, unknown>).hiredWorkers as string[] ?? [])];
-    hiredWorkers.push(worker.id);
-    updateGameState({ hiredWorkers } as Parameters<typeof updateGameState>[0]);
+    const hiredWorkers = [...gameState.hiredWorkers, worker.id];
+    updateGameState({ hiredWorkers });
 
+    this.hasPurchasedThisSession = true;
+    this.refreshSkipBtnText();
     this.refreshMoneyDisplay();
     this.refreshWorkersTab();
+
+    alert(this.getWorkerFeedback(worker.id));
   }
 
   private onFireWorker(worker: (typeof WORKERS)[number]): void {
-    const hiredWorkers: string[] = ((gameState as Record<string, unknown>).hiredWorkers as string[] ?? []).filter(
-      (id: string) => id !== worker.id,
-    );
-    updateGameState({ hiredWorkers } as Parameters<typeof updateGameState>[0]);
+    const hiredWorkers = gameState.hiredWorkers.filter((id) => id !== worker.id);
+    updateGameState({ hiredWorkers });
 
     this.refreshWorkersTab();
   }
@@ -419,9 +434,8 @@ export class ShopPanel {
   }
 
   private buildMarketingCard(item: (typeof MARKETING_ITEMS)[number]): HTMLElement {
-    const marketingPurchases = (gameState as Record<string, unknown>).marketingPurchases as Record<string, number> ?? {};
     const canAfford = gameState.money >= item.cost;
-    const purchaseCount = marketingPurchases[item.id] ?? 0;
+    const purchaseCount = gameState.marketingPurchases[item.id] ?? 0;
     const refundAmount = Math.floor(item.cost * 0.7);
 
     const card = document.createElement('div');
@@ -470,7 +484,12 @@ export class ShopPanel {
     countEl.textContent = purchaseCount > 0 ? `×${purchaseCount}` : '';
 
     const buyBtn = document.createElement('button');
-    buyBtn.textContent = '購買';
+
+    if (purchaseCount > 0) {
+      buyBtn.textContent = canAfford ? `購買（已買 ×${purchaseCount}）` : `餘額不足（已買 ×${purchaseCount}）`;
+    } else {
+      buyBtn.textContent = canAfford ? '購買' : '餘額不足';
+    }
 
     if (!canAfford) {
       buyBtn.className = 'btn-neon shop-item-btn shop-item-btn--disabled';
@@ -515,14 +534,33 @@ export class ShopPanel {
     return card;
   }
 
+  private applyMarketingEffect(item: (typeof MARKETING_ITEMS)[number]): void {
+    switch (item.id) {
+      case 'flyer':
+        updateGameState({ dailyTrafficBonus: gameState.dailyTrafficBonus + 0.1 });
+        break;
+      case 'free-sample':
+        changeReputation(5);
+        break;
+      // 'discount-sign' and 'sausagebox' effects are tracked in marketingPurchases
+      // and applied by CustomerEngine / SausageBoxPanel respectively
+      default:
+        break;
+    }
+  }
+
   private onBuyMarketing(item: (typeof MARKETING_ITEMS)[number]): void {
     const success = spendMoney(item.cost);
     if (!success) return;
 
-    const purchases = { ...((gameState as Record<string, unknown>).marketingPurchases as Record<string, number> ?? {}) };
+    const purchases = { ...gameState.marketingPurchases };
     purchases[item.id] = (purchases[item.id] ?? 0) + 1;
-    updateGameState({ marketingPurchases: purchases } as Parameters<typeof updateGameState>[0]);
+    updateGameState({ marketingPurchases: purchases });
 
+    this.applyMarketingEffect(item);
+
+    this.hasPurchasedThisSession = true;
+    this.refreshSkipBtnText();
     this.refreshMoneyDisplay();
     this.refreshMarketingTab();
   }
@@ -1238,12 +1276,13 @@ export class ShopPanel {
     moneyEl.textContent = `資金：$${gameState.money}`;
     this.moneyDisplay = moneyEl;
 
-    const skipBtn = document.createElement('button');
+    const skipBtn = document.createElement('button') as HTMLButtonElement;
     skipBtn.className = 'btn-neon';
     skipBtn.textContent = '跳過，直接開始下一天';
     skipBtn.addEventListener('click', () => {
       EventBus.emit('shop-done', {});
     });
+    this.skipBtn = skipBtn;
 
     // Black market button (only if unlocked)
     if (gameState.blackMarketUnlocked) {
@@ -1272,6 +1311,13 @@ export class ShopPanel {
     if (this.moneyDisplay) {
       this.moneyDisplay.textContent = `資金：$${gameState.money}`;
     }
+  }
+
+  private refreshSkipBtnText(): void {
+    if (!this.skipBtn) return;
+    this.skipBtn.textContent = this.hasPurchasedThisSession
+      ? '確認購買，繼續下一天'
+      : '跳過，直接開始下一天';
   }
 
   // ── Public API ─────────────────────────────────────────────────────────────

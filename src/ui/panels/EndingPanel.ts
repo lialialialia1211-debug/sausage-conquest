@@ -21,6 +21,38 @@ interface EndingConfig {
   grade?: string;
 }
 
+function calculateGrillPR(stats: typeof gameState.stats): { score: number; pr: number; title: string; titleEmoji: string } {
+  const total = stats['totalSausagesSold'] || 1; // avoid division by zero
+  const perfectRatio = (stats['totalPerfect'] || 0) / total;
+  const burntRatio = ((stats['totalBurnt'] || 0) + (stats['totalCarbonized'] || 0)) / total;
+  const okRatio = 1 - perfectRatio - burntRatio;
+
+  // Score 0-100
+  let score = Math.round(perfectRatio * 100 - burntRatio * 60 - okRatio * 20);
+  score = Math.max(0, Math.min(100, score));
+
+  // PR mapping
+  let pr: number;
+  if (score >= 90) pr = 99;
+  else if (score >= 75) pr = 90 + Math.floor(Math.random() * 9);
+  else if (score >= 60) pr = 70 + Math.floor(Math.random() * 20);
+  else if (score >= 45) pr = 50 + Math.floor(Math.random() * 20);
+  else if (score >= 30) pr = 25 + Math.floor(Math.random() * 25);
+  else pr = Math.floor(Math.random() * 25);
+
+  // Title
+  let title: string;
+  let titleEmoji: string;
+  if (pr >= 99) { title = '香腸霸主'; titleEmoji = '👑'; }
+  else if (pr >= 90) { title = '大腸今'; titleEmoji = '🌭'; }
+  else if (pr >= 70) { title = '競爭力尚可'; titleEmoji = '📊'; }
+  else if (pr >= 50) { title = '你確定要創業?'; titleEmoji = '🤔'; }
+  else if (pr >= 25) { title = '回家洗洗睡'; titleEmoji = '😴'; }
+  else { title = '廢物東西'; titleEmoji = '💀'; }
+
+  return { score, pr, title, titleEmoji };
+}
+
 function getDay30Grade(playerSlots: number): { grade: string; title: string } {
   if (playerSlots >= 10) return { grade: 'S', title: '夜市之王！' };
   if (playerSlots >= 7)  return { grade: 'A', title: '夜市大亨' };
@@ -96,6 +128,10 @@ export class EndingPanel {
     const statsEl = this.buildStats(data, playerSlots);
     this.panel.appendChild(statsEl);
 
+    // PR leaderboard section
+    const prEl = this.buildPRSection();
+    this.panel.appendChild(prEl);
+
     // Restart button
     const btnCenter = document.createElement('div');
     btnCenter.className = 'btn-center';
@@ -144,6 +180,113 @@ export class EndingPanel {
     return el;
   }
 
+  private buildPRSection(): HTMLElement {
+    const { score, pr, title, titleEmoji } = calculateGrillPR(gameState.stats);
+
+    const totalSold = gameState.stats['totalSausagesSold'] || 0;
+    const totalPerfect = gameState.stats['totalPerfect'] || 0;
+    const totalBurnt = gameState.stats['totalBurnt'] || 0;
+    const totalCarbonized = gameState.stats['totalCarbonized'] || 0;
+    const totalOk = Math.max(0, totalSold - totalPerfect - totalBurnt - totalCarbonized);
+
+    // PR color based on tier
+    let prColor: string;
+    if (pr >= 99) prColor = '#ffd700';
+    else if (pr >= 90) prColor = '#00cc88';
+    else if (pr >= 70) prColor = '#4488ff';
+    else if (pr >= 50) prColor = '#ff8800';
+    else if (pr >= 25) prColor = '#888888';
+    else prColor = '#ff4444';
+
+    const section = document.createElement('div');
+    section.className = 'pr-section';
+    section.style.cssText = [
+      'margin-top: 20px',
+      'padding: 16px',
+      'border: 1px solid #333',
+      'border-radius: 8px',
+      'background: rgba(0,0,0,0.4)',
+    ].join('; ');
+
+    // Header
+    const header = document.createElement('h3');
+    header.style.cssText = 'margin: 0 0 12px 0; text-align: center; font-size: 16px; color: #fff;';
+    header.textContent = '🏆 烤香腸熟練度報告';
+    section.appendChild(header);
+
+    // Stats breakdown
+    const statsDiv = document.createElement('div');
+    statsDiv.className = 'pr-stats';
+    statsDiv.style.cssText = 'display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: #ccc; margin-bottom: 12px;';
+
+    const statRows = [
+      `✅ 完美出品：${totalPerfect} 根`,
+      `🟡 普通：${totalOk} 根`,
+      `🔴 燒焦：${totalBurnt} 根`,
+      `⬛ 碳化：${totalCarbonized} 根`,
+    ];
+    statRows.forEach(text => {
+      const row = document.createElement('div');
+      row.style.textAlign = 'center';
+      row.textContent = text;
+      statsDiv.appendChild(row);
+    });
+    section.appendChild(statsDiv);
+
+    // Score line (small, above PR)
+    const scoreEl = document.createElement('div');
+    scoreEl.style.cssText = 'font-size: 13px; text-align: center; color: #999; margin-bottom: 4px;';
+    scoreEl.textContent = `熟練度評分：${score} / 100`;
+    section.appendChild(scoreEl);
+
+    // PR number
+    const prNumber = document.createElement('div');
+    prNumber.className = 'pr-score';
+    prNumber.style.cssText = `font-size: 48px; text-align: center; margin: 8px 0; color: ${prColor}; font-weight: bold;`;
+    prNumber.textContent = `PR ${pr}`;
+    section.appendChild(prNumber);
+
+    // Title
+    const prTitle = document.createElement('div');
+    prTitle.className = 'pr-title';
+    prTitle.style.cssText = `font-size: 24px; text-align: center; font-weight: bold; color: ${prColor};`;
+    prTitle.textContent = `${titleEmoji} ${title}`;
+    section.appendChild(prTitle);
+
+    // Simulation mode badge
+    if (gameState.gameMode === 'simulation') {
+      const simBadge = document.createElement('div');
+      simBadge.style.cssText = 'color: #00cc88; font-size: 12px; text-align: center; margin-top: 8px;';
+      simBadge.textContent = '🧪 模擬模式下達成';
+      section.appendChild(simBadge);
+    }
+
+    // Shame text: simulation mode AND PR < 50
+    if (gameState.gameMode === 'simulation' && pr < 50) {
+      // Inject fadeIn keyframes if not already present
+      if (!document.getElementById('pr-fadein-style')) {
+        const style = document.createElement('style');
+        style.id = 'pr-fadein-style';
+        style.textContent = '@keyframes prFadeIn { from { opacity: 0; } to { opacity: 1; } }';
+        document.head.appendChild(style);
+      }
+
+      const shameEl = document.createElement('div');
+      shameEl.className = 'shame-text';
+      shameEl.style.cssText = [
+        'color: #ff4444',
+        'font-size: 16px',
+        'text-align: center',
+        'margin-top: 12px',
+        'animation: prFadeIn 2s ease-in',
+      ].join('; ');
+      shameEl.textContent = '連香腸都烤不好的你，還有什麼臉說你很努力了';
+      section.appendChild(shameEl);
+    }
+
+    return section;
+  }
+
   private resetAndRestart(): void {
     // Reset all gameState fields to initial values
     updateGameState({
@@ -164,6 +307,10 @@ export class EndingPanel {
         totalExpenses: 0,
         battlesWon: 0,
         battlesLost: 0,
+        totalPerfect: 0,
+        totalBurnt: 0,
+        totalCarbonized: 0,
+        totalLoansRepaid: 0,
       },
       dailyExpenses: 0,
       selectedSlot: -1,
