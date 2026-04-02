@@ -33,14 +33,17 @@ export function buyStock(sausageId: string, quantity: number): boolean {
 
 /**
  * Overnight spoilage: each sausage type loses 20% inventory (floor).
+ * With mini-fridge upgrade, only 10% is lost instead.
  * Returns a map of sausageId -> units spoiled.
  */
 export function spoilOvernight(): Record<string, number> {
   const spoilage: Record<string, number> = {};
   const newInventory: Record<string, number> = {};
+  const hasMiniFridge = gameState.upgrades['mini-fridge'] === true;
+  const retainRate = hasMiniFridge ? 0.9 : 0.8;
 
   for (const [id, qty] of Object.entries(gameState.inventory)) {
-    const remaining = Math.floor(qty * 0.8);
+    const remaining = Math.floor(qty * retainRate);
     const lost = qty - remaining;
     spoilage[id] = lost;
     newInventory[id] = remaining;
@@ -112,12 +115,14 @@ export function sellSausage(sausageId: string, price: number, quality: number): 
     },
   });
 
-  addMoney(price);
+  const seatBonus = gameState.upgrades['seating'] ? 1.2 : 1.0;
+  const finalPrice = price * seatBonus;
+  addMoney(finalPrice);
 
   const sausage = SAUSAGE_MAP[sausageId];
   const expectedPrice = sausage?.suggestedPrice ?? price;
   // Customer satisfaction: quality weight 60%, price fairness 40%
-  const priceFairness = Math.max(0, 1 - (price - expectedPrice) / expectedPrice);
+  const priceFairness = Math.min(1, Math.max(0, 1 - (price - expectedPrice) / expectedPrice));
   const customerSatisfaction = Math.min(1, quality * 0.6 + priceFairness * 0.4);
 
   return {

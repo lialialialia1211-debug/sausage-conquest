@@ -39,7 +39,7 @@ const config: Phaser.Types.Core.GameConfig = {
 const game = new Phaser.Game(config);
 
 // Verify EventBus bidirectional communication on startup
-EventBus.on('scene-ready', (sceneName: string) => {
+EventBus.once('scene-ready', (sceneName: string) => {
   console.log(`[EventBus] Scene ready: ${sceneName}`);
 });
 

@@ -3,6 +3,7 @@ import { EventBus } from '../utils/EventBus';
 import { updateGameState } from '../state/GameState';
 import { GRID_SLOTS } from '../data/map';
 import { PROLOGUE_PAGES } from '../data/dialogue';
+import { sfx } from '../utils/SoundFX';
 
 // Page background tints for each prologue page
 const PAGE_TINTS = [
@@ -23,6 +24,8 @@ export class BootScene extends Phaser.Scene {
   }
 
   create(): void {
+    this.currentPage = 0;
+    this.canAdvance = false;
     const { width, height } = this.scale;
     const cx = width / 2;
     const cy = height / 2;
@@ -137,6 +140,7 @@ export class BootScene extends Phaser.Scene {
     hitZone.on('pointerover', () => { drawBtn(true); this.tweens.add({ targets: btnText, scaleX: 1.05, scaleY: 1.05, duration: 100 }); });
     hitZone.on('pointerout',  () => { drawBtn(false); this.tweens.add({ targets: btnText, scaleX: 1, scaleY: 1, duration: 100 }); });
     hitZone.on('pointerdown', () => {
+      sfx.initOnUserGesture();
       const initialMap: Record<number, string> = {};
       for (const slot of GRID_SLOTS) {
         if (slot.owner === 'opponent' && slot.opponentId) {

@@ -51,10 +51,10 @@ export function calcNeighborEffect(playerGrid: number): number {
       if (opp) {
         switch (opp.pricingStrategy) {
           case 'cheap':
-            modifier -= 0.15;
+            modifier -= 0.05;
             break;
           case 'premium':
-            modifier -= 0.05;
+            modifier -= 0.15;
             break;
           default:
             modifier -= 0.10;

@@ -451,7 +451,8 @@ export class SausageSprite extends Phaser.GameObjects.Container {
 
       // Yellow ring flash: draw once and fade out
       const burstGfx = this.scene.add.graphics();
-      burstGfx.setPosition(this.x, this.y);
+      const worldMatrix = this.getWorldTransformMatrix();
+      burstGfx.setPosition(worldMatrix.tx, worldMatrix.ty);
       burstGfx.setDepth(this.depth + 1);
       burstGfx.fillStyle(0xffee44, 0.75);
       burstGfx.fillRoundedRect(

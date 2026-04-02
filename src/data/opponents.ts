@@ -80,7 +80,7 @@ export const OPPONENTS: Opponent[] = [
     emoji: '🎓',
     description: '商學院畢業，創業計畫做了三十頁，實際煎過的香腸只有一條。',
     gridSlot: 5,
-    preferredTypes: ['flying-fish-roe'],
+    preferredTypes: ['black-pig', 'garlic-bomb', 'cheese'],
     difficulty: 2,
     unitCount: 3,
     appearDay: 10,

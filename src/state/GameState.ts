@@ -21,6 +21,9 @@ export const gameState = {
     totalExpenses: 0,
     battlesWon: 0,
     battlesLost: 0,
+    totalPerfect: 0,
+    totalBurnt: 0,
+    totalLoansRepaid: 0,
   } as Record<string, number>,
   dailyExpenses: 0,
   selectedSlot: -1 as number,
@@ -34,6 +37,9 @@ export const gameState = {
   // AI opponent tracking
   activeOpponents: [] as string[],
   defeatedOpponents: [] as string[],
+  // Daily event effects (reset each day)
+  dailyTrafficBonus: 0,
+  skipDay: false,
 };
 
 // Update state and notify UI via EventBus
@@ -43,7 +49,14 @@ export function updateGameState(updates: Partial<typeof gameState>): void {
 }
 
 export function advanceDay(): void {
-  updateGameState({ day: gameState.day + 1 });
+  updateGameState({
+    day: gameState.day + 1,
+    dailyExpenses: 0,
+    dailySalesLog: [],
+    dailyGrillStats: { perfect: 0, ok: 0, raw: 0, burnt: 0 },
+    dailyTrafficBonus: 0,
+    skipDay: false,
+  });
 }
 
 export function addMoney(amount: number): void {

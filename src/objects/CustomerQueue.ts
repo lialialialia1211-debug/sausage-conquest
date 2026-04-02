@@ -139,7 +139,9 @@ export class CustomerQueue extends Phaser.GameObjects.Container {
       duration: 480,
       ease: 'Power2',
       onComplete: () => {
-        this.removeDisplay(display);
+        if (display.container && display.container.active) {
+          this.removeDisplay(display);
+        }
         this.repositionQueue();
       },
     });
@@ -150,9 +152,6 @@ export class CustomerQueue extends Phaser.GameObjects.Container {
     if (!display) return;
     display.state = 'leaving';
     this.playLeaveAnimation(display, true);
-    this.scene.time.delayedCall(500, () => {
-      this.repositionQueue();
-    });
   }
 
   getWaitingCount(): number {
@@ -171,7 +170,9 @@ export class CustomerQueue extends Phaser.GameObjects.Container {
       duration: 400,
       ease: 'Power2',
       onComplete: () => {
-        this.removeDisplay(display);
+        if (display.container && display.container.active) {
+          this.removeDisplay(display);
+        }
         this.repositionQueue();
       },
     });

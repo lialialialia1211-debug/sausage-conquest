@@ -239,6 +239,7 @@ export class SausageBoxPanel {
   private prizes: SlotPrize[] = [];
   private resultSection!: HTMLElement;
   private continueBtn!: HTMLButtonElement;
+  private timeoutIds: number[] = [];
 
   constructor() {
     injectStyles();
@@ -329,20 +330,20 @@ export class SausageBoxPanel {
 
     // Reveal slots one by one with 500ms stagger + shake effect
     this.slotInners.forEach((inner, index) => {
-      setTimeout(() => {
+      this.timeoutIds.push(window.setTimeout(() => {
         const card = inner.parentElement;
         if (card) {
           card.classList.add('shaking');
-          setTimeout(() => card.classList.remove('shaking'), 400);
+          this.timeoutIds.push(window.setTimeout(() => card.classList.remove('shaking'), 400) as unknown as number);
         }
-        setTimeout(() => {
+        this.timeoutIds.push(window.setTimeout(() => {
           inner.classList.add('flipped');
           if (index === this.slotInners.length - 1) {
             // All slots revealed — show results
-            setTimeout(() => this.showResult(), 400);
+            this.timeoutIds.push(window.setTimeout(() => this.showResult(), 400) as unknown as number);
           }
-        }, 200);
-      }, index * 500);
+        }, 200) as unknown as number);
+      }, index * 500) as unknown as number);
     });
   };
 
@@ -425,6 +426,8 @@ export class SausageBoxPanel {
   }
 
   destroy(): void {
+    this.timeoutIds.forEach(id => clearTimeout(id));
+    this.timeoutIds = [];
     this.openBtn.removeEventListener('click', this.onOpen);
     if (this.continueBtn) {
       this.continueBtn.removeEventListener('click', this.onContinue);

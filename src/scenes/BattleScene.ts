@@ -112,17 +112,22 @@ export class BattleScene extends Phaser.Scene {
     });
 
     // Listen for player ready
-    EventBus.once('battle-start', (data: unknown) => {
+    const startHandler = (data: unknown) => {
+      EventBus.off('battle-skip', skipHandler);
       const { selectedSausages } = data as { selectedSausages: Record<string, number> };
       EventBus.emit('hide-panel');
       this.startBattle(selectedSausages);
-    });
+    };
 
     // Handle if player cancels / skips
-    EventBus.once('battle-skip', () => {
+    const skipHandler = () => {
+      EventBus.off('battle-start', startHandler);
       EventBus.emit('hide-panel');
       this.transitionToSummary();
-    });
+    };
+
+    EventBus.once('battle-start', startHandler);
+    EventBus.once('battle-skip', skipHandler);
   }
 
   // ── Battle start ────────────────────────────────────────────────────────────
@@ -448,7 +453,9 @@ export class BattleScene extends Phaser.Scene {
     // Show opponent aftermath dialogue in a styled overlay bubble
     const opponent = OPPONENT_MAP[this.opponentId];
     if (opponent) {
-      const dialogue = playerWon ? opponent.dialogue.win : opponent.dialogue.lose;
+      const dialogue = isTimeout
+        ? ((opponent.dialogue as Record<string, string>).timeout ?? opponent.dialogue.win)
+        : (playerWon ? opponent.dialogue.win : opponent.dialogue.lose);
       this.showDialogueBubble(opponent.emoji, dialogue, width, height);
     }
 
@@ -530,13 +537,14 @@ export class BattleScene extends Phaser.Scene {
   private applyTerritoryChange(playerWon: boolean): void {
     const opponent = OPPONENT_MAP[this.opponentId];
     const newMap = { ...gameState.map };
+    const isTimeout = this.battleResult?.winner === 'timeout';
 
     if (playerWon && opponent) {
       // Player takes opponent's slot
       newMap[opponent.gridSlot] = 'player';
       updateGameState({ map: newMap });
-    } else if (!playerWon) {
-      // Player loses one of their own slots
+    } else if (!playerWon && !isTimeout) {
+      // Player loses one of their own slots (tie does not count as loss)
       const playerSlots = Object.entries(newMap).filter(([, owner]) => owner === 'player');
       if (playerSlots.length > 0) {
         const lostSlotId = parseInt(playerSlots[0][0]);
@@ -544,6 +552,15 @@ export class BattleScene extends Phaser.Scene {
         updateGameState({ map: newMap });
       }
     }
+
+    // Increment battle stats
+    const updatedStats: Record<string, number> = { ...gameState.stats };
+    if (playerWon) {
+      updatedStats.battlesWon = (gameState.stats.battlesWon ?? 0) + 1;
+    } else if (!isTimeout) {
+      updatedStats.battlesLost = (gameState.stats.battlesLost ?? 0) + 1;
+    }
+    updateGameState({ stats: updatedStats });
   }
 
   // ── UI setup ───────────────────────────────────────────────────────────────
@@ -671,6 +688,7 @@ export class BattleScene extends Phaser.Scene {
   }
 
   shutdown(): void {
+    this.time.removeAllEvents();
     this.logTexts.forEach(t => { if (t && t.active) t.destroy(); });
     this.logTexts = [];
     this.playerSprites.clear();

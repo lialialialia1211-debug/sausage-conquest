@@ -21,6 +21,7 @@ export class SummaryScene extends Phaser.Scene {
   }
 
   create(): void {
+    this.readyForNext = false;
     const { width, height } = this.scale;
     const cx = width / 2;
     const cy = height / 2;
@@ -161,5 +162,6 @@ export class SummaryScene extends Phaser.Scene {
 
   shutdown(): void {
     EventBus.off('summary-done', this.onSummaryDone, this);
+    EventBus.off('restart-game');
   }
 }

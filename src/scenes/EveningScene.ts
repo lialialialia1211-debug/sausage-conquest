@@ -19,6 +19,16 @@ export class EveningScene extends Phaser.Scene {
   }
 
   create(): void {
+    this.readyForNext = false;
+    this.twinkleDots = [];
+    this.lightTweens = [];
+
+    // If skipDay is set, bypass the grill entirely and jump to EventScene
+    if (gameState.skipDay) {
+      this.scene.start('EventScene');
+      return;
+    }
+
     const { width, height } = this.scale;
     const cx = width / 2;
 

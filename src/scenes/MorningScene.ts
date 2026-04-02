@@ -3,7 +3,6 @@ import { EventBus } from '../utils/EventBus';
 import { gameState, updateGameState } from '../state/GameState';
 import { spoilOvernight } from '../systems/EconomyEngine';
 import { processAIDaily, checkNewOpponent } from '../systems/AIEngine';
-import { processDaily } from '../systems/LoanEngine';
 import { STORY_BEATS } from '../data/dialogue';
 
 // Sausage unlock schedule: [day, sausageId, name]
@@ -15,46 +14,37 @@ const UNLOCK_SCHEDULE: [number, string, string][] = [
 
 export class MorningScene extends Phaser.Scene {
   private readyForNext = false;
+  private spoilageInfo: Record<string, number> = {};
 
   constructor() {
     super({ key: 'MorningScene' });
   }
 
   create(): void {
+    this.readyForNext = false;
     const { width, height } = this.scale;
     const cx = width / 2;
     const cy = height / 2;
 
     // Reset daily expenses at start of each morning
-    updateGameState({ dailyExpenses: 0 });
+    updateGameState({
+      dailyExpenses: 0,
+      dailySalesLog: [],
+      dailyGrillStats: { perfect: 0, ok: 0, raw: 0, burnt: 0 },
+    });
 
     // ── Daily processing (Day 2+) ──
     const notifications: string[] = [];
 
+    this.spoilageInfo = {};
     if (gameState.day > 1) {
-      // Overnight spoilage
+      const inventoryBefore = { ...gameState.inventory };
       spoilOvernight();
-
-      // Loan daily processing
-      const loanResult = processDaily();
-      if (loanResult.gameOver) {
-        // Loan shark game over — redirect to ending
-        EventBus.emit('show-panel', 'ending', {
-          type: 'loan-shark',
-          daysSurvived: gameState.day,
-          totalRevenue: gameState.stats['totalRevenue'] ?? 0,
-        });
-        EventBus.once('restart-game', () => {
-          EventBus.emit('hide-panel');
-          this.scene.start('BootScene');
-        }, this);
-        return;
+      const inventoryAfter = gameState.inventory;
+      for (const id of Object.keys(inventoryBefore)) {
+        const lost = (inventoryBefore[id] ?? 0) - (inventoryAfter[id] ?? 0);
+        if (lost > 0) this.spoilageInfo[id] = lost;
       }
-      if (loanResult.isOverdue && loanResult.overdueDays > 0) {
-        notifications.push(`借款逾期 ${loanResult.overdueDays} 天！小心後果...`);
-      }
-
-      // AI daily processing
       processAIDaily();
     }
 
@@ -147,13 +137,13 @@ export class MorningScene extends Phaser.Scene {
         showNext();
       };
 
-      this.time.delayedCall(2500, advance);
+      const autoTimer = this.time.delayedCall(2500, advance);
       notifBg.setInteractive(
         new Phaser.Geom.Rectangle(cx - 200, cy - 60, 400, 120),
         Phaser.Geom.Rectangle.Contains
       );
       notifBg.once('pointerdown', () => {
-        this.time.removeAllEvents();
+        autoTimer.remove(false);
         advance();
       });
     };
@@ -162,8 +152,7 @@ export class MorningScene extends Phaser.Scene {
   }
 
   private showMorningPanel(): void {
-    const spoilage = gameState.day > 1 ? {} : {};
-    EventBus.emit('show-panel', 'morning', { spoilage });
+    EventBus.emit('show-panel', 'morning', { spoilage: this.spoilageInfo });
     EventBus.emit('scene-ready', 'MorningScene');
     EventBus.once('morning-done', this.onMorningDone, this);
   }

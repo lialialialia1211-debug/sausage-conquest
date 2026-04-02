@@ -2,6 +2,7 @@
 import { EventBus } from '../../utils/EventBus';
 import { gameState, updateGameState } from '../../state/GameState';
 import { GRID_SLOTS } from '../../data/map';
+import { INITIAL_SAUSAGES } from '../../data/sausages';
 import { resetAchievements } from '../../systems/AchievementEngine';
 import { resetEventTracking } from '../../systems/EventEngine';
 
@@ -104,6 +105,7 @@ export class EndingPanel {
     btn.className = 'btn-neon';
     btn.textContent = '重新開始';
     btn.addEventListener('click', () => {
+      btn.disabled = true;
       this.resetAndRestart();
     });
     btnCenter.appendChild(btn);
@@ -168,7 +170,7 @@ export class EndingPanel {
       prices: {},
       dailySalesLog: [],
       dailyGrillStats: { perfect: 0, ok: 0, raw: 0, burnt: 0 },
-      unlockedSausages: ['black-pig', 'flying-fish-roe', 'garlic-bomb'],
+      unlockedSausages: [...INITIAL_SAUSAGES],
       activeOpponents: [],
       defeatedOpponents: [],
     });

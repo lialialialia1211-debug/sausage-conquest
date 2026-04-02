@@ -17,6 +17,7 @@ export class EventScene extends Phaser.Scene {
   }
 
   create(): void {
+    this.readyForNext = false;
     const { width, height } = this.scale;
 
     // Dark tinted background
@@ -30,6 +31,9 @@ export class EventScene extends Phaser.Scene {
       .setAlpha(0.08);
 
     this.cameras.main.fadeIn(400, 0, 0, 0);
+
+    // Clean up any existing UIManager panel state
+    EventBus.emit('hide-panel');
 
     // Cache the panel-area element for direct DOM mounting
     this.panelArea = document.getElementById('panel-area');
@@ -72,10 +76,7 @@ export class EventScene extends Phaser.Scene {
 
   private onEventDone = (): void => {
     if (this.eventQueue.length > 0) {
-      // More events in queue — show the next one after a brief beat
-      this.time.delayedCall(200, () => {
-        this.showNextEvent();
-      });
+      this.showNextEvent();
     } else {
       this.finishAllEvents();
     }

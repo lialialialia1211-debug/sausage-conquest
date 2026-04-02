@@ -21,7 +21,7 @@ import type { SaleRecord, Customer } from '../types';
 import { sfx } from '../utils/SoundFX';
 
 // ── Layout constants ────────────────────────────────────────────────────────
-const GAME_DURATION = 60;      // seconds
+const GAME_DURATION = 90;      // seconds
 const MAX_GRILL_SLOTS = 4;     // 6 if grill-expand upgrade
 const GRILL_Y_FRAC = 0.48;    // grill vertical position as fraction of screen height
 
@@ -42,7 +42,7 @@ interface GrillSlot {
 
 export class GrillScene extends Phaser.Scene {
   // ── Session state ───────────────────────────────────────────────────────
-  private heatLevel: HeatLevel = 'medium';
+  private heatLevel: HeatLevel = 'low';
   private timeLeft = GAME_DURATION;
   private speedMultiplier = 1;
   private salesLog: SaleRecord[] = [];
@@ -88,7 +88,7 @@ export class GrillScene extends Phaser.Scene {
     this.inventoryCopy = { ...gameState.inventory };
 
     // Reset session state
-    this.heatLevel = 'medium';
+    this.heatLevel = 'low';
     this.timeLeft = GAME_DURATION;
     this.speedMultiplier = 1;
     this.salesLog = [];
@@ -164,6 +164,16 @@ export class GrillScene extends Phaser.Scene {
       slot.sausage = updated;
       slot.sprite.updateData(updated);
 
+      // Auto-flip safety: flip when heated side nears burn threshold
+      if (slot.sausage && !slot.sausage.served && slot.sprite) {
+        const heated = slot.sausage.currentSide === 'bottom' ? slot.sausage.bottomDoneness : slot.sausage.topDoneness;
+        if (heated >= 85) {
+          slot.sausage = flipSausage(slot.sausage);
+          slot.sprite.updateData(slot.sausage);
+          slot.sprite.triggerFlip();
+        }
+      }
+
       // Auto-remove burnt sausages
       if (judgeQuality(updated) === 'burnt') {
         slot.sausage = { ...updated, served: true };
@@ -199,6 +209,7 @@ export class GrillScene extends Phaser.Scene {
 
     // Auto-end if no pending customers and nobody waiting
     if (
+      !this.isDone &&
       this.pendingCustomerQueue.length === 0 &&
       this.customerQueue.getWaitingCount() === 0 &&
       this.salesLog.length > 0
@@ -554,7 +565,8 @@ export class GrillScene extends Phaser.Scene {
     const rawTraffic = gridSlot ? gridSlot.baseTraffic / 20 : 2.5;
     const trafficNorm = Math.max(1, Math.min(5, rawTraffic));
 
-    let pool = generateCustomers(trafficNorm, 0);
+    const marketingBonus = (gameState.upgrades['neon-sign'] ? 0.15 : 0) + (gameState.dailyTrafficBonus ?? 0);
+    let pool = generateCustomers(trafficNorm, marketingBonus);
     // Cap at ~20 customers for a 60-second session
     if (pool.length > 20) pool = pool.slice(0, 20);
 
@@ -731,7 +743,6 @@ export class GrillScene extends Phaser.Scene {
   }
 
   private bounceRevenue(): void {
-    if (this.timerFlashTween?.isPlaying()) return; // avoid conflicting tweens
     this.tweens.add({
       targets: this.revenueText,
       scaleX: 1.3,
@@ -784,6 +795,15 @@ export class GrillScene extends Phaser.Scene {
     updateGameState({
       dailySalesLog: [...this.salesLog],
       dailyGrillStats: { ...this.grillStats },
+    });
+
+    // Increment cumulative grill stats
+    updateGameState({
+      stats: {
+        ...gameState.stats,
+        totalPerfect: (gameState.stats.totalPerfect ?? 0) + this.grillStats.perfect,
+        totalBurnt: (gameState.stats.totalBurnt ?? 0) + this.grillStats.burnt,
+      },
     });
 
     EventBus.emit('grill-done', {
@@ -883,6 +903,8 @@ export class GrillScene extends Phaser.Scene {
   // ── Cleanup ──────────────────────────────────────────────────────────────
 
   shutdown(): void {
+    this.time.removeAllEvents();
+
     if (this.timerFlashTween) {
       this.timerFlashTween.stop();
       this.timerFlashTween = null;

@@ -81,3 +81,5 @@ export const SAUSAGE_TYPES: SausageType[] = [
 export const SAUSAGE_MAP: Record<string, SausageType> = Object.fromEntries(
   SAUSAGE_TYPES.map((s) => [s.id, s])
 );
+
+export const INITIAL_SAUSAGES: string[] = ['black-pig', 'flying-fish-roe', 'garlic-bomb'];

@@ -220,7 +220,8 @@ export class MapPanel {
     titleEl.textContent = '今日售價設定';
     this.pricingSection.appendChild(titleEl);
 
-    for (const sausage of SAUSAGE_TYPES) {
+    const unlockedIds = new Set(gameState.unlockedSausages);
+    for (const sausage of SAUSAGE_TYPES.filter(s => unlockedIds.has(s.id))) {
       const row = document.createElement('div');
       row.className = 'price-row';
 
@@ -279,26 +280,50 @@ export class MapPanel {
     const slot = GRID_SLOTS.find(s => s.id === this.selectedSlotId);
     if (!slot) return;
 
-    // Deduct rent — fail gracefully if insufficient
-    const success = spendMoney(slot.rent);
-    if (!success) {
+    // Check if player can afford ANY slot's rent
+    const availableSlots = GRID_SLOTS.filter(s => s.owner !== 'opponent');
+    const cheapestRent = Math.min(...availableSlots.map(s => s.rent));
+    const canAffordAnything = gameState.money >= cheapestRent;
+
+    let rentCharged = slot.rent;
+    let targetSlotId = this.selectedSlotId;
+    let freeRentToday = false;
+
+    if (!canAffordAnything) {
+      // Player can't afford even the cheapest slot — set up at parking lot (slot 4) for free
+      const parkingLot = GRID_SLOTS.find(s => s.id === 4) ?? availableSlots[0];
+      targetSlotId = parkingLot.id;
+      rentCharged = 0;
+      freeRentToday = true;
+    } else if (gameState.money < slot.rent) {
+      // Player can't afford this specific slot — block and show warning
       this.affordWarning.style.display = 'block';
       this.startBtn.disabled = true;
       this.startBtn.style.opacity = '0.4';
       return;
     }
 
+    if (freeRentToday) {
+      // Show a message and proceed without deducting rent
+      this.affordWarning.textContent = '老闆看你可憐，今天免租金（停車場旁）';
+      this.affordWarning.style.color = 'var(--neon-cyan, #00f5ff)';
+      this.affordWarning.style.display = 'block';
+    } else {
+      // Deduct rent normally
+      spendMoney(rentCharged);
+    }
+
     // Track rent as daily expense + mark slot as player territory
     updateGameState({
-      selectedSlot: this.selectedSlotId,
+      selectedSlot: targetSlotId,
       prices: { ...this.prices },
-      dailyExpenses: (gameState.dailyExpenses ?? 0) + slot.rent,
-      map: { ...gameState.map, [this.selectedSlotId]: 'player' },
+      dailyExpenses: (gameState.dailyExpenses ?? 0) + rentCharged,
+      map: { ...gameState.map, [targetSlotId]: 'player' },
     } as Parameters<typeof updateGameState>[0]);
 
     // Emit evening-done with data payload for EveningScene / GrillScene
     EventBus.emit('evening-done', {
-      selectedSlot: this.selectedSlotId,
+      selectedSlot: targetSlotId,
       prices: { ...this.prices },
     });
   };

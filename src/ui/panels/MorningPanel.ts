@@ -5,6 +5,9 @@ import { buyStock } from '../../systems/EconomyEngine';
 import { SAUSAGE_TYPES } from '../../data/sausages';
 import type { SausageType } from '../../types';
 
+// Minimum rent reserve — the cheapest available slot (parking lot, slot 4) costs $200
+const MIN_RENT_RESERVE = 200;
+
 export interface SpoilageInfo {
   spoilage: Record<string, number>;
 }
@@ -14,6 +17,7 @@ export class MorningPanel {
   private quantities: Record<string, number> = {};
   private summarySpend: HTMLElement;
   private summaryRemain: HTMLElement;
+  private rentWarning: HTMLElement;
   private confirmBtn: HTMLButtonElement;
   private qtyDisplays: Map<string, HTMLElement> = new Map();
   private subtotalEls: Map<string, HTMLElement> = new Map();
@@ -73,6 +77,17 @@ export class MorningPanel {
     summaryEl.appendChild(spendRow);
     summaryEl.appendChild(remainRow);
     this.panel.appendChild(summaryEl);
+
+    // Rent reserve warning
+    this.rentWarning = document.createElement('div');
+    this.rentWarning.className = 'rent-warning';
+    this.rentWarning.textContent = `⚠️ 至少保留 $${MIN_RENT_RESERVE} 租金，否則傍晚無法擺攤！`;
+    this.rentWarning.style.display = 'none';
+    this.rentWarning.style.color = 'var(--neon-red, #ff4444)';
+    this.rentWarning.style.fontSize = '13px';
+    this.rentWarning.style.marginTop = '6px';
+    this.rentWarning.style.textAlign = 'center';
+    this.panel.appendChild(this.rentWarning);
 
     // Confirm button
     const btnCenter = document.createElement('div');
@@ -199,7 +214,7 @@ export class MorningPanel {
     qtyControl.appendChild(makeBtn('+5', +5));
     qtyControl.appendChild(makeBtn('+10', +10));
 
-    // "Max buy" button
+    // "Max buy" button — reserves MIN_RENT_RESERVE for evening slot
     const maxBtn = document.createElement('button');
     maxBtn.className = 'qty-btn btn-neon-cyan';
     maxBtn.textContent = '最大';
@@ -208,7 +223,8 @@ export class MorningPanel {
     maxBtn.style.fontSize = '13px';
     maxBtn.addEventListener('click', () => {
       const remaining = gameState.money - this.calcTotalCost() + this.quantities[sausage.id] * sausage.cost;
-      const maxQty = Math.floor(remaining / sausage.cost);
+      const spendable = Math.max(0, remaining - MIN_RENT_RESERVE);
+      const maxQty = Math.floor(spendable / sausage.cost);
       this.setQuantity(sausage, maxQty, qtyInput, subtotalEl);
     });
     qtyControl.appendChild(maxBtn);
@@ -221,11 +237,16 @@ export class MorningPanel {
   }
 
   private setQuantity(sausage: SausageType, qty: number, input: HTMLInputElement, subtotalEl: HTMLElement): void {
-    // Clamp: can't go below 0, can't exceed what we can afford
+    // Clamp: can't go below 0, can't exceed what we can afford while keeping MIN_RENT_RESERVE
     const otherSpend = this.calcTotalCost() - this.quantities[sausage.id] * sausage.cost;
     const remaining = gameState.money - otherSpend;
-    const maxAffordable = Math.floor(remaining / sausage.cost);
+    const spendable = Math.max(0, remaining - MIN_RENT_RESERVE);
+    const maxAffordable = Math.floor(spendable / sausage.cost);
     const clamped = Math.max(0, Math.min(qty, maxAffordable));
+
+    // Show warning if user tried to exceed the rent-reserved limit
+    const wouldExceed = qty > maxAffordable && remaining > 0;
+    this.rentWarning.style.display = wouldExceed ? 'block' : 'none';
 
     this.quantities[sausage.id] = clamped;
     input.value = String(clamped);
@@ -247,6 +268,9 @@ export class MorningPanel {
 
     this.summarySpend.textContent = `$${totalSpend}`;
     this.summaryRemain.textContent = `$${remaining}`;
+
+    // Color the remaining amount red if below rent reserve
+    this.summaryRemain.style.color = remaining < MIN_RENT_RESERVE ? 'var(--neon-red, #ff4444)' : '';
 
     // Enable confirm if player has new purchases OR existing inventory
     const hasNewPurchases = Object.values(this.quantities).some(q => q > 0);

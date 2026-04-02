@@ -101,7 +101,7 @@ export function processDaily(): LoanDailyResult {
 
       if (overdueDays >= 5) {
         updateGameState({
-          loans: { active: updatedLoan, bankBlacklisted: true },
+          loans: { active: null, bankBlacklisted: true },
         });
         penalty = '銀行已將你列入永久黑名單';
       } else {
@@ -128,6 +128,7 @@ export function processDaily(): LoanDailyResult {
     } else if (newOverdueDays <= 7) {
       // Day 4-7: stall destroyed (1-day shutdown), goons visit
       penalty = `打手上門！攤位被砸，停業一天（逾期第 ${newOverdueDays} 天）`;
+      updateGameState({ skipDay: true });
     } else if (newOverdueDays <= 14) {
       // Day 8-14: lose 1 territory + 50% inventory stolen
       const newInventory: Record<string, number> = {};
@@ -166,6 +167,10 @@ export function repayLoan(): boolean {
       ...gameState.loans,
       active: null,
     },
+  });
+
+  updateGameState({
+    stats: { ...gameState.stats, totalLoansRepaid: (gameState.stats.totalLoansRepaid ?? 0) + 1 },
   });
 
   return true;

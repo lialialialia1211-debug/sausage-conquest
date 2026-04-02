@@ -1,6 +1,7 @@
 // CustomerEngine — pure logic, no Phaser dependency, no UI code
 import type { Customer, BattleType } from '../types';
-import { SAUSAGE_MAP } from '../data/sausages';
+import { SAUSAGE_MAP, SAUSAGE_TYPES } from '../data/sausages';
+import { gameState } from '../state/GameState';
 
 let customerIdCounter = 0;
 
@@ -18,7 +19,12 @@ export function generateCustomers(gridFootTraffic: number, marketingBonus: numbe
   for (let i = 0; i < baseCount; i++) {
     // Random max price: 80-150% of typical price range
     const maxPriceMultiplier = 0.8 + Math.random() * 0.7;
-    const avgExpectedPrice = 38; // rough average of P0 sausage suggested prices
+    const unlockedPrices = SAUSAGE_TYPES
+      .filter(s => gameState.unlockedSausages.includes(s.id))
+      .map(s => s.suggestedPrice);
+    const avgExpectedPrice = unlockedPrices.length > 0
+      ? unlockedPrices.reduce((sum, p) => sum + p, 0) / unlockedPrices.length
+      : 38;
     const maxPrice = Math.round(avgExpectedPrice * maxPriceMultiplier);
 
     // ~30% of customers have a type preference
@@ -75,12 +81,12 @@ export function willBuy(
   const marketingBonus = 1 + marketingEffects.reduce((sum, e) => sum + e, 0);
 
   // qualityScore clamped
-  const clampedQuality = Math.max(0.5, Math.min(1.5, qualityScore));
+  const clampedQuality = Math.max(0.1, Math.min(1.5, qualityScore));
 
   // Bonus for preferred type match
   const preferenceBonus = customer.preferredType === sausage.battle.type ? 1.2 : 1.0;
 
   const purchaseChance = baseAttraction * priceFactor * marketingBonus * clampedQuality * preferenceBonus;
 
-  return Math.random() < Math.min(1, purchaseChance);
+  return Math.random() < Math.min(0.95, purchaseChance);
 }

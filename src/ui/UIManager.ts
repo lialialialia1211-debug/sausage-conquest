@@ -10,15 +10,22 @@ import type { SummaryData } from './panels/SummaryPanel';
 import { EndingPanel } from './panels/EndingPanel';
 import type { EndingData } from './panels/EndingPanel';
 import { ShopPanel } from './panels/ShopPanel';
+import { SausageBoxPanel } from './panels/SausageBoxPanel';
 import './styles/neon.css';
 
 // UIManager: controls which HTML overlay panel is shown/hidden
 // Listens to EventBus 'show-panel' events from Phaser scenes
+interface PanelInstance {
+  getElement(): HTMLElement;
+  destroy?(): void;
+}
+
 export class UIManager {
   private overlay: HTMLElement;
   private panelArea: HTMLElement;
   private statusBar: StatusBar;
   private currentPanel: HTMLElement | null = null;
+  private currentPanelInstance: PanelInstance | null = null;
 
   constructor() {
     // Create the overlay container
@@ -44,56 +51,70 @@ export class UIManager {
   private onShowPanel = (panelName: string, data?: unknown): void => {
     this.hideCurrentPanel();
 
-    const panel = this.createPanelByName(panelName, data);
-    if (panel) {
-      panel.classList.add('fade-in');
-      this.panelArea.appendChild(panel);
-      this.currentPanel = panel;
+    const result = this.createPanelByName(panelName, data);
+    if (result) {
+      const el = result.instance.getElement();
+      el.classList.add('fade-in');
+      this.panelArea.appendChild(el);
+      this.currentPanel = el;
+      this.currentPanelInstance = result.instance;
     }
   };
 
   private hideCurrentPanel = (): void => {
+    if (this.currentPanelInstance?.destroy) {
+      this.currentPanelInstance.destroy();
+    }
     if (this.currentPanel) {
       this.currentPanel.remove();
       this.currentPanel = null;
     }
+    this.currentPanelInstance = null;
   };
 
-  private createPanelByName(name: string, data?: unknown): HTMLElement | null {
+  private createPanelByName(name: string, data?: unknown): { instance: PanelInstance } | null {
     switch (name) {
       case 'morning': {
         const spoilageInfo = data as SpoilageInfo | undefined;
         const morningPanel = new MorningPanel(spoilageInfo);
-        return morningPanel.getElement();
+        return { instance: morningPanel };
       }
       case 'evening': {
         const mapPanel = new MapPanel();
-        return mapPanel.getElement();
+        return { instance: mapPanel };
       }
       case 'battle-prep': {
         const prepPanel = new BattlePrepPanel(data as BattlePrepData);
-        return prepPanel.getElement();
+        return { instance: prepPanel };
       }
       case 'summary': {
         const summaryData = data as SummaryData | undefined;
         if (summaryData) {
           const summaryPanel = new SummaryPanel(summaryData);
-          return summaryPanel.getElement();
+          return { instance: summaryPanel };
         }
-        return this.createSummaryPanel();
+        const el = this.createSummaryPanel();
+        return { instance: { getElement: () => el } };
       }
       case 'ending': {
         const endingData = data as EndingData | undefined;
         if (endingData) {
           const endingPanel = new EndingPanel(endingData);
-          return endingPanel.getElement();
+          return { instance: endingPanel };
         }
         return null;
       }
-      case 'event':      return this.createPlaceholderPanel('📰 突發事件', 'event-done', '繼續 ▶');
+      case 'event': {
+        const el = this.createPlaceholderPanel('📰 突發事件', 'event-done', '繼續 ▶');
+        return { instance: { getElement: () => el } };
+      }
       case 'shop': {
         const shopPanel = new ShopPanel();
-        return shopPanel.getElement();
+        return { instance: shopPanel };
+      }
+      case 'sausage-box': {
+        const sausageBoxPanel = new SausageBoxPanel();
+        return { instance: sausageBoxPanel };
       }
       default:           return null;
     }

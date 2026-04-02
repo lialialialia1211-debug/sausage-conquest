@@ -15,9 +15,9 @@ export interface GrillingSausage {
 
 // Doneness units per second
 export const HEAT_RATES: Record<HeatLevel, number> = {
-  low: 15,
-  medium: 30,
-  high: 50,
+  low: 10,
+  medium: 20,
+  high: 35,
 };
 
 let sausageCounter = 0;
@@ -71,10 +71,10 @@ export function judgeQuality(sausage: GrillingSausage): GrillQuality {
   if (topDoneness > 90 || bottomDoneness > 90) return 'burnt';
 
   // If either side is raw
-  if (topDoneness < 50 || bottomDoneness < 50) return 'raw';
+  if (topDoneness < 40 || bottomDoneness < 40) return 'raw';
 
-  // Both sides in perfect range (71-90)
-  if (topDoneness >= 71 && topDoneness <= 90 && bottomDoneness >= 71 && bottomDoneness <= 90) {
+  // Both sides in perfect range (60-90)
+  if (topDoneness >= 60 && topDoneness <= 90 && bottomDoneness >= 60 && bottomDoneness <= 90) {
     return 'perfect';
   }
 
@@ -92,19 +92,19 @@ export function getQualityScore(quality: GrillQuality): number {
 
 /**
  * Returns a hex color for a given doneness value (0-100).
- * 0: pink (raw)  →  70: golden (perfect)  →  100: charcoal (burnt)
+ * 0: pink (raw)  →  60: golden (perfect)  →  100: charcoal (burnt)
  */
 export function getSausageColor(doneness: number): number {
-  if (doneness <= 70) {
+  if (doneness <= 60) {
     // Pink (0xffb6c1) → Golden (0xdaa520)  at t=0..1
-    const t = doneness / 70;
+    const t = doneness / 60;
     const r = Math.round(0xff + (0xda - 0xff) * t);
     const g = Math.round(0xb6 + (0xa5 - 0xb6) * t);
     const b = Math.round(0xc1 + (0x20 - 0xc1) * t);
     return (r << 16) | (g << 8) | b;
   } else {
     // Golden (0xdaa520) → Charcoal (0x333333) at t=0..1
-    const t = (doneness - 70) / 30;
+    const t = (doneness - 60) / 40;
     const r = Math.round(0xda + (0x33 - 0xda) * t);
     const g = Math.round(0xa5 + (0x33 - 0xa5) * t);
     const b = Math.round(0x20 + (0x33 - 0x20) * t);

@@ -333,11 +333,14 @@ export class BattleSausage extends Phaser.GameObjects.Container {
     // Flash red tint + horizontal shake
     this.scene.tweens.add({
       targets: this,
-      x: this.x - 8,
+      x: this.baseX - 8,
       duration: 60,
       yoyo: true,
       repeat: 2,
       ease: 'Linear',
+      onComplete: () => {
+        this.x = this.baseX;
+      },
     });
 
     // Flash the body red briefly by redrawing with red tint
@@ -391,6 +394,7 @@ export class BattleSausage extends Phaser.GameObjects.Container {
       ease: 'Power2.In',
       onComplete: () => {
         onComplete?.();
+        this.destroy();
       },
     });
   }

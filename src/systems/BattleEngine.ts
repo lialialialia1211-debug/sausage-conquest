@@ -50,6 +50,10 @@ export interface BattleResult {
 export function getTypeAdvantage(attackerType: BattleType, defenderType: BattleType): number {
   if (attackerType === 'aoe' && defenderType === 'ranged') return 0.5;
   if (attackerType === 'ranged' && defenderType === 'normal') return 0.25;
+  if (attackerType === 'tank' && defenderType === 'aoe') return 0.25;
+  if (attackerType === 'assassin' && defenderType === 'tank') return 0.5;
+  if (attackerType === 'support' && defenderType === 'assassin') return 0.25;
+  if (attackerType === 'normal' && defenderType === 'support') return 0.25;
   return 0;
 }
 
@@ -133,6 +137,27 @@ function buildLogText(
 }
 
 export function executeBattle(playerUnitsIn: BattleUnit[], opponentUnitsIn: BattleUnit[]): BattleResult {
+  if (playerUnitsIn.length === 0) {
+    return {
+      winner: 'opponent',
+      rounds: [],
+      playerUnitsRemaining: 0,
+      opponentUnitsRemaining: opponentUnitsIn.length,
+      finalPlayerHpPct: 0,
+      finalOpponentHpPct: 1,
+    };
+  }
+  if (opponentUnitsIn.length === 0) {
+    return {
+      winner: 'player',
+      rounds: [],
+      playerUnitsRemaining: playerUnitsIn.length,
+      opponentUnitsRemaining: 0,
+      finalPlayerHpPct: 1,
+      finalOpponentHpPct: 0,
+    };
+  }
+
   // Deep copy so we don't mutate the originals
   const playerUnits: BattleUnit[] = playerUnitsIn.map(u => ({ ...u }));
   const opponentUnits: BattleUnit[] = opponentUnitsIn.map(u => ({ ...u }));
@@ -222,7 +247,6 @@ export function executeBattle(playerUnitsIn: BattleUnit[], opponentUnitsIn: Batt
     winner = 'opponent';
   } else {
     // Timeout: compare remaining HP percentage
-    winner = playerHpPct >= opponentHpPct ? 'player' : 'opponent';
     if (playerHpPct !== opponentHpPct) {
       winner = playerHpPct >= opponentHpPct ? 'player' : 'opponent';
     } else {
