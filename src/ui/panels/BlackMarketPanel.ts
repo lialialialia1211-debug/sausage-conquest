@@ -5,11 +5,22 @@ import { BLACK_MARKET_ITEMS, buyBlackMarket } from '../../systems/BlackMarketEng
 
 export class BlackMarketPanel {
   private el: HTMLDivElement;
-  private feedbackEl: HTMLDivElement | null = null;
+  // Persistent feedback area kept outside the rebuilt item list so messages
+  // survive a build() call without requiring a setTimeout.
+  private feedbackEl: HTMLDivElement;
+  private moneyEl: HTMLDivElement;
 
   constructor() {
     this.el = document.createElement('div');
     this.el.className = 'event-panel black-market-panel';
+
+    // Feedback and money displays live at the bottom and persist across rebuilds.
+    this.feedbackEl = document.createElement('div');
+    this.feedbackEl.style.cssText = 'min-height:30px; margin-top:8px; text-align:center; font-size:14px;';
+
+    this.moneyEl = document.createElement('div');
+    this.moneyEl.style.cssText = 'text-align:center; margin:10px 0; color:#ffcc00;';
+
     this.build();
   }
 
@@ -38,87 +49,95 @@ export class BlackMarketPanel {
     sub.style.fontSize = '13px';
     this.el.appendChild(sub);
 
-    // Items list
-    BLACK_MARKET_ITEMS.forEach(item => {
-      const row = document.createElement('div');
-      row.className = 'bm-item';
+    const isUnlocked = gameState.blackMarketUnlocked;
 
-      // Info section
-      const info = document.createElement('div');
-      info.style.flex = '1';
+    if (!isUnlocked) {
+      const lockEl = document.createElement('div');
+      lockEl.style.cssText = 'text-align:center; color:#888; margin:16px 0;';
+      lockEl.textContent = '黑市尚未解鎖';
+      this.el.appendChild(lockEl);
+    } else {
+      // Items list
+      BLACK_MARKET_ITEMS.forEach(item => {
+        const row = document.createElement('div');
+        row.className = 'bm-item';
 
-      const nameEl = document.createElement('div');
-      nameEl.textContent = `${item.emoji} ${item.name}`;
-      nameEl.style.fontWeight = 'bold';
-      info.appendChild(nameEl);
+        // Info section
+        const info = document.createElement('div');
+        info.style.flex = '1';
 
-      const details = document.createElement('div');
-      details.style.display = 'flex';
-      details.style.gap = '12px';
-      details.style.marginTop = '4px';
+        const nameEl = document.createElement('div');
+        nameEl.textContent = `${item.emoji} ${item.name}`;
+        nameEl.style.fontWeight = 'bold';
+        info.appendChild(nameEl);
 
-      const priceEl = document.createElement('span');
-      priceEl.textContent = `$${item.cost}`;
-      priceEl.style.color = '#ffcc00';
-      details.appendChild(priceEl);
+        const details = document.createElement('div');
+        details.style.display = 'flex';
+        details.style.gap = '12px';
+        details.style.marginTop = '4px';
 
-      if (item.qualityBonus > 0) {
-        const bonusEl = document.createElement('span');
-        bonusEl.className = 'bm-bonus';
-        bonusEl.textContent = `品質 +${Math.round(item.qualityBonus * 100)}%`;
-        details.appendChild(bonusEl);
-      }
+        const priceEl = document.createElement('span');
+        priceEl.textContent = `$${item.cost}`;
+        priceEl.style.color = '#ffcc00';
+        details.appendChild(priceEl);
 
-      const riskEl = document.createElement('span');
-      riskEl.className = 'bm-risk';
-      riskEl.textContent = `被抓 ${Math.round(item.catchChance * 100)}%`;
-      details.appendChild(riskEl);
+        if (item.qualityBonus > 0) {
+          const bonusEl = document.createElement('span');
+          bonusEl.className = 'bm-bonus';
+          bonusEl.textContent = `品質 +${Math.round(item.qualityBonus * 100)}%`;
+          details.appendChild(bonusEl);
+        }
 
-      const stockEl = document.createElement('span');
-      stockEl.style.color = '#aaa';
-      const currentStock = (gameState.blackMarketStock || {})[item.id] || 0;
-      stockEl.textContent = `庫存: ${currentStock}`;
-      details.appendChild(stockEl);
+        const riskEl = document.createElement('span');
+        riskEl.className = 'bm-risk';
+        riskEl.textContent = `被抓 ${Math.round(item.catchChance * 100)}%`;
+        details.appendChild(riskEl);
 
-      info.appendChild(details);
-      row.appendChild(info);
+        const stockEl = document.createElement('span');
+        stockEl.style.color = '#aaa';
+        const currentStock = (gameState.blackMarketStock ?? {})[item.id] ?? 0;
+        stockEl.textContent = `庫存: ${currentStock}`;
+        details.appendChild(stockEl);
 
-      // Buy button
-      const buyBtn = document.createElement('button');
-      buyBtn.className = 'event-choice-btn';
-      buyBtn.textContent = '購買';
-      buyBtn.style.minWidth = '60px';
-      const canAfford = gameState.money >= item.cost;
-      if (!canAfford) {
-        buyBtn.disabled = true;
-        buyBtn.style.opacity = '0.5';
-      }
-      buyBtn.addEventListener('click', () => {
-        const result = buyBlackMarket(item.id);
-        this.showFeedback(result.message, result.caught ? '#ff4444' : '#44ff44');
-        // Rebuild to update stock counts and affordability
-        setTimeout(() => this.build(), 1500);
+        info.appendChild(details);
+        row.appendChild(info);
+
+        // Buy button
+        const buyBtn = document.createElement('button');
+        buyBtn.className = 'event-choice-btn';
+        buyBtn.textContent = '購買';
+        buyBtn.style.minWidth = '60px';
+
+        const canAfford = gameState.money >= item.cost;
+        if (!canAfford) {
+          buyBtn.disabled = true;
+          buyBtn.style.opacity = '0.5';
+        }
+
+        buyBtn.addEventListener('click', () => {
+          const result = buyBlackMarket(item.id);
+          if (!result.success) {
+            this.showFeedback(result.message, '#ff4444');
+            return;
+          }
+          this.showFeedback(result.message, result.caught ? '#ff4444' : '#44ff44');
+          // Rebuild immediately so stock counts and money reflect the purchase.
+          this.build();
+        });
+
+        row.appendChild(buyBtn);
+        this.el.appendChild(row);
       });
-      row.appendChild(buyBtn);
+    }
 
-      this.el.appendChild(row);
-    });
-
-    // Feedback area
-    this.feedbackEl = document.createElement('div');
-    this.feedbackEl.style.minHeight = '30px';
-    this.feedbackEl.style.marginTop = '8px';
-    this.feedbackEl.style.textAlign = 'center';
-    this.feedbackEl.style.fontSize = '14px';
+    // Persistent feedback area — re-attach (content preserved because it is
+    // the same DOM node, not recreated).
+    this.feedbackEl.textContent = this.feedbackEl.textContent; // no-op, preserves text
     this.el.appendChild(this.feedbackEl);
 
-    // Money display
-    const moneyEl = document.createElement('div');
-    moneyEl.style.textAlign = 'center';
-    moneyEl.style.margin = '10px 0';
-    moneyEl.style.color = '#ffcc00';
-    moneyEl.textContent = `💰 持有: $${gameState.money}`;
-    this.el.appendChild(moneyEl);
+    // Money display — always read fresh gameState
+    this.moneyEl.textContent = `💰 持有: $${gameState.money}`;
+    this.el.appendChild(this.moneyEl);
 
     // Close button
     const closeBtn = document.createElement('button');
@@ -133,10 +152,8 @@ export class BlackMarketPanel {
   }
 
   private showFeedback(msg: string, color: string): void {
-    if (this.feedbackEl) {
-      this.feedbackEl.textContent = msg;
-      this.feedbackEl.style.color = color;
-    }
+    this.feedbackEl.textContent = msg;
+    this.feedbackEl.style.color = color;
   }
 
   getElement(): HTMLElement {

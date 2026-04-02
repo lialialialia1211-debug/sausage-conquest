@@ -53,17 +53,15 @@ function calculateGrillPR(stats: typeof gameState.stats): { score: number; pr: n
   return { score, pr, title, titleEmoji };
 }
 
-function getDay30Grade(playerSlots: number): { grade: string; title: string } {
-  if (playerSlots >= 10) return { grade: 'S', title: '夜市之王！' };
-  if (playerSlots >= 7)  return { grade: 'A', title: '夜市大亨' };
-  if (playerSlots >= 4)  return { grade: 'B', title: '小有名氣的攤販' };
-  if (playerSlots >= 2)  return { grade: 'C', title: '普通攤販' };
-  return { grade: 'F', title: '苦苦掙扎的小販' };
+function getDay20Grade(playerSlot: number): { grade: string; gradeEmoji: string; title: string } {
+  if (playerSlot >= 9) return { grade: 'S', gradeEmoji: '🏆', title: '夜市之王' };
+  if (playerSlot >= 7) return { grade: 'A', gradeEmoji: '🔥', title: '呼聲最高的挑戰者' };
+  if (playerSlot >= 4) return { grade: 'B', gradeEmoji: '📊', title: '中段班老闆' };
+  if (playerSlot >= 2) return { grade: 'C', gradeEmoji: '😅', title: '還在掙扎中' };
+  return { grade: 'F', gradeEmoji: '💀', title: '原地踏步二十天' };
 }
 
 function buildEndingConfig(type: EndingType): EndingConfig {
-  const playerSlots = GRID_SLOTS.filter(s => gameState.map[s.id] === 'player').length;
-
   switch (type) {
     case 'bankrupt':
       return {
@@ -81,13 +79,14 @@ function buildEndingConfig(type: EndingType): EndingConfig {
       return {
         emoji: '👑',
         title: '稱霸夜市！',
-        dramatic: '你成功稱霸夜市！各大媒體爭相報導：「從被裁員到夜市王，香腸大亨的逆襲之路」',
+        dramatic: '你從夜市最角落的停車場一路殺到正中央，成為真正的夜市之王！',
       };
     }
     case 'day30': {
-      const { grade, title } = getDay30Grade(playerSlots);
+      const slot = gameState.playerSlot || 1;
+      const { grade, gradeEmoji, title } = getDay20Grade(slot);
       return {
-        emoji: grade === 'S' ? '🏆' : grade === 'A' ? '🥇' : grade === 'B' ? '🥈' : grade === 'C' ? '🥉' : '😢',
+        emoji: gradeEmoji,
         title: `評等 ${grade}`,
         dramatic: title,
         grade,
@@ -104,7 +103,6 @@ export class EndingPanel {
     this.panel.className = 'game-panel ui-interactive ending-panel';
 
     const config = buildEndingConfig(data.type);
-    const playerSlots = GRID_SLOTS.filter(s => gameState.map[s.id] === 'player').length;
 
     // Emoji
     const emojiEl = document.createElement('div');
@@ -125,7 +123,7 @@ export class EndingPanel {
     this.panel.appendChild(dramaticEl);
 
     // Stats summary
-    const statsEl = this.buildStats(data, playerSlots);
+    const statsEl = this.buildStats(data);
     this.panel.appendChild(statsEl);
 
     // PR leaderboard section
@@ -148,14 +146,17 @@ export class EndingPanel {
     this.panel.appendChild(btnCenter);
   }
 
-  private buildStats(data: EndingData, playerSlots: number): HTMLElement {
+  private buildStats(data: EndingData): HTMLElement {
     const el = document.createElement('div');
     el.className = 'ending-stats';
+
+    const finalSlot = gameState.playerSlot || 1;
+    const finalSlotData = GRID_SLOTS.find(s => s.tier === finalSlot) || GRID_SLOTS[0];
 
     const items = [
       { label: '存活天數', value: `${data.dayssurvived ?? gameState.day} 天` },
       { label: '累計營收', value: `$${data.totalRevenue}` },
-      { label: '最終版圖', value: `${playerSlots} / ${GRID_SLOTS.length} 格` },
+      { label: '📍 最終位置', value: `第 ${finalSlot} 層 — ${finalSlotData.emoji} ${finalSlotData.name}` },
       { label: '烤制香腸', value: `${gameState.stats['totalSausagesSold'] ?? 0} 根` },
       { label: '戰鬥紀錄', value: `${gameState.stats['battlesWon'] ?? 0} 勝 ${gameState.stats['battlesLost'] ?? 0} 敗` },
     ];

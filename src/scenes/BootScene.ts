@@ -135,13 +135,12 @@ export class BootScene extends Phaser.Scene {
     // Helper: start the game with a chosen mode
     const startGame = (mode: string) => {
       sfx.initOnUserGesture();
+      // Initialize map: slot 1 = player, rest = enemy
       const initialMap: Record<number, string> = {};
       for (const slot of GRID_SLOTS) {
-        if (slot.owner === 'opponent' && slot.opponentId) {
-          initialMap[slot.id] = slot.opponentId;
-        }
+        initialMap[slot.id] = slot.tier === 1 ? 'player' : (slot.opponentId || 'enemy');
       }
-      updateGameState({ map: initialMap, gameMode: mode });
+      updateGameState({ map: initialMap, playerSlot: 1, gameMode: mode });
       this.cameras.main.fadeOut(500, 0, 0, 0);
       this.cameras.main.once('camerafadeoutcomplete', () => {
         this.scene.start('MorningScene');

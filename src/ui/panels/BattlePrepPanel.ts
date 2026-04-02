@@ -1,244 +1,224 @@
-// BattlePrepPanel — Pre-battle sausage selection overlay
+// BattlePrepPanel — Auto-chess prep overlay for the換位血戰 system
 import { EventBus } from '../../utils/EventBus';
-import { SAUSAGE_MAP } from '../../data/sausages';
-import { OPPONENT_MAP } from '../../data/opponents';
+import { GRID_SLOTS, OPPONENT_INFO } from '../../data/map';
+import {
+  createPiece,
+  getPieceCost,
+  tryMerge,
+  calculateBattleCost,
+  getAvailablePieceTypes,
+} from '../../systems/AutoChessEngine';
+import type { ChessPiece } from '../../types';
 
 export interface BattlePrepData {
-  opponentId: string;
-  opponentName: string;
-  opponentEmoji: string;
-  opponentDialogue: string;
-  difficulty: number;
-  inventoryEntries: Array<[string, number]>;
-  opponentDescription?: string;
+  playerSlot: number;
 }
+
+const PIECE_TYPE_LABEL: Record<string, string> = {
+  normal:   '近戰',
+  ranged:   '遠程',
+  aoe:      '群爆',
+  tank:     '坦克',
+  assassin: '刺客',
+  support:  '補師',
+};
+
+const MAX_ARMY = 6;
+const PREP_SECONDS = 30;
 
 export class BattlePrepPanel {
   private element: HTMLElement;
-  private selectedSausages: Record<string, number> = {};
-  private maxUnits = 5;
-  private totalSelected = 0;
+  private pieces: ChessPiece[] = [];
+  private budget: number;
+  private timerInterval: ReturnType<typeof setInterval> | null = null;
+  private secondsLeft = PREP_SECONDS;
+
+  // DOM refs updated live
+  private budgetEl!: HTMLElement;
+  private armyListEl!: HTMLElement;
+  private armyCountEl!: HTMLElement;
+  private timerEl!: HTMLElement;
+  private mergeHintEl!: HTMLElement;
 
   constructor(data: BattlePrepData) {
+    const costInfo = calculateBattleCost();
+    this.budget = costInfo.playerCost;
     this.element = this.build(data);
+    this.startTimer();
   }
 
   getElement(): HTMLElement {
     return this.element;
   }
 
+  destroy(): void {
+    this.stopTimer();
+  }
+
+  // ── Build ──────────────────────────────────────────────────────────────────
+
   private build(data: BattlePrepData): HTMLElement {
     const panel = document.createElement('div');
     panel.className = 'game-panel battle-prep-panel ui-interactive';
 
-    // Title
+    const opponentSlot = data.playerSlot + 1;
+    const slotData = GRID_SLOTS.find(s => s.tier === opponentSlot);
+    const oppInfo = slotData ? OPPONENT_INFO[slotData.opponentId] : null;
+    const oppEmoji = oppInfo?.emoji ?? '❓';
+    const oppName = oppInfo?.name ?? '神秘對手';
+    const difficulty = slotData?.opponentDifficulty ?? 1;
+    const costInfo = calculateBattleCost();
+
+    // ── Title ────────────────────────────────────────────────────────────────
     const title = document.createElement('div');
     title.className = 'panel-title neon-flicker';
     title.style.color = 'var(--neon-red)';
     title.style.textShadow = 'var(--glow-red)';
-    title.textContent = '⚔ 地盤爭奪戰';
+    title.textContent = `換位血戰 — 第 ${data.playerSlot} 層 vs 第 ${opponentSlot} 層`;
     panel.appendChild(title);
 
-    // Opponent info box
-    const opponentBox = document.createElement('div');
-    opponentBox.className = 'battle-opponent-info';
+    // ── Opponent info ────────────────────────────────────────────────────────
+    const oppBox = document.createElement('div');
+    oppBox.className = 'battle-opponent-info';
+    oppBox.style.cssText = 'display:flex;align-items:center;gap:10px;margin-bottom:8px;';
 
-    const emojiSpan = document.createElement('span');
-    emojiSpan.className = 'opp-emoji';
-    emojiSpan.textContent = data.opponentEmoji;
+    const emojiEl = document.createElement('span');
+    emojiEl.style.fontSize = '32px';
+    emojiEl.textContent = oppEmoji;
 
-    const detailsDiv = document.createElement('div');
-    detailsDiv.className = 'opp-details';
+    const detailEl = document.createElement('div');
+    detailEl.innerHTML = `
+      <div style="font-weight:bold;color:#ff4455;">${oppName}</div>
+      <div style="font-size:12px;color:#aaa;">
+        ${slotData?.name ?? ''} &nbsp;|&nbsp; 難度 ${'★'.repeat(difficulty)}${'☆'.repeat(5 - difficulty)}
+      </div>
+    `;
 
-    const nameDiv = document.createElement('div');
-    nameDiv.className = 'opp-name';
-    nameDiv.textContent = data.opponentName;
+    oppBox.appendChild(emojiEl);
+    oppBox.appendChild(detailEl);
+    panel.appendChild(oppBox);
 
-    const difficultyDiv = document.createElement('div');
-    difficultyDiv.className = 'opp-difficulty';
-    difficultyDiv.textContent = `難度：${'★'.repeat(data.difficulty)}${'☆'.repeat(5 - data.difficulty)}`;
+    // ── Cost & budget ────────────────────────────────────────────────────────
+    const costBox = document.createElement('div');
+    costBox.style.cssText = 'font-size:13px;margin-bottom:10px;display:flex;gap:16px;flex-wrap:wrap;';
 
-    // Opponent description (flavor text)
-    const opponent = OPPONENT_MAP[data.opponentId];
-    const descriptionText = data.opponentDescription ?? opponent?.description ?? '';
-    if (descriptionText) {
-      const descDiv = document.createElement('div');
-      descDiv.className = 'opp-description';
-      descDiv.textContent = descriptionText;
-      detailsDiv.appendChild(nameDiv);
-      detailsDiv.appendChild(descDiv);
-      detailsDiv.appendChild(difficultyDiv);
-    } else {
-      detailsDiv.appendChild(nameDiv);
-      detailsDiv.appendChild(difficultyDiv);
-    }
+    const costLabel = document.createElement('span');
+    costLabel.style.color = '#ff9944';
+    costLabel.textContent = `入場費：$${costInfo.playerCost}`;
 
-    opponentBox.appendChild(emojiSpan);
-    opponentBox.appendChild(detailsDiv);
-    panel.appendChild(opponentBox);
+    this.budgetEl = document.createElement('span');
+    this.budgetEl.style.color = '#44ff88';
+    this.updateBudgetDisplay();
 
-    // Speech bubble — beforeBattle dialogue
-    const bubbleWrapper = document.createElement('div');
-    bubbleWrapper.className = 'opp-speech-bubble-wrapper';
+    costBox.appendChild(costLabel);
+    costBox.appendChild(this.budgetEl);
+    panel.appendChild(costBox);
 
-    const bubble = document.createElement('div');
-    bubble.className = 'opp-speech-bubble';
-    bubble.textContent = `「${data.opponentDialogue}」`;
+    // ── Shop ─────────────────────────────────────────────────────────────────
+    const shopLabel = document.createElement('div');
+    shopLabel.style.cssText = 'font-size:13px;color:#665577;margin-bottom:6px;';
+    shopLabel.textContent = '── 購買棋子 ──';
+    panel.appendChild(shopLabel);
 
-    const bubbleTail = document.createElement('div');
-    bubbleTail.className = 'opp-speech-bubble-tail';
+    const shopList = document.createElement('div');
+    shopList.style.cssText = 'display:flex;flex-direction:column;gap:5px;margin-bottom:12px;max-height:160px;overflow-y:auto;';
 
-    bubbleWrapper.appendChild(bubble);
-    bubbleWrapper.appendChild(bubbleTail);
-    panel.appendChild(bubbleWrapper);
+    const availableTypes = getAvailablePieceTypes();
 
-    // Selection instruction
-    const hint = document.createElement('div');
-    hint.className = 'battle-hint';
-    hint.textContent = `選擇出戰香腸（最多 ${this.maxUnits} 條）：`;
-    panel.appendChild(hint);
-
-    // Counter
-    const counter = document.createElement('div');
-    counter.className = 'battle-counter';
-    counter.textContent = `已選：0 / ${this.maxUnits}`;
-    panel.appendChild(counter);
-
-    // Sausage selection list
-    const selectionList = document.createElement('div');
-    selectionList.className = 'battle-selection-list';
-
-    const plusButtons: HTMLButtonElement[] = [];
-
-    if (data.inventoryEntries.length === 0) {
+    if (availableTypes.length === 0) {
       const empty = document.createElement('div');
-      empty.className = 'battle-empty';
-      empty.textContent = '庫存全空！無法出戰（直接逃跑）';
-      selectionList.appendChild(empty);
+      empty.style.cssText = 'color:#886699;font-size:13px;';
+      empty.textContent = '尚未解鎖任何棋子類型';
+      shopList.appendChild(empty);
     } else {
-      data.inventoryEntries.forEach(([sausageId, availableQty]) => {
-        const sausageType = SAUSAGE_MAP[sausageId];
-        if (!sausageType) return;
-
-        this.selectedSausages[sausageId] = 0;
-
+      availableTypes.forEach(pt => {
         const row = document.createElement('div');
-        row.className = 'battle-sausage-row';
+        row.style.cssText =
+          'display:flex;align-items:center;gap:8px;padding:4px 6px;border:1px solid #331144;border-radius:5px;background:#0a0015;';
 
-        // Sausage info section
-        const infoDiv = document.createElement('div');
-        infoDiv.className = 'battle-sausage-info';
+        const pieceEmoji = document.createElement('span');
+        pieceEmoji.style.fontSize = '20px';
+        pieceEmoji.textContent = pt.emoji;
 
-        const emojiEl = document.createElement('span');
-        emojiEl.className = 'bsaus-emoji';
-        emojiEl.textContent = sausageType.emoji;
+        const info = document.createElement('div');
+        info.style.cssText = 'flex:1;font-size:12px;';
+        info.innerHTML = `
+          <span style="color:#eee;">${pt.name}</span>
+          <span style="color:#886699;margin-left:6px;">[${PIECE_TYPE_LABEL[pt.type] ?? pt.type}]</span>
+          <span style="color:#ff9944;margin-left:6px;">$${pt.cost}</span>
+        `;
 
-        const textDiv = document.createElement('div');
+        const buyBtn = document.createElement('button');
+        buyBtn.className = 'btn-neon btn-neon-cyan';
+        buyBtn.style.cssText = 'font-size:12px;padding:3px 10px;';
+        buyBtn.textContent = '買';
+        buyBtn.addEventListener('click', () => this.buyPiece(pt.sausageId, buyBtn));
 
-        const nameEl = document.createElement('div');
-        nameEl.className = 'bsaus-name';
-        nameEl.textContent = sausageType.name;
-
-        const statsEl = document.createElement('div');
-        statsEl.className = 'bsaus-stats';
-        statsEl.textContent = `HP ${sausageType.battle.hp} / 攻 ${sausageType.battle.atk} / 速 ${sausageType.battle.spd}`;
-
-        textDiv.appendChild(nameEl);
-        textDiv.appendChild(statsEl);
-        infoDiv.appendChild(emojiEl);
-        infoDiv.appendChild(textDiv);
-
-        // Qty control
-        const control = document.createElement('div');
-        control.className = 'qty-control';
-
-        const minusBtn = document.createElement('button');
-        minusBtn.className = 'qty-btn btn-neon-red';
-        minusBtn.textContent = '−';
-        minusBtn.disabled = true;
-
-        const display = document.createElement('span');
-        display.className = 'qty-display';
-        display.textContent = '0';
-
-        const plusBtn = document.createElement('button');
-        plusBtn.className = 'qty-btn btn-neon-cyan';
-        plusBtn.textContent = '+';
-        plusButtons.push(plusBtn);
-
-        const stockNote = document.createElement('span');
-        stockNote.className = 'battle-stock-note';
-        stockNote.textContent = `庫存 ${availableQty}`;
-
-        const updateDisplay = () => {
-          const selected = this.selectedSausages[sausageId] ?? 0;
-          minusBtn.disabled = selected <= 0;
-          display.textContent = String(selected);
-          counter.textContent = `已選：${this.totalSelected} / ${this.maxUnits}`;
-          // Re-evaluate all plus buttons
-          plusButtons.forEach(btn => {
-            btn.disabled = this.totalSelected >= this.maxUnits;
-          });
-          plusBtn.disabled = (this.selectedSausages[sausageId] ?? 0) >= availableQty || this.totalSelected >= this.maxUnits;
-        };
-
-        minusBtn.addEventListener('click', () => {
-          if ((this.selectedSausages[sausageId] ?? 0) > 0) {
-            this.selectedSausages[sausageId]--;
-            this.totalSelected--;
-            updateDisplay();
-          }
-        });
-
-        plusBtn.addEventListener('click', () => {
-          const current = this.selectedSausages[sausageId] ?? 0;
-          if (current < availableQty && this.totalSelected < this.maxUnits) {
-            this.selectedSausages[sausageId] = current + 1;
-            this.totalSelected++;
-            updateDisplay();
-          }
-        });
-
-        control.appendChild(minusBtn);
-        control.appendChild(display);
-        control.appendChild(plusBtn);
-
-        row.appendChild(infoDiv);
-        row.appendChild(control);
-        row.appendChild(stockNote);
-        selectionList.appendChild(row);
+        row.appendChild(pieceEmoji);
+        row.appendChild(info);
+        row.appendChild(buyBtn);
+        shopList.appendChild(row);
       });
     }
 
-    panel.appendChild(selectionList);
+    panel.appendChild(shopList);
 
-    // Buttons row
+    // ── Army display ──────────────────────────────────────────────────────────
+    const armyHeader = document.createElement('div');
+    armyHeader.style.cssText = 'font-size:13px;color:#665577;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;';
+
+    const armyLabel = document.createElement('span');
+    armyLabel.textContent = '── 你的軍隊 ──';
+
+    this.armyCountEl = document.createElement('span');
+    this.armyCountEl.style.color = '#aaa';
+    this.armyCountEl.textContent = `(0 / ${MAX_ARMY})`;
+
+    armyHeader.appendChild(armyLabel);
+    armyHeader.appendChild(this.armyCountEl);
+    panel.appendChild(armyHeader);
+
+    this.armyListEl = document.createElement('div');
+    this.armyListEl.style.cssText =
+      'display:flex;flex-direction:column;gap:4px;min-height:40px;max-height:120px;overflow-y:auto;margin-bottom:6px;';
+    panel.appendChild(this.armyListEl);
+
+    this.mergeHintEl = document.createElement('div');
+    this.mergeHintEl.style.cssText = 'font-size:11px;color:#665577;margin-bottom:10px;';
+    this.mergeHintEl.textContent = '3 隻同類自動合成升星';
+    panel.appendChild(this.mergeHintEl);
+
+    // ── Timer ─────────────────────────────────────────────────────────────────
+    const timerBox = document.createElement('div');
+    timerBox.style.cssText = 'font-size:13px;margin-bottom:12px;';
+
+    this.timerEl = document.createElement('span');
+    this.timerEl.style.color = '#ffcc00';
+    this.timerEl.textContent = `準備時間：${PREP_SECONDS} 秒`;
+
+    timerBox.appendChild(this.timerEl);
+    panel.appendChild(timerBox);
+
+    // ── Buttons ───────────────────────────────────────────────────────────────
     const btnRow = document.createElement('div');
     btnRow.className = 'battle-btn-row';
 
-    // Skip/flee button
     const skipBtn = document.createElement('button');
     skipBtn.className = 'btn-neon btn-neon-red';
-    skipBtn.style.fontSize = '14px';
-    skipBtn.style.padding = '8px 18px';
+    skipBtn.style.cssText = 'font-size:14px;padding:8px 18px;';
     skipBtn.textContent = '逃跑';
     skipBtn.addEventListener('click', () => {
+      this.stopTimer();
       EventBus.emit('battle-skip');
     });
 
-    // Start battle button
     const startBtn = document.createElement('button');
     startBtn.className = 'btn-neon';
+    startBtn.style.cssText = 'font-size:14px;padding:8px 18px;';
     startBtn.textContent = '開戰！';
     startBtn.addEventListener('click', () => {
-      const hasUnits = Object.values(this.selectedSausages).some(qty => qty > 0);
-      if (!hasUnits && data.inventoryEntries.length > 0) {
-        // Auto-pick 1 sausage of first available type
-        const [firstId] = data.inventoryEntries[0];
-        this.selectedSausages[firstId] = 1;
-        this.totalSelected = 1;
-      }
-      EventBus.emit('battle-start', { selectedSausages: { ...this.selectedSausages } });
+      this.stopTimer();
+      EventBus.emit('battle-start', { pieces: [...this.pieces] });
     });
 
     btnRow.appendChild(skipBtn);
@@ -246,5 +226,143 @@ export class BattlePrepPanel {
     panel.appendChild(btnRow);
 
     return panel;
+  }
+
+  // ── Purchase logic ─────────────────────────────────────────────────────────
+
+  private buyPiece(sausageId: string, btn: HTMLButtonElement): void {
+    if (this.pieces.length >= MAX_ARMY) {
+      this.showMergeHint('軍隊已滿（最多 6 隻）');
+      return;
+    }
+
+    const cost = getPieceCost(sausageId);
+    if (this.budget < cost) {
+      this.showMergeHint('預算不足！');
+      return;
+    }
+
+    const piece = createPiece(sausageId, 'player', 0);
+    if (!piece) return;
+
+    this.budget -= cost;
+    this.pieces = [...this.pieces, piece];
+    this.updateBudgetDisplay();
+
+    // Attempt merge after each purchase
+    this.attemptMerges();
+    this.renderArmy();
+
+    // Brief visual feedback on buy button
+    const orig = btn.textContent;
+    btn.textContent = '已買！';
+    btn.disabled = true;
+    setTimeout(() => {
+      btn.textContent = orig;
+      btn.disabled = false;
+    }, 600);
+  }
+
+  // ── Merge logic ────────────────────────────────────────────────────────────
+
+  private attemptMerges(): void {
+    let mergedAny = true;
+    while (mergedAny) {
+      mergedAny = false;
+      for (const piece of this.pieces) {
+        if (!piece.isAlive) continue;
+        const result = tryMerge(this.pieces, piece.id);
+        if (result.merged) {
+          this.pieces = result.pieces;
+          mergedAny = true;
+          const stars = result.newPiece?.stars ?? 1;
+          this.showMergeHint(`合成成功！${'★'.repeat(stars)} ${result.newPiece?.name ?? ''}`);
+          break; // restart loop with new array
+        }
+      }
+    }
+  }
+
+  // ── Army rendering ─────────────────────────────────────────────────────────
+
+  private renderArmy(): void {
+    this.armyListEl.innerHTML = '';
+    this.armyCountEl.textContent = `(${this.pieces.length} / ${MAX_ARMY})`;
+
+    if (this.pieces.length === 0) {
+      const empty = document.createElement('div');
+      empty.style.cssText = 'color:#443355;font-size:12px;';
+      empty.textContent = '尚未購買任何棋子';
+      this.armyListEl.appendChild(empty);
+      return;
+    }
+
+    this.pieces.forEach(piece => {
+      const row = document.createElement('div');
+      row.style.cssText =
+        'display:flex;align-items:center;gap:8px;padding:3px 6px;border:1px solid #221133;border-radius:4px;background:#080012;font-size:12px;';
+
+      const stars = piece.stars > 0 ? '★'.repeat(piece.stars) : '';
+      const typeLabel = PIECE_TYPE_LABEL[piece.type] ?? piece.type;
+
+      row.innerHTML = `
+        <span style="font-size:18px;">${piece.emoji}</span>
+        <span style="color:#ffcc66;">${stars}</span>
+        <span style="color:#eee;">${piece.name}</span>
+        <span style="color:#886699;font-size:11px;">[${typeLabel}]</span>
+        <span style="color:#aaa;margin-left:auto;">HP:${piece.hp} ATK:${piece.atk} SPD:${piece.spd}</span>
+      `;
+
+      this.armyListEl.appendChild(row);
+    });
+  }
+
+  // ── Budget display ─────────────────────────────────────────────────────────
+
+  private updateBudgetDisplay(): void {
+    if (this.budgetEl) {
+      this.budgetEl.textContent = `剩餘預算：$${this.budget}`;
+    }
+  }
+
+  // ── Merge hint ─────────────────────────────────────────────────────────────
+
+  private showMergeHint(msg: string): void {
+    if (!this.mergeHintEl) return;
+    this.mergeHintEl.textContent = msg;
+    this.mergeHintEl.style.color = '#ffcc00';
+    setTimeout(() => {
+      if (this.mergeHintEl) {
+        this.mergeHintEl.textContent = '3 隻同類自動合成升星';
+        this.mergeHintEl.style.color = '#665577';
+      }
+    }, 2000);
+  }
+
+  // ── Timer ─────────────────────────────────────────────────────────────────
+
+  private startTimer(): void {
+    this.secondsLeft = PREP_SECONDS;
+    this.timerInterval = setInterval(() => {
+      this.secondsLeft--;
+      if (this.timerEl) {
+        this.timerEl.textContent = `準備時間：${this.secondsLeft} 秒`;
+        if (this.secondsLeft <= 10) {
+          this.timerEl.style.color = '#ff4455';
+        }
+      }
+      if (this.secondsLeft <= 0) {
+        this.stopTimer();
+        // Auto-start battle with whatever pieces we have
+        EventBus.emit('battle-start', { pieces: [...this.pieces] });
+      }
+    }, 1000);
+  }
+
+  private stopTimer(): void {
+    if (this.timerInterval !== null) {
+      clearInterval(this.timerInterval);
+      this.timerInterval = null;
+    }
   }
 }

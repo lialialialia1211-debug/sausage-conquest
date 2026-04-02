@@ -9,7 +9,8 @@ export const gameState = {
   reputation: 50,
   phase: 'boot' as GamePhase,
   inventory: {} as Record<string, number>,
-  map: {} as Record<number, string>,
+  playerSlot: 1 as number,  // current tier (1-9), starts at bottom
+  map: { 1: 'player', 2: 'enemy', 3: 'enemy', 4: 'enemy', 5: 'enemy', 6: 'enemy', 7: 'enemy', 8: 'enemy', 9: 'enemy' } as Record<number, string>,
   upgrades: {} as Record<string, boolean>,
   loans: {
     active: null,
@@ -27,7 +28,7 @@ export const gameState = {
     totalLoansRepaid: 0,
   } as Record<string, number>,
   dailyExpenses: 0,
-  selectedSlot: -1 as number,
+  selectedSlot: 1 as number,
   prices: {} as Record<string, number>,
   // Temporary daily sales log — GrillScene writes, SummaryScene reads
   dailySalesLog: [] as SaleRecord[],

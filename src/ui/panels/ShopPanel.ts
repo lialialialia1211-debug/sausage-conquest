@@ -25,6 +25,9 @@ export class ShopPanel {
   private tabContents: Map<ShopTab, HTMLElement> = new Map();
   private tabButtons: Map<ShopTab, HTMLButtonElement> = new Map();
 
+  // Marketing item quantities (keyed by item.id), reset each session
+  private marketingQty: Map<string, number> = new Map();
+
   // Loan sliders
   private bankSlider: HTMLInputElement | null = null;
   private bankSliderDisplay: HTMLElement | null = null;
@@ -425,25 +428,44 @@ export class ShopPanel {
     const container = document.createElement('div');
     container.className = 'shop-section';
 
+    // Ensure all items have a qty entry
+    for (const item of MARKETING_ITEMS) {
+      if (!this.marketingQty.has(item.id)) {
+        this.marketingQty.set(item.id, 0);
+      }
+    }
+
     for (const item of MARKETING_ITEMS) {
       const card = this.buildMarketingCard(item);
       container.appendChild(card);
     }
 
+    // Confirm-purchase button at the bottom
+    const confirmBtn = document.createElement('button');
+    confirmBtn.className = 'btn-neon shop-item-btn';
+    confirmBtn.style.width = '100%';
+    confirmBtn.style.marginTop = '12px';
+    confirmBtn.textContent = '確認購買';
+    confirmBtn.addEventListener('click', () => this.onConfirmMarketingPurchase(container, confirmBtn));
+    container.appendChild(confirmBtn);
+
     return container;
   }
 
   private buildMarketingCard(item: (typeof MARKETING_ITEMS)[number]): HTMLElement {
-    const canAfford = gameState.money >= item.cost;
     const purchaseCount = gameState.marketingPurchases[item.id] ?? 0;
     const refundAmount = Math.floor(item.cost * 0.7);
+    const maxQty = Math.min(20, Math.floor(gameState.money / item.cost));
+    const currentQty = this.marketingQty.get(item.id) ?? 0;
 
     const card = document.createElement('div');
     card.className = 'shop-item-card';
+    card.style.flexDirection = 'column';
+    card.style.alignItems = 'stretch';
 
-    // Info
-    const infoEl = document.createElement('div');
-    infoEl.className = 'shop-item-info';
+    // Top row: emoji + info
+    const topRow = document.createElement('div');
+    topRow.className = 'shop-item-info';
 
     const emojiEl = document.createElement('span');
     emojiEl.className = 'shop-item-emoji';
@@ -462,107 +484,125 @@ export class ShopPanel {
 
     const costEl = document.createElement('div');
     costEl.className = 'shop-item-cost';
-    costEl.textContent = `$${item.cost}`;
+    costEl.textContent = `單價 $${item.cost}　已購 ×${purchaseCount}`;
 
     detailEl.appendChild(nameEl);
     detailEl.appendChild(descEl);
     detailEl.appendChild(costEl);
 
-    infoEl.appendChild(emojiEl);
-    infoEl.appendChild(detailEl);
+    topRow.appendChild(emojiEl);
+    topRow.appendChild(detailEl);
+    card.appendChild(topRow);
 
-    // Right side: count + buy + refund
-    const rightEl = document.createElement('div');
-    rightEl.className = 'shop-item-right';
-    rightEl.style.display = 'flex';
-    rightEl.style.flexDirection = 'column';
-    rightEl.style.gap = '6px';
-    rightEl.style.alignItems = 'flex-end';
+    // Quantity control row: [ 清空 ] [ -1 ] [ 數量顯示 ] [ +1 ] [ +5 ] [ +10 ]
+    const qtyRow = document.createElement('div');
+    qtyRow.style.cssText = 'display:flex; align-items:center; gap:6px; margin-top:8px; flex-wrap:wrap;';
 
-    const countEl = document.createElement('div');
-    countEl.className = 'shop-item-count';
-    countEl.textContent = purchaseCount > 0 ? `×${purchaseCount}` : '';
+    const qtyDisplay = document.createElement('span');
+    qtyDisplay.style.cssText = 'min-width:40px; text-align:center; font-weight:bold; color:var(--color-accent,#ffcc00);';
+    qtyDisplay.textContent = String(currentQty);
 
-    const buyBtn = document.createElement('button');
+    const updateQty = (delta: number): void => {
+      const newQty = Math.max(0, Math.min(maxQty, (this.marketingQty.get(item.id) ?? 0) + delta));
+      this.marketingQty.set(item.id, newQty);
+      qtyDisplay.textContent = String(newQty);
+    };
 
+    const makeQtyBtn = (label: string, delta: number): HTMLButtonElement => {
+      const btn = document.createElement('button');
+      btn.className = 'btn-neon shop-item-btn';
+      btn.style.cssText = 'min-width:36px; padding:2px 6px; font-size:0.85em;';
+      btn.textContent = label;
+      btn.addEventListener('click', () => updateQty(delta));
+      return btn;
+    };
+
+    const clearBtn = document.createElement('button');
+    clearBtn.className = 'btn-neon shop-item-btn';
+    clearBtn.style.cssText = 'min-width:36px; padding:2px 6px; font-size:0.85em; border-color:var(--text-dim); color:var(--text-dim);';
+    clearBtn.textContent = '清空';
+    clearBtn.addEventListener('click', () => {
+      this.marketingQty.set(item.id, 0);
+      qtyDisplay.textContent = '0';
+    });
+
+    qtyRow.appendChild(clearBtn);
+    qtyRow.appendChild(makeQtyBtn('-1', -1));
+    qtyRow.appendChild(qtyDisplay);
+    qtyRow.appendChild(makeQtyBtn('+1', 1));
+    qtyRow.appendChild(makeQtyBtn('+5', 5));
+    qtyRow.appendChild(makeQtyBtn('+10', 10));
+
+    card.appendChild(qtyRow);
+
+    // Refund row (only visible if items already purchased)
     if (purchaseCount > 0) {
-      buyBtn.textContent = canAfford ? `購買（已買 ×${purchaseCount}）` : `餘額不足（已買 ×${purchaseCount}）`;
-    } else {
-      buyBtn.textContent = canAfford ? '購買' : '餘額不足';
-    }
-
-    if (!canAfford) {
-      buyBtn.className = 'btn-neon shop-item-btn shop-item-btn--disabled';
-      buyBtn.disabled = true;
-      buyBtn.style.opacity = '0.4';
-      buyBtn.style.cursor = 'not-allowed';
-      buyBtn.style.borderColor = 'var(--text-dim)';
-      buyBtn.style.color = 'var(--text-dim)';
-      buyBtn.style.textShadow = 'none';
-      buyBtn.style.boxShadow = 'none';
-    } else {
-      buyBtn.className = 'btn-neon shop-item-btn';
-      buyBtn.addEventListener('click', () => this.onBuyMarketing(item));
-    }
-
-    const refundBtn = document.createElement('button');
-    refundBtn.textContent = `退回 (退款 $${refundAmount})`;
-
-    if (purchaseCount === 0) {
-      refundBtn.className = 'btn-neon shop-item-btn shop-item-btn--disabled';
-      refundBtn.disabled = true;
-      refundBtn.style.opacity = '0.4';
-      refundBtn.style.cursor = 'not-allowed';
-      refundBtn.style.borderColor = 'var(--text-dim)';
-      refundBtn.style.color = 'var(--text-dim)';
-      refundBtn.style.textShadow = 'none';
-      refundBtn.style.boxShadow = 'none';
-    } else {
+      const refundBtn = document.createElement('button');
+      refundBtn.textContent = `退回 (退款 $${refundAmount})`;
       refundBtn.className = 'btn-neon shop-item-btn';
-      refundBtn.style.borderColor = 'var(--color-warning, #ff9800)';
-      refundBtn.style.color = 'var(--color-warning, #ff9800)';
+      refundBtn.style.cssText = 'margin-top:6px; border-color:var(--color-warning,#ff9800); color:var(--color-warning,#ff9800);';
       refundBtn.addEventListener('click', () => this.onRefundMarketing(item));
+      card.appendChild(refundBtn);
     }
-
-    rightEl.appendChild(countEl);
-    rightEl.appendChild(buyBtn);
-    rightEl.appendChild(refundBtn);
-
-    card.appendChild(infoEl);
-    card.appendChild(rightEl);
 
     return card;
   }
 
-  private applyMarketingEffect(item: (typeof MARKETING_ITEMS)[number]): void {
+  private applyMarketingEffect(item: (typeof MARKETING_ITEMS)[number], times: number): void {
     switch (item.id) {
       case 'flyer':
-        updateGameState({ dailyTrafficBonus: gameState.dailyTrafficBonus + 0.1 });
+        updateGameState({ dailyTrafficBonus: gameState.dailyTrafficBonus + 0.1 * times });
         break;
       case 'free-sample':
-        changeReputation(5);
+        for (let i = 0; i < times; i++) changeReputation(5);
         break;
-      // 'discount-sign' and 'sausagebox' effects are tracked in marketingPurchases
+      // 'discount-sign' and 'sausagebox' effects are tracked via marketingPurchases
       // and applied by CustomerEngine / SausageBoxPanel respectively
       default:
         break;
     }
   }
 
-  private onBuyMarketing(item: (typeof MARKETING_ITEMS)[number]): void {
-    const success = spendMoney(item.cost);
-    if (!success) return;
+  private onConfirmMarketingPurchase(_container: HTMLElement, confirmBtn: HTMLButtonElement): void {
+    let totalSpent = 0;
+    let anyPurchased = false;
 
-    const purchases = { ...gameState.marketingPurchases };
-    purchases[item.id] = (purchases[item.id] ?? 0) + 1;
-    updateGameState({ marketingPurchases: purchases });
+    for (const item of MARKETING_ITEMS) {
+      const qty = this.marketingQty.get(item.id) ?? 0;
+      if (qty <= 0) continue;
 
-    this.applyMarketingEffect(item);
+      const totalCost = qty * item.cost;
+      const success = spendMoney(totalCost);
+      if (!success) continue;
 
-    this.hasPurchasedThisSession = true;
-    this.refreshSkipBtnText();
-    this.refreshMoneyDisplay();
-    this.refreshMarketingTab();
+      totalSpent += totalCost;
+      anyPurchased = true;
+
+      const purchases = { ...gameState.marketingPurchases };
+      purchases[item.id] = (purchases[item.id] ?? 0) + qty;
+      updateGameState({ marketingPurchases: purchases });
+
+      this.applyMarketingEffect(item, qty);
+      this.marketingQty.set(item.id, 0);
+    }
+
+    if (anyPurchased) {
+      this.hasPurchasedThisSession = true;
+      this.refreshSkipBtnText();
+      this.refreshMoneyDisplay();
+
+      // Show brief feedback on the confirm button
+      confirmBtn.textContent = `已花費 $${totalSpent}，購買完成！`;
+      confirmBtn.disabled = true;
+      setTimeout(() => {
+        this.refreshMarketingTab();
+      }, 1200);
+    } else {
+      confirmBtn.textContent = '尚未選購任何道具';
+      setTimeout(() => {
+        confirmBtn.textContent = '確認購買';
+      }, 1200);
+    }
   }
 
   private onRefundMarketing(item: (typeof MARKETING_ITEMS)[number]): void {
@@ -577,10 +617,27 @@ export class ShopPanel {
     const content = this.tabContents.get('marketing');
     if (!content) return;
     content.textContent = '';
+
+    // Ensure all items have a qty entry
+    for (const item of MARKETING_ITEMS) {
+      if (!this.marketingQty.has(item.id)) {
+        this.marketingQty.set(item.id, 0);
+      }
+    }
+
     for (const item of MARKETING_ITEMS) {
       const card = this.buildMarketingCard(item);
       content.appendChild(card);
     }
+
+    // Confirm-purchase button
+    const confirmBtn = document.createElement('button');
+    confirmBtn.className = 'btn-neon shop-item-btn';
+    confirmBtn.style.width = '100%';
+    confirmBtn.style.marginTop = '12px';
+    confirmBtn.textContent = '確認購買';
+    confirmBtn.addEventListener('click', () => this.onConfirmMarketingPurchase(content, confirmBtn));
+    content.appendChild(confirmBtn);
   }
 
   // ── Tab 4: 資金周轉 ────────────────────────────────────────────────────────

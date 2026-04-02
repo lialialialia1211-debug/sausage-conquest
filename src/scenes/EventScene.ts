@@ -110,8 +110,8 @@ export class EventScene extends Phaser.Scene {
 
     this.cameras.main.fadeOut(400, 0, 0, 0);
     this.cameras.main.once('camerafadeoutcomplete', () => {
-      // After events: battle check (every 3 days), then summary
-      if (gameState.day % 3 === 0) {
+      // After events: battle check (every 2 days), then summary
+      if (gameState.day % 2 === 0) {
         this.scene.start('BattleScene');
       } else {
         this.scene.start('SummaryScene');

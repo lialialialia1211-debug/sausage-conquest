@@ -7,11 +7,9 @@ import { calculateDailyReport } from '../systems/EconomyEngine';
 import { processDaily } from '../systems/LoanEngine';
 import { checkAchievements } from '../systems/AchievementEngine';
 import { sfx } from '../utils/SoundFX';
-import { GRID_SLOTS } from '../data/map';
 import type { SaleRecord } from '../types';
 
-const TOTAL_SLOTS = GRID_SLOTS.length; // 10
-const MAX_DAYS = 30;
+const MAX_DAYS = 20;
 
 export class SummaryScene extends Phaser.Scene {
   private readyForNext = false;
@@ -47,9 +45,6 @@ export class SummaryScene extends Phaser.Scene {
     const dailyReport = calculateDailyReport(salesLog);
     const loanResult = processDaily();
 
-    // Determine if game over
-    const playerSlots = GRID_SLOTS.filter(s => gameState.map[s.id] === 'player').length;
-
     // Check: loan shark game over
     if (loanResult.gameOver) {
       this.triggerEnding('loan-shark');
@@ -62,8 +57,8 @@ export class SummaryScene extends Phaser.Scene {
       return;
     }
 
-    // Check: territory win
-    if (playerSlots >= TOTAL_SLOTS) {
+    // Check: territory win — reached slot 9 (top tier)
+    if (gameState.playerSlot >= 9) {
       this.triggerEnding('territory-win');
       return;
     }

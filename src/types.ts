@@ -316,3 +316,35 @@ export interface HuiState {
   totalPaidIn: number;      // how much player has paid in total
   totalCollected: number;   // how much player has collected
 }
+
+// ── 自走棋戰鬥系統 ──
+export type ChessPieceType = 'normal' | 'ranged' | 'aoe' | 'tank' | 'assassin' | 'support';
+
+export interface ChessPiece {
+  id: string;
+  sausageId: string;       // links to SAUSAGE_TYPES
+  name: string;
+  emoji: string;
+  type: ChessPieceType;
+  hp: number;
+  maxHp: number;
+  atk: number;
+  spd: number;
+  stars: number;           // 0 = base, 1 = ★1 (×1.5), 2 = ★2 (×2.5)
+  gridX: number;           // position on battlefield
+  gridY: number;
+  team: 'player' | 'opponent';
+  isAlive: boolean;
+}
+
+export interface AutoChessState {
+  playerPieces: ChessPiece[];
+  opponentPieces: ChessPiece[];
+  playerHp: number;        // base HP = 20
+  opponentHp: number;
+  round: number;
+  maxRounds: number;       // 20
+  phase: 'prep' | 'battle' | 'done';
+  battleLog: string[];
+  budget: number;          // remaining battle budget for buying pieces
+}

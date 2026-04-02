@@ -61,6 +61,10 @@ export class SummaryPanel {
     const revenueBox = this.buildRevenueBox(dailyReport);
     this.panel.appendChild(revenueBox);
 
+    // Slot tier info
+    const slotInfoEl = this.buildSlotInfo(dailyReport.day);
+    this.panel.appendChild(slotInfoEl);
+
     // Grill stats
     const grillStatsEl = this.buildGrillStats(grillStats);
     this.panel.appendChild(grillStatsEl);
@@ -338,6 +342,55 @@ export class SummaryPanel {
     });
 
     return section;
+  }
+
+  private buildSlotInfo(day: number): HTMLElement {
+    const slot = gameState.playerSlot || 1;
+    const slotData = GRID_SLOTS.find(s => s.tier === slot) || GRID_SLOTS[0];
+
+    const el = document.createElement('div');
+    el.className = 'summary-revenue-box';
+    el.style.borderColor = '#4455aa';
+
+    const title = document.createElement('div');
+    title.className = 'summary-section-title';
+    title.textContent = '📍 攤位位置';
+    el.appendChild(title);
+
+    const locationRow = document.createElement('div');
+    locationRow.className = 'summary-revenue-row';
+    const locationLabel = document.createElement('span');
+    locationLabel.className = 'summary-rev-label';
+    locationLabel.textContent = `第 ${slot} 層 / 9`;
+    const locationValue = document.createElement('span');
+    locationValue.className = 'summary-rev-value';
+    locationValue.style.color = '#aabbff';
+    locationValue.textContent = `${slotData.emoji} ${slotData.name}`;
+    locationRow.appendChild(locationLabel);
+    locationRow.appendChild(locationValue);
+    el.appendChild(locationRow);
+
+    const trafficRow = document.createElement('div');
+    trafficRow.className = 'summary-revenue-row';
+    const trafficLabel = document.createElement('span');
+    trafficLabel.className = 'summary-rev-label';
+    trafficLabel.textContent = '👥 人流加成';
+    const trafficValue = document.createElement('span');
+    trafficValue.className = 'summary-rev-value';
+    trafficValue.style.color = '#39ff14';
+    trafficValue.textContent = `×${slotData.trafficMultiplier.toFixed(2)}`;
+    trafficRow.appendChild(trafficLabel);
+    trafficRow.appendChild(trafficValue);
+    el.appendChild(trafficRow);
+
+    if (day % 2 === 0) {
+      const battleHint = document.createElement('div');
+      battleHint.style.cssText = 'margin-top: 8px; color: #ff8844; font-size: 13px; text-align: center;';
+      battleHint.textContent = '⚔️ 明天可發起換位血戰！';
+      el.appendChild(battleHint);
+    }
+
+    return el;
   }
 
   private buildRevenueBox(report: DailySummary): HTMLElement {

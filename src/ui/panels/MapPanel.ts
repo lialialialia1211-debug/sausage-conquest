@@ -98,8 +98,8 @@ export class MapPanel {
     const mapOwner = gameState.map[slot.id];
     if (mapOwner === 'player') return { isPlayer: true, isOpponent: false };
     if (mapOwner && mapOwner !== 'player') return { isPlayer: false, isOpponent: true, opponentId: mapOwner };
-    // Fallback to static data for slots not yet in gameState.map
-    if (slot.owner === 'opponent') return { isPlayer: false, isOpponent: true, opponentId: slot.opponentId };
+    // Fallback: if slot has an opponentId, treat as opponent
+    if (slot.opponentId) return { isPlayer: false, isOpponent: true, opponentId: slot.opponentId };
     return { isPlayer: false, isOpponent: false };
   }
 
@@ -391,7 +391,7 @@ export class MapPanel {
     if (!slot) return;
 
     // Check if player can afford ANY slot's rent
-    const availableSlots = GRID_SLOTS.filter(s => s.owner !== 'opponent');
+    const availableSlots = GRID_SLOTS.filter(s => !s.opponentId || gameState.map[s.id] === 'player');
     const cheapestRent = Math.min(...availableSlots.map(s => s.rent));
     const canAffordAnything = gameState.money >= cheapestRent;
 

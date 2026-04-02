@@ -1304,10 +1304,11 @@ export class GrillScene extends Phaser.Scene {
   }
 
   private generateCustomerPool(): void {
-    const slotId = gameState.selectedSlot;
-    const gridSlot = GRID_SLOTS.find(s => s.id === slotId);
-    // baseTraffic 30-80 → divide by 20 → 1.5-4.0 range
-    const rawTraffic = gridSlot ? gridSlot.baseTraffic / 20 : 2.5;
+    // Use slot-based traffic: playerSlot (1-9) maps to GRID_SLOTS by tier
+    const playerSlotData = GRID_SLOTS.find(s => s.tier === gameState.playerSlot) ?? GRID_SLOTS[0];
+    const baseTraffic = playerSlotData.baseTraffic * playerSlotData.trafficMultiplier;
+    // baseTraffic 30-80 (×multiplier) → divide by 20 → 1.5-4.0 range
+    const rawTraffic = baseTraffic / 20;
     const trafficNorm = Math.max(1, Math.min(5, rawTraffic));
 
     const marketingBonus = (gameState.upgrades['neon-sign'] ? 0.15 : 0) + (gameState.dailyTrafficBonus ?? 0);
@@ -2768,11 +2769,14 @@ export class GrillScene extends Phaser.Scene {
       })
       .join('   ');
 
+    const playerSlotData = GRID_SLOTS.find(s => s.tier === gameState.playerSlot) ?? GRID_SLOTS[0];
+
     const lines: string[] = [
       `Day ${gameState.day} — 準備營業`,
       '',
       `今日庫存：${inventorySummary || '（空）'}`,
       `營業時間：90 秒`,
+      `📍 第 ${gameState.playerSlot} 層 — ${playerSlotData.emoji} ${playerSlotData.name}（人流 ×${playerSlotData.trafficMultiplier}）`,
       '',
     ];
 

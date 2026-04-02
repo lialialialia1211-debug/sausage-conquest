@@ -1,11 +1,7 @@
 import Phaser from 'phaser';
-import { EventBus } from '../utils/EventBus';
-import { gameState } from '../state/GameState';
-
-interface EveningDonePayload {
-  selectedSlot: number;
-  prices: Record<string, number>;
-}
+import { gameState, updateGameState, spendMoney } from '../state/GameState';
+import { GRID_SLOTS } from '../data/map';
+import { SAUSAGE_TYPES } from '../data/sausages';
 
 // EveningScene: sunset ambiance background + MapPanel HTML overlay
 // Waits for evening-done event then transitions to GrillScene
@@ -58,10 +54,18 @@ export class EveningScene extends Phaser.Scene {
 
     this.cameras.main.fadeIn(400, 0, 0, 0);
 
-    EventBus.emit('show-panel', 'evening');
-    EventBus.emit('scene-ready', 'EveningScene');
+    // Auto-apply evening setup: slot is fixed by battle results, no selection needed
+    // MapPanel is skipped — auto-set location, deduct rent, carry forward prices
+    this.cameras.main.once('camerafadein', () => {
+      this.applyEveningAutomatically();
+    });
 
-    EventBus.once('evening-done', this.onEveningDone, this);
+    // Fallback: if fade-in event never fires, apply after short delay
+    this.time.delayedCall(600, () => {
+      if (!this.readyForNext) {
+        this.applyEveningAutomatically();
+      }
+    });
   }
 
   private createTwinklingLights(width: number, height: number): void {
@@ -93,23 +97,38 @@ export class EveningScene extends Phaser.Scene {
     }
   }
 
-  private onEveningDone = (data: EveningDonePayload): void => {
+  private applyEveningAutomatically(): void {
     if (this.readyForNext) return;
     this.readyForNext = true;
 
-    // Data is already stored in gameState by MapPanel before emit.
-    // Log for debugging (will be removed in production)
-    void data; // acknowledge parameter to avoid lint warning
+    // Auto-select location: player's slot is fixed by battle results
+    const playerTier = gameState.playerSlot || 1;
+    const slot = GRID_SLOTS.find(s => s.tier === playerTier) || GRID_SLOTS[0];
 
-    EventBus.emit('hide-panel');
+    updateGameState({ selectedSlot: slot.id });
+
+    // Auto-deduct rent for the current slot
+    if (slot.rent > 0) {
+      spendMoney(slot.rent);
+      updateGameState({ dailyExpenses: gameState.dailyExpenses + slot.rent });
+    }
+
+    // Carry forward existing prices; fill missing unlocked sausages with suggested price
+    const prices: Record<string, number> = {};
+    for (const s of SAUSAGE_TYPES) {
+      if (gameState.unlockedSausages.includes(s.id)) {
+        prices[s.id] = (gameState.prices as Record<string, number>)?.[s.id] ?? s.suggestedPrice;
+      }
+    }
+    updateGameState({ prices });
+
     this.cameras.main.fadeOut(400, 0, 0, 0);
     this.cameras.main.once('camerafadeoutcomplete', () => {
       this.scene.start('GrillScene');
     });
-  };
+  }
 
   shutdown(): void {
-    EventBus.off('evening-done', this.onEveningDone, this);
     // Tweens are cleaned up automatically by Phaser on scene shutdown
     this.twinkleDots = [];
     this.lightTweens = [];

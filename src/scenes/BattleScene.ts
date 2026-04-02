@@ -1,44 +1,52 @@
-// BattleScene — 深夜地盤爭奪戰 (pure Phaser)
+// BattleScene — 換位血戰（Auto-chess battle system）
 import Phaser from 'phaser';
 import { EventBus } from '../utils/EventBus';
-import { gameState, updateGameState } from '../state/GameState';
-import { OPPONENT_MAP } from '../data/opponents';
-import { BattleSausage } from '../objects/BattleSausage';
-import { sfx } from '../utils/SoundFX';
+import { gameState, spendMoney } from '../state/GameState';
+import { GRID_SLOTS, OPPONENT_INFO } from '../data/map';
 import {
-  createBattleUnit,
-  generateOpponentUnits,
-  executeBattle,
-  type BattleUnit,
-  type BattleAction,
-  type BattleResult,
-} from '../systems/BattleEngine';
+  generateOpponentArmy,
+  calculateBattleCost,
+  initBattleState,
+  executeRound,
+  checkBattleEnd,
+  applyBattleResult,
+  applySimulationBuff,
+} from '../systems/AutoChessEngine';
+import type { ChessPiece, AutoChessState } from '../types';
 
-// Layout
+// ── Layout constants ───────────────────────────────────────────────────────────
 const FONT = 'Microsoft JhengHei, PingFang TC, sans-serif';
-const PLAYER_BASE_X_FRAC = 0.25;
-const OPPONENT_BASE_X_FRAC = 0.75;
-const UNIT_Y_FRAC = 0.42;
-const UNIT_SPACING = 70;
+
+const PLAYER_SIDE_X_FRAC  = 0.22;
+const OPP_SIDE_X_FRAC     = 0.78;
+const PIECES_START_Y_FRAC = 0.28;
+const PIECE_SPACING_Y     = 52;
+const LOG_Y_FRAC          = 0.70;
+const LOG_LINE_H          = 20;
+const MAX_LOG_LINES       = 3;
 
 export class BattleScene extends Phaser.Scene {
-  private opponentId = '';
-  private playerUnits: BattleUnit[] = [];
-  private opponentUnits: BattleUnit[] = [];
-  private playerSprites: Map<string, BattleSausage> = new Map();
-  private opponentSprites: Map<string, BattleSausage> = new Map();
-  private battleResult: BattleResult | null = null;
+  // Battle state
+  private battleState: AutoChessState | null = null;
+  private playerPieces: ChessPiece[] = [];
+  private isRunningRounds = false;
 
-  // UI elements
-  private roundText!: Phaser.GameObjects.Text;
-  private logTexts: Phaser.GameObjects.Text[] = [];
-  private continueBtn!: Phaser.GameObjects.Container;
+  // UI text refs
   private titleText!: Phaser.GameObjects.Text;
+  private roundText!: Phaser.GameObjects.Text;
+  private playerHpText!: Phaser.GameObjects.Text;
+  private oppHpText!: Phaser.GameObjects.Text;
   private resultText!: Phaser.GameObjects.Text;
+  private continueBtn!: Phaser.GameObjects.Container;
+  private logTexts: Phaser.GameObjects.Text[] = [];
 
-  // Battle timing
-  private currentRoundIndex = 0;
-  private isPlayingRound = false;
+  // Piece display objects: pieceId → { emoji, hpBar, hpBg }
+  private pieceDisplays: Map<string, {
+    emojiText: Phaser.GameObjects.Text;
+    hpBg: Phaser.GameObjects.Graphics;
+    hpBar: Phaser.GameObjects.Graphics;
+    hpLabel: Phaser.GameObjects.Text;
+  }> = new Map();
 
   constructor() {
     super({ key: 'BattleScene' });
@@ -48,82 +56,92 @@ export class BattleScene extends Phaser.Scene {
     this.load.image('battle-cover', 'battle-cover.png');
   }
 
+  // ── create ─────────────────────────────────────────────────────────────────
+
   create(): void {
     const { width, height } = this.scale;
 
-    // Reset state
-    this.playerUnits = [];
-    this.opponentUnits = [];
-    this.playerSprites = new Map();
-    this.opponentSprites = new Map();
-    this.battleResult = null;
-    this.currentRoundIndex = 0;
-    this.isPlayingRound = false;
+    // Reset
+    this.battleState = null;
+    this.playerPieces = [];
+    this.isRunningRounds = false;
     this.logTexts = [];
-
-    // Pick random opponent from enemy-owned slots
-    this.opponentId = this.pickOpponentId();
+    this.pieceDisplays = new Map();
 
     this.drawBackground(width, height);
-    this.drawBattlefield(width, height);
     this.setupTitleText(width, height);
     this.setupRoundText(width, height);
+    this.setupBaseHpText(width, height);
     this.setupLogArea(width, height);
     this.setupContinueButton(width, height);
 
     this.cameras.main.fadeIn(500, 0, 0, 0);
     EventBus.emit('scene-ready', 'BattleScene');
 
-    // Show pre-battle prep overlay after fade
     this.cameras.main.once('camerafadeincomplete', () => {
-      this.showPrepOverlay();
+      this.handleBattleDay();
     });
   }
 
-  // ── Opponent selection ─────────────────────────────────────────────────────
+  // ── Battle day gate ────────────────────────────────────────────────────────
 
-  private pickOpponentId(): string {
-    // Find opponent slots adjacent or pick any enemy slot for now (P0: random)
-    const enemySlotOwners = Object.entries(gameState.map).filter(([, owner]) => owner !== 'player');
-    if (enemySlotOwners.length > 0) {
-      const randomEntry = enemySlotOwners[Math.floor(Math.random() * enemySlotOwners.length)];
-      const opponentId = randomEntry[1];
-      if (OPPONENT_MAP[opponentId]) return opponentId;
+  private handleBattleDay(): void {
+    const isBattleDay = gameState.day % 2 === 0;
+    if (!isBattleDay) {
+      this.titleText.setText('今日無戰事，直接結算');
+      this.time.delayedCall(1200, () => this.transitionToSummary());
+      return;
     }
-    // Default to uncle if no map data
-    return 'uncle';
+
+    const costInfo = calculateBattleCost();
+    if (!costInfo.canAfford) {
+      this.showCannotAffordUI();
+      return;
+    }
+
+    this.showPrepOverlay();
   }
 
-  // ── Pre-battle prep overlay ────────────────────────────────────────────────
+  // ── Cannot afford ──────────────────────────────────────────────────────────
+
+  private showCannotAffordUI(): void {
+    const { width, height } = this.scale;
+
+    this.titleText.setText('資金不足，無法發起挑戰');
+
+    const msgText = this.add.text(width / 2, height * 0.40,
+      `需要 $${calculateBattleCost().playerCost}（現有 $${gameState.money}）\n選擇逃跑或繼續`,
+      {
+        fontSize: '15px',
+        fontFamily: FONT,
+        color: '#ff9944',
+        align: 'center',
+      },
+    ).setOrigin(0.5);
+
+    const skipBtn = this.makeTextButton(width / 2, height * 0.55, '跳過，直接結算', () => {
+      msgText.destroy();
+      skipBtn.destroy();
+      this.transitionToSummary();
+    });
+  }
+
+  // ── Prep overlay ───────────────────────────────────────────────────────────
 
   private showPrepOverlay(): void {
-    const opponent = OPPONENT_MAP[this.opponentId];
-    const opponentName = opponent?.name ?? '神秘對手';
-    const opponentEmoji = opponent?.emoji ?? '❓';
-    const opponentDialogue = opponent?.dialogue.beforeBattle ?? '決戰吧！';
-    const difficulty = opponent?.difficulty ?? 1;
-
-    // Build inventory list for selection
-    const inventoryEntries = Object.entries(gameState.inventory).filter(([, qty]) => qty > 0);
+    this.titleText.setText('準備戰鬥⋯⋯');
 
     EventBus.emit('show-panel', 'battle-prep', {
-      opponentId: this.opponentId,
-      opponentName,
-      opponentEmoji,
-      opponentDialogue,
-      difficulty,
-      inventoryEntries,
+      playerSlot: gameState.playerSlot,
     });
 
-    // Listen for player ready
     const startHandler = (data: unknown) => {
       EventBus.off('battle-skip', skipHandler);
-      const { selectedSausages } = data as { selectedSausages: Record<string, number> };
       EventBus.emit('hide-panel');
-      this.startBattle(selectedSausages);
+      const { pieces } = data as { pieces: ChessPiece[] };
+      this.startBattle(pieces);
     };
 
-    // Handle if player cancels / skips
     const skipHandler = () => {
       EventBus.off('battle-start', startHandler);
       EventBus.emit('hide-panel');
@@ -134,12 +152,12 @@ export class BattleScene extends Phaser.Scene {
     EventBus.once('battle-skip', skipHandler);
   }
 
-  // ── Battle start ────────────────────────────────────────────────────────────
+  // ── Start battle ───────────────────────────────────────────────────────────
 
-  private startBattle(selectedSausages: Record<string, number>): void {
+  private startBattle(selectedPieces: ChessPiece[]): void {
     const { width, height } = this.scale;
 
-    // Show FEVER TIME splash before battle begins
+    // ── FEVER TIME splash (keep existing code) ─────────────────────────────
     if (this.textures.exists('battle-cover')) {
       const splash = this.add.container(0, 0).setDepth(50);
       const overlay = this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.9);
@@ -150,7 +168,6 @@ export class BattleScene extends Phaser.Scene {
       img.setScale(0).setAlpha(0);
       splash.add([overlay, img]);
 
-      // Punch-in animation
       this.tweens.add({
         targets: img,
         scale: { from: 0, to: scale },
@@ -159,7 +176,6 @@ export class BattleScene extends Phaser.Scene {
         ease: 'Back.Out',
       });
 
-      // Auto-dismiss after 1.5s
       this.time.delayedCall(1500, () => {
         this.tweens.add({
           targets: splash,
@@ -170,432 +186,240 @@ export class BattleScene extends Phaser.Scene {
       });
     }
 
-    // Deduct selected sausages from inventory
-    const newInventory = { ...gameState.inventory };
-    for (const [id, qty] of Object.entries(selectedSausages)) {
-      if (qty > 0) {
-        newInventory[id] = Math.max(0, (newInventory[id] ?? 0) - qty);
-        if (newInventory[id] === 0) delete newInventory[id];
-      }
-    }
-    updateGameState({ inventory: newInventory });
+    // Deduct battle entry cost
+    const costInfo = calculateBattleCost();
+    spendMoney(costInfo.playerCost);
 
-    // Create player units from selection
-    let unitIndex = 0;
-    this.playerUnits = [];
-    for (const [sausageId, qty] of Object.entries(selectedSausages)) {
-      for (let i = 0; i < qty; i++) {
-        this.playerUnits.push(createBattleUnit(sausageId, 'player', unitIndex++));
-      }
-    }
+    // Use a fallback piece if player bought nothing
+    this.playerPieces = selectedPieces.length > 0
+      ? selectedPieces
+      : [];
 
-    // Fallback if somehow no units (shouldn't happen, but defensive)
-    if (this.playerUnits.length === 0) {
-      const firstItem = Object.keys(gameState.inventory)[0];
-      if (firstItem) {
-        this.playerUnits.push(createBattleUnit(firstItem, 'player', 0));
-      }
-    }
+    // Apply simulation buff if applicable
+    applySimulationBuff(this.playerPieces);
 
-    // Create opponent units
-    const opponent = OPPONENT_MAP[this.opponentId];
-    const unitCount = opponent?.unitCount ?? 3;
-    this.opponentUnits = generateOpponentUnits(this.opponentId, unitCount);
+    // Generate opponent army
+    const opponentSlot = gameState.playerSlot + 1;
+    const opponentPieces = generateOpponentArmy(opponentSlot);
 
-    // Run battle simulation
-    this.battleResult = executeBattle(this.playerUnits, this.opponentUnits);
+    // Init battle state
+    this.battleState = initBattleState(this.playerPieces, opponentPieces, 0);
+    this.battleState = { ...this.battleState, phase: 'battle' };
 
-    // Spawn sprites
-    this.spawnUnitSprites(width, height);
+    // Draw initial piece display
+    this.spawnPieceDisplays(width, height);
 
-    // Show intro animation then start rounds
-    this.showIntroAnimation(() => {
-      this.playNextRound();
+    // Update base HP display
+    this.updateBaseHpText();
+
+    // Set title
+    const opponentSlotData = GRID_SLOTS.find(s => s.tier === opponentSlot);
+    const oppInfo = opponentSlotData ? OPPONENT_INFO[opponentSlotData.opponentId] : null;
+    const oppLabel = oppInfo ? `${oppInfo.emoji} ${oppInfo.name}` : '神秘對手';
+    this.titleText.setText(`第 ${gameState.playerSlot} 層 vs ${oppLabel}`);
+
+    // Start round loop after splash finishes (1.8s delay)
+    this.time.delayedCall(1800, () => {
+      this.runNextRound();
     });
   }
 
-  // ── Sprite spawning ────────────────────────────────────────────────────────
+  // ── Piece display ──────────────────────────────────────────────────────────
 
-  private spawnUnitSprites(width: number, height: number): void {
-    const unitY = height * UNIT_Y_FRAC;
+  private spawnPieceDisplays(width: number, height: number): void {
+    if (!this.battleState) return;
 
-    // Player units — left side, stacked vertically
-    this.playerUnits.forEach((unit, i) => {
-      const offsetY = (i - (this.playerUnits.length - 1) / 2) * UNIT_SPACING;
-      const sprite = new BattleSausage(this, width * PLAYER_BASE_X_FRAC, unitY + offsetY, unit);
-      this.playerSprites.set(unit.id, sprite);
-    });
+    const allPieces: Array<{ piece: ChessPiece; isPlayer: boolean }> = [
+      ...this.battleState.playerPieces.map(p => ({ piece: p, isPlayer: true })),
+      ...this.battleState.opponentPieces.map(p => ({ piece: p, isPlayer: false })),
+    ];
 
-    // Opponent units — right side, flip horizontally
-    this.opponentUnits.forEach((unit, i) => {
-      const offsetY = (i - (this.opponentUnits.length - 1) / 2) * UNIT_SPACING;
-      const sprite = new BattleSausage(this, width * OPPONENT_BASE_X_FRAC, unitY + offsetY, unit);
-      sprite.setScale(-1, 1); // flip horizontally
-      this.opponentSprites.set(unit.id, sprite);
+    const playerPieces   = allPieces.filter(e => e.isPlayer);
+    const opponentPieces = allPieces.filter(e => !e.isPlayer);
+
+    const spawnSide = (
+      entries: typeof allPieces,
+      baseX: number,
+    ) => {
+      entries.forEach(({ piece }, i) => {
+        const py = height * PIECES_START_Y_FRAC + i * PIECE_SPACING_Y;
+
+        const emojiText = this.add.text(baseX, py, piece.emoji, {
+          fontSize: '24px',
+          fontFamily: FONT,
+        }).setOrigin(0.5);
+
+        const barW = 48;
+        const barH = 6;
+        const barX = baseX - barW / 2;
+        const barY = py + 18;
+
+        const hpBg = this.add.graphics();
+        hpBg.fillStyle(0x330022, 1);
+        hpBg.fillRect(barX, barY, barW, barH);
+
+        const hpBar = this.add.graphics();
+        hpBar.fillStyle(0x44ff88, 1);
+        hpBar.fillRect(barX, barY, barW, barH);
+
+        const hpLabel = this.add.text(baseX, barY + barH + 2, `${piece.hp}`, {
+          fontSize: '10px',
+          fontFamily: FONT,
+          color: '#aaaaaa',
+        }).setOrigin(0.5, 0);
+
+        this.pieceDisplays.set(piece.id, { emojiText, hpBg, hpBar, hpLabel });
+      });
+    };
+
+    spawnSide(playerPieces,   width * PLAYER_SIDE_X_FRAC);
+    spawnSide(opponentPieces, width * OPP_SIDE_X_FRAC);
+  }
+
+  private refreshPieceDisplays(): void {
+    if (!this.battleState) return;
+
+    const allPieces = [
+      ...this.battleState.playerPieces,
+      ...this.battleState.opponentPieces,
+    ];
+
+    allPieces.forEach(piece => {
+      const display = this.pieceDisplays.get(piece.id);
+      if (!display) return;
+
+      if (!piece.isAlive) {
+        // Dim defeated pieces
+        display.emojiText.setAlpha(0.25);
+        display.hpBar.clear();
+        display.hpLabel.setText('✕');
+        display.hpLabel.setColor('#ff4455');
+        return;
+      }
+
+      // Recalculate HP bar fill
+      const ratio = Math.max(0, piece.hp / piece.maxHp);
+      display.hpBar.clear();
+      const color = ratio > 0.5 ? 0x44ff88 : ratio > 0.25 ? 0xffcc00 : 0xff4455;
+      display.hpBar.fillStyle(color, 1);
+
+      // We need bar geometry — derive from emojiText position
+      const barW = 48;
+      const barH = 6;
+      const barX = display.emojiText.x - barW / 2;
+      const barY = display.emojiText.y + 18;
+      display.hpBar.fillRect(barX, barY, barW * ratio, barH);
+
+      display.hpLabel.setText(`${piece.hp}`);
     });
   }
 
-  // ── Round playback ─────────────────────────────────────────────────────────
+  // ── Round loop ─────────────────────────────────────────────────────────────
 
-  private playNextRound(): void {
-    if (!this.battleResult || this.isPlayingRound) return;
+  private runNextRound(): void {
+    if (!this.battleState || this.isRunningRounds) return;
 
-    if (this.currentRoundIndex >= this.battleResult.rounds.length) {
-      // All rounds done — show result
-      this.time.delayedCall(500, () => this.showResult());
+    const endCheck = checkBattleEnd(this.battleState);
+    if (endCheck.ended) {
+      this.showResult(endCheck.winner ?? 'draw');
       return;
     }
 
-    this.isPlayingRound = true;
-    const round = this.battleResult.rounds[this.currentRoundIndex];
-    this.currentRoundIndex++;
+    this.isRunningRounds = true;
+    this.battleState = executeRound(this.battleState);
 
-    // Update round counter
-    this.roundText.setText(`第 ${round.roundNumber} 回合 / 共 ${this.battleResult.rounds.length} 回合`);
+    const roundNum = this.battleState.round;
+    this.roundText.setText(`第 ${roundNum} 回合`);
 
-    // Play actions sequentially within the round
-    this.playActionsSequentially(round.actions, 0, () => {
-      this.isPlayingRound = false;
-      // Auto-advance after short pause
-      this.time.delayedCall(800, () => this.playNextRound());
-    });
-  }
+    // Show last 3 log lines
+    const log = this.battleState.battleLog;
+    const recent = log.slice(-MAX_LOG_LINES);
+    recent.forEach(line => this.addLogEntry(line));
 
-  private playActionsSequentially(
-    actions: BattleAction[],
-    index: number,
-    onDone: () => void,
-  ): void {
-    if (index >= actions.length) {
-      onDone();
-      return;
-    }
+    // Refresh piece HP bars
+    this.refreshPieceDisplays();
+    this.updateBaseHpText();
 
-    const action = actions[index];
-    const attackerSprite = this.getSprite(action.attackerId);
-    const defenderSprite = this.getSprite(action.defenderId);
+    // Check end condition after executing this round
+    const afterCheck = checkBattleEnd(this.battleState);
 
-    // Show log
-    this.addLogEntry(action.logText);
+    this.isRunningRounds = false;
 
-    // Play attacker dash animation
-    if (attackerSprite && defenderSprite) {
-      sfx.playAttack();
-      attackerSprite.playAttackAnim(defenderSprite.x, () => {
-        // Defender hit
-        if (defenderSprite) {
-          // Update HP on sprite
-          const defUnit = this.findUnit(action.defenderId);
-          if (defUnit) {
-            const updatedUnit = { ...defUnit, hp: action.defenderHpAfter, alive: !action.defenderDied };
-            defenderSprite.updateUnit(updatedUnit);
-            defenderSprite.playHitAnim();
-
-            if (action.defenderDied) {
-              this.time.delayedCall(300, () => {
-                defenderSprite.playDeathAnim();
-              });
-            }
-          }
-        }
-
-        // Next action after this one settles
-        this.time.delayedCall(600, () => {
-          this.playActionsSequentially(actions, index + 1, onDone);
-        });
-      });
+    if (afterCheck.ended) {
+      this.time.delayedCall(600, () => this.showResult(afterCheck.winner ?? 'draw'));
     } else {
-      // No sprite — still update data and advance
-      this.time.delayedCall(300, () => {
-        this.playActionsSequentially(actions, index + 1, onDone);
-      });
+      this.time.delayedCall(1000, () => this.runNextRound());
     }
   }
 
-  private getSprite(unitId: string): BattleSausage | undefined {
-    return this.playerSprites.get(unitId) ?? this.opponentSprites.get(unitId);
-  }
+  // ── Result ─────────────────────────────────────────────────────────────────
 
-  private findUnit(unitId: string): BattleUnit | undefined {
-    return [...this.playerUnits, ...this.opponentUnits].find(u => u.id === unitId);
-  }
+  private showResult(winner: 'player' | 'opponent' | 'draw'): void {
+    const resultMsg = applyBattleResult(winner);
 
-  // ── Log area ───────────────────────────────────────────────────────────────
+    let color = '#ffcc00';
+    if (winner === 'player')   color = '#44ff88';
+    if (winner === 'opponent') color = '#ff4455';
 
-  private setupLogArea(width: number, height: number): void {
-    const logLabelY = height * 0.68;
-    this.add.text(width / 2, logLabelY, '戰鬥 LOG', {
-      fontSize: '13px',
-      fontFamily: FONT,
-      color: '#665577',
-    }).setOrigin(0.5);
-  }
+    this.resultText
+      .setText(resultMsg)
+      .setColor(color)
+      .setVisible(true)
+      .setAlpha(0);
 
-  private addLogEntry(text: string): void {
-    const { width, height } = this.scale;
-    const logStartY = height * 0.72;
-    const maxLines = 4;
+    this.tweens.add({ targets: this.resultText, alpha: 1, duration: 500 });
 
-    // Shift existing lines up
-    this.logTexts.forEach(t => {
-      t.setY(t.y - 22);
-    });
-
-    // Remove oldest if over limit
-    while (this.logTexts.length >= maxLines) {
-      const old = this.logTexts.shift();
-      if (old) {
-        this.tweens.add({
-          targets: old,
-          alpha: 0,
-          duration: 200,
-          onComplete: () => old.destroy(),
-        });
-      }
-    }
-
-    const newEntry = this.add.text(width / 2, logStartY + (maxLines - 1) * 22, text, {
-      fontSize: '13px',
-      fontFamily: FONT,
-      color: '#bbaacc',
-      align: 'center',
-    }).setOrigin(0.5).setAlpha(0);
-
-    this.logTexts.push(newEntry);
-    this.tweens.add({ targets: newEntry, alpha: 1, duration: 200 });
-  }
-
-  // ── Intro animation ────────────────────────────────────────────────────────
-
-  private showIntroAnimation(onComplete: () => void): void {
-    const { width, height } = this.scale;
-    const opponent = OPPONENT_MAP[this.opponentId];
-    const oppLabel = opponent ? `${opponent.emoji} ${opponent.name}` : '神秘對手';
-
-    // Dark overlay
-    const overlay = this.add.graphics();
-    overlay.fillStyle(0x000000, 0.75);
-    overlay.fillRect(0, 0, width, height);
-    overlay.setDepth(10);
-
-    // Opponent name slide in from right
-    const oppNameText = this.add.text(width + 60, height * 0.38, oppLabel, {
-      fontSize: '28px',
-      fontFamily: FONT,
-      color: '#ff4455',
-      fontStyle: 'bold',
-      shadow: { blur: 14, color: '#ff0033', fill: true },
-    }).setOrigin(0.5).setDepth(11);
-
-    // Player label slide in from left
-    const playerText = this.add.text(-60, height * 0.54, '你', {
-      fontSize: '28px',
-      fontFamily: FONT,
-      color: '#4488ff',
-      fontStyle: 'bold',
-      shadow: { blur: 14, color: '#0044ff', fill: true },
-    }).setOrigin(0.5).setDepth(11);
-
-    // VS center text — starts invisible
-    const vsText = this.add.text(width / 2, height * 0.46, 'VS', {
-      fontSize: '52px',
-      fontFamily: FONT,
-      color: '#ffffff',
-      fontStyle: 'bold',
-      shadow: { blur: 20, color: '#ff1144', fill: true },
-    }).setOrigin(0.5).setAlpha(0).setDepth(11);
-
-    // Slide in both sides simultaneously
-    this.tweens.add({
-      targets: oppNameText,
-      x: width / 2,
-      duration: 400,
-      ease: 'Back.Out',
-    });
-
-    this.tweens.add({
-      targets: playerText,
-      x: width / 2,
-      duration: 400,
-      ease: 'Back.Out',
-      onComplete: () => {
-        // Flash VS text
-        this.tweens.add({
-          targets: vsText,
-          alpha: 1,
-          duration: 200,
-          yoyo: true,
-          repeat: 2,
-          onComplete: () => {
-            vsText.setAlpha(1);
-            // Hold briefly then fade everything out
-            this.time.delayedCall(600, () => {
-              this.tweens.add({
-                targets: [overlay, oppNameText, playerText, vsText],
-                alpha: 0,
-                duration: 350,
-                onComplete: () => {
-                  overlay.destroy();
-                  oppNameText.destroy();
-                  playerText.destroy();
-                  vsText.destroy();
-                  this.titleText.setText('⚔ 地盤爭奪戰');
-                  onComplete();
-                },
-              });
-            });
-          },
-        });
-      },
-    });
-  }
-
-  // ── Result screen ──────────────────────────────────────────────────────────
-
-  private showResult(): void {
-    if (!this.battleResult) return;
-
-
-    const { width, height } = this.scale;
-    const winner = this.battleResult.winner;
-    const playerWon = winner === 'player';
-    const isTimeout = winner === 'timeout';
-
-    // Update territory
-    this.applyTerritoryChange(playerWon);
-
-    // Display result banner
-    let resultMsg = '';
-    let resultColor = '';
-    if (isTimeout) {
-      resultMsg = '⚖ 平局！雙方僵持不下';
-      resultColor = '#ffcc00';
-    } else if (playerWon) {
-      resultMsg = '勝利！奪下地盤！';
-      resultColor = '#44ff88';
-      sfx.playVictory();
-    } else {
-      resultMsg = '敗北⋯⋯地盤易主';
-      resultColor = '#ff4466';
-      sfx.playDefeat();
-    }
-
-    this.resultText.setText(resultMsg).setColor(resultColor).setVisible(true);
-
-    // Fade in result
-    this.tweens.add({ targets: this.resultText, alpha: 1, duration: 400 });
-
-    // Show opponent aftermath dialogue in a styled overlay bubble
-    const opponent = OPPONENT_MAP[this.opponentId];
-    if (opponent) {
-      const dialogue = isTimeout
-        ? ((opponent.dialogue as Record<string, string>).timeout ?? opponent.dialogue.win)
-        : (playerWon ? opponent.dialogue.win : opponent.dialogue.lose);
-      this.showDialogueBubble(opponent.emoji, dialogue, width, height);
-    }
-
-    // Show continue button
     this.time.delayedCall(800, () => {
       this.continueBtn.setVisible(true);
       this.tweens.add({ targets: this.continueBtn, alpha: 1, duration: 300 });
     });
   }
 
-  private showDialogueBubble(emoji: string, dialogue: string, width: number, height: number): void {
-    const bubbleY = height * 0.63;
-    const bubbleW = width * 0.78;
-    const bubblePadH = 12;
-    const bubblePadW = 18;
+  // ── Log area ───────────────────────────────────────────────────────────────
 
-    // Background pill for speech bubble
-    const bubbleBg = this.add.graphics();
-    bubbleBg.fillStyle(0x110022, 0.92);
-    bubbleBg.lineStyle(1, 0xaa44cc, 0.8);
-    bubbleBg.fillRoundedRect(
-      width / 2 - bubbleW / 2,
-      bubbleY - 22,
-      bubbleW,
-      56,
-      10,
-    );
-    bubbleBg.strokeRoundedRect(
-      width / 2 - bubbleW / 2,
-      bubbleY - 22,
-      bubbleW,
-      56,
-      10,
-    );
-    bubbleBg.setAlpha(0).setDepth(5);
-
-    // Emoji label
-    const emojiText = this.add.text(
-      width / 2 - bubbleW / 2 + bubblePadW,
-      bubbleY + 6,
-      emoji,
-      { fontSize: '20px', fontFamily: FONT },
-    ).setOrigin(0, 0.5).setAlpha(0).setDepth(6);
-
-    // Dialogue text
-    const dialogueText = this.add.text(
-      width / 2 - bubbleW / 2 + bubblePadW + 30,
-      bubbleY + 6,
-      `「${dialogue}」`,
-      {
-        fontSize: '13px',
-        fontFamily: FONT,
-        color: '#cc99ee',
-        align: 'left',
-        wordWrap: { width: bubbleW - bubblePadW * 2 - 34 },
-      },
-    ).setOrigin(0, 0.5).setAlpha(0).setDepth(6);
-
-    // Resize bubble to fit text height
-    const textH = dialogueText.height;
-    if (textH > 30) {
-      bubbleBg.clear();
-      bubbleBg.fillStyle(0x110022, 0.92);
-      bubbleBg.lineStyle(1, 0xaa44cc, 0.8);
-      const newH = textH + bubblePadH * 2;
-      bubbleBg.fillRoundedRect(width / 2 - bubbleW / 2, bubbleY - newH / 2, bubbleW, newH, 10);
-      bubbleBg.strokeRoundedRect(width / 2 - bubbleW / 2, bubbleY - newH / 2, bubbleW, newH, 10);
-    }
-
-    // Fade in
-    this.tweens.add({
-      targets: [bubbleBg, emojiText, dialogueText],
-      alpha: 1,
-      duration: 500,
-      delay: 400,
-    });
+  private setupLogArea(width: number, height: number): void {
+    this.add.text(width / 2, height * LOG_Y_FRAC - 18, '戰鬥記錄', {
+      fontSize: '12px',
+      fontFamily: FONT,
+      color: '#443355',
+    }).setOrigin(0.5);
   }
 
-  private applyTerritoryChange(playerWon: boolean): void {
-    const opponent = OPPONENT_MAP[this.opponentId];
-    const newMap = { ...gameState.map };
-    const isTimeout = this.battleResult?.winner === 'timeout';
+  private addLogEntry(text: string): void {
+    const { width, height } = this.scale;
+    const baseY = height * LOG_Y_FRAC;
 
-    if (playerWon && opponent) {
-      // Player takes opponent's slot
-      newMap[opponent.gridSlot] = 'player';
-      updateGameState({ map: newMap });
-    } else if (!playerWon && !isTimeout) {
-      // Player loses one of their own slots (tie does not count as loss)
-      const playerSlots = Object.entries(newMap).filter(([, owner]) => owner === 'player');
-      if (playerSlots.length > 0) {
-        const lostSlotId = parseInt(playerSlots[0][0]);
-        delete newMap[lostSlotId];
-        updateGameState({ map: newMap });
+    // Shift existing lines up
+    this.logTexts.forEach(t => t.setY(t.y - LOG_LINE_H));
+
+    // Remove oldest beyond limit
+    while (this.logTexts.length >= MAX_LOG_LINES) {
+      const old = this.logTexts.shift();
+      if (old) {
+        this.tweens.add({
+          targets: old,
+          alpha: 0,
+          duration: 150,
+          onComplete: () => old.destroy(),
+        });
       }
     }
 
-    // Increment battle stats
-    const updatedStats: Record<string, number> = { ...gameState.stats };
-    if (playerWon) {
-      updatedStats.battlesWon = (gameState.stats.battlesWon ?? 0) + 1;
-    } else if (!isTimeout) {
-      updatedStats.battlesLost = (gameState.stats.battlesLost ?? 0) + 1;
-    }
-    updateGameState({ stats: updatedStats });
+    const entry = this.add.text(
+      width / 2,
+      baseY + (MAX_LOG_LINES - 1) * LOG_LINE_H,
+      text,
+      {
+        fontSize: '12px',
+        fontFamily: FONT,
+        color: '#aa88cc',
+        align: 'center',
+        wordWrap: { width: width * 0.85 },
+      },
+    ).setOrigin(0.5).setAlpha(0);
+
+    this.logTexts.push(entry);
+    this.tweens.add({ targets: entry, alpha: 1, duration: 200 });
   }
 
   // ── UI setup ───────────────────────────────────────────────────────────────
@@ -605,83 +429,103 @@ export class BattleScene extends Phaser.Scene {
     bg.fillGradientStyle(0x050010, 0x050010, 0x100020, 0x100020, 1);
     bg.fillRect(0, 0, width, height);
 
-    // Atmospheric glow
     const glow = this.add.graphics();
     glow.fillStyle(0xff1144, 0.04);
     glow.fillEllipse(width / 2, height * 0.45, width * 0.9, height * 0.5);
-  }
 
-  private drawBattlefield(width: number, height: number): void {
-    // Center divider line
-    const line = this.add.graphics();
-    line.lineStyle(1, 0x441155, 0.6);
-    line.beginPath();
-    line.moveTo(width / 2, height * 0.22);
-    line.lineTo(width / 2, height * 0.60);
-    line.strokePath();
-
-    // VS text
-    this.add.text(width / 2, height * 0.40, 'VS', {
-      fontSize: '22px',
-      fontFamily: FONT,
-      color: '#441133',
-      fontStyle: 'bold',
-    }).setOrigin(0.5);
-
-    // Team labels
-    this.add.text(width * PLAYER_BASE_X_FRAC, height * 0.23, '我方', {
-      fontSize: '14px',
+    // Team label row
+    this.add.text(width * PLAYER_SIDE_X_FRAC, height * 0.18, '我方', {
+      fontSize: '13px',
       fontFamily: FONT,
       color: '#4488ff',
     }).setOrigin(0.5);
 
-    const opponent = OPPONENT_MAP[this.opponentId];
-    const opponentLabel = opponent ? `${opponent.emoji} ${opponent.name}` : '敵方';
-    this.add.text(width * OPPONENT_BASE_X_FRAC, height * 0.23, opponentLabel, {
-      fontSize: '14px',
+    this.add.text(width * OPP_SIDE_X_FRAC, height * 0.18, '對手', {
+      fontSize: '13px',
       fontFamily: FONT,
       color: '#ff4455',
+    }).setOrigin(0.5);
+
+    // Center divider
+    const line = this.add.graphics();
+    line.lineStyle(1, 0x441155, 0.5);
+    line.beginPath();
+    line.moveTo(width / 2, height * 0.20);
+    line.lineTo(width / 2, height * 0.65);
+    line.strokePath();
+
+    this.add.text(width / 2, height * 0.42, 'VS', {
+      fontSize: '18px',
+      fontFamily: FONT,
+      color: '#331144',
+      fontStyle: 'bold',
     }).setOrigin(0.5);
   }
 
   private setupTitleText(width: number, height: number): void {
-    this.titleText = this.add.text(width / 2, height * 0.12, '準備戰鬥⋯⋯', {
-      fontSize: '22px',
+    this.titleText = this.add.text(width / 2, height * 0.08, '換位血戰', {
+      fontSize: '20px',
       fontFamily: FONT,
       color: '#ff2d55',
       fontStyle: 'bold',
       shadow: { blur: 10, color: '#ff0055', fill: true },
     }).setOrigin(0.5);
 
-    this.resultText = this.add.text(width / 2, height * 0.56, '', {
-      fontSize: '24px',
+    this.resultText = this.add.text(width / 2, height * 0.62, '', {
+      fontSize: '16px',
       fontFamily: FONT,
       color: '#44ff88',
       fontStyle: 'bold',
+      align: 'center',
+      wordWrap: { width: width * 0.85 },
     }).setOrigin(0.5).setAlpha(0).setVisible(false);
   }
 
   private setupRoundText(width: number, height: number): void {
-    this.roundText = this.add.text(width / 2, height * 0.18, '', {
-      fontSize: '14px',
+    this.roundText = this.add.text(width / 2, height * 0.13, '', {
+      fontSize: '13px',
       fontFamily: FONT,
       color: '#665577',
     }).setOrigin(0.5);
   }
 
+  private setupBaseHpText(width: number, height: number): void {
+    this.playerHpText = this.add.text(width * PLAYER_SIDE_X_FRAC, height * 0.22, '', {
+      fontSize: '12px',
+      fontFamily: FONT,
+      color: '#4488ff',
+    }).setOrigin(0.5);
+
+    this.oppHpText = this.add.text(width * OPP_SIDE_X_FRAC, height * 0.22, '', {
+      fontSize: '12px',
+      fontFamily: FONT,
+      color: '#ff4455',
+    }).setOrigin(0.5);
+  }
+
+  private updateBaseHpText(): void {
+    if (!this.battleState) return;
+    this.playerHpText.setText(`基地 HP：${this.battleState.playerHp}`);
+    this.oppHpText.setText(`基地 HP：${this.battleState.opponentHp}`);
+  }
+
   private setupContinueButton(width: number, height: number): void {
     const bx = width / 2;
-    const by = height * 0.88;
+    const by = height * 0.90;
     const btnW = 140;
     const btnH = 44;
 
     const container = this.add.container(bx, by);
 
     const bg = this.add.graphics();
-    bg.fillStyle(0x0a0015, 0.95);
-    bg.lineStyle(2, 0xff2d55, 0.9);
-    bg.fillRoundedRect(-btnW / 2, -btnH / 2, btnW, btnH, 6);
-    bg.strokeRoundedRect(-btnW / 2, -btnH / 2, btnW, btnH, 6);
+    const drawBg = (hover: boolean) => {
+      bg.clear();
+      bg.fillStyle(hover ? 0xff2d55 : 0x0a0015, hover ? 0.25 : 0.95);
+      bg.lineStyle(2, 0xff2d55, hover ? 1 : 0.9);
+      bg.fillRoundedRect(-btnW / 2, -btnH / 2, btnW, btnH, 6);
+      bg.strokeRoundedRect(-btnW / 2, -btnH / 2, btnW, btnH, 6);
+    };
+    drawBg(false);
 
     const label = this.add.text(0, 0, '繼 續', {
       fontSize: '18px',
@@ -691,20 +535,8 @@ export class BattleScene extends Phaser.Scene {
     }).setOrigin(0.5);
 
     const hit = this.add.zone(0, 0, btnW, btnH).setInteractive({ cursor: 'pointer' });
-    hit.on('pointerover', () => {
-      bg.clear();
-      bg.fillStyle(0xff2d55, 0.2);
-      bg.lineStyle(2, 0xff2d55, 1);
-      bg.fillRoundedRect(-btnW / 2, -btnH / 2, btnW, btnH, 6);
-      bg.strokeRoundedRect(-btnW / 2, -btnH / 2, btnW, btnH, 6);
-    });
-    hit.on('pointerout', () => {
-      bg.clear();
-      bg.fillStyle(0x0a0015, 0.95);
-      bg.lineStyle(2, 0xff2d55, 0.9);
-      bg.fillRoundedRect(-btnW / 2, -btnH / 2, btnW, btnH, 6);
-      bg.strokeRoundedRect(-btnW / 2, -btnH / 2, btnW, btnH, 6);
-    });
+    hit.on('pointerover', () => drawBg(true));
+    hit.on('pointerout',  () => drawBg(false));
     hit.on('pointerdown', () => this.transitionToSummary());
 
     container.add([bg, label, hit]);
@@ -712,22 +544,46 @@ export class BattleScene extends Phaser.Scene {
     this.continueBtn = container;
   }
 
+  // ── Helpers ────────────────────────────────────────────────────────────────
+
+  /**
+   * Create a simple inline text-based button for quick informational prompts.
+   */
+  private makeTextButton(
+    x: number,
+    y: number,
+    label: string,
+    onClick: () => void,
+  ): Phaser.GameObjects.Text {
+    const btn = this.add.text(x, y, label, {
+      fontSize: '16px',
+      fontFamily: FONT,
+      color: '#ff2d55',
+      backgroundColor: '#11001a',
+      padding: { x: 14, y: 8 },
+    }).setOrigin(0.5).setInteractive({ cursor: 'pointer' });
+
+    btn.on('pointerover', () => btn.setColor('#ff6688'));
+    btn.on('pointerout',  () => btn.setColor('#ff2d55'));
+    btn.on('pointerdown', onClick);
+
+    return btn;
+  }
+
   // ── Transition ─────────────────────────────────────────────────────────────
 
   private transitionToSummary(): void {
     this.cameras.main.fadeOut(500, 0, 0, 0);
     this.cameras.main.once('camerafadeoutcomplete', () => {
-      // salesLog is stored in gameState.dailySalesLog by GrillScene
       this.scene.start('SummaryScene');
     });
   }
 
   shutdown(): void {
     this.time.removeAllEvents();
-    this.logTexts.forEach(t => { if (t && t.active) t.destroy(); });
+    this.logTexts.forEach(t => { if (t?.active) t.destroy(); });
     this.logTexts = [];
-    this.playerSprites.clear();
-    this.opponentSprites.clear();
+    this.pieceDisplays.clear();
     EventBus.off('battle-start');
     EventBus.off('battle-skip');
   }

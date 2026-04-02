@@ -5,19 +5,17 @@ import { spoilOvernight } from '../systems/EconomyEngine';
 import { processAIDaily, checkNewOpponent } from '../systems/AIEngine';
 import { STORY_BEATS } from '../data/dialogue';
 import { checkAndUnlockBlackMarket } from '../systems/BlackMarketEngine';
+import { GRID_SLOTS } from '../data/map';
 
-// Sausage unlock schedule: [day, sausageId, name]
-// Day-based unlock schedule: [day, sausageId, name]
-const UNLOCK_SCHEDULE: [number, string, string][] = [
-  [1, 'big-taste', '大嚐莖'],
-  [3, 'big-wrap-small', '大腸包小腸'],
-  [5, 'cheese', '起司爆漿'],
-  [8, 'squidink', '墨魚香腸'],
-  [12, 'mala', '麻辣螺螄'],
-];
-// Battle-based unlock: 萬里腸城 unlocks after first battle won
-const BATTLE_UNLOCKS: [string, string][] = [
-  ['great-wall', '萬里腸城'],
+// Slot-based unlock schedule: [requiredSlot, sausageId, name]
+// Player must reach the given tier to unlock the sausage variety
+const SLOT_UNLOCKS: [number, string, string][] = [
+  [1, 'big-taste', '大嚐莖'],        // available from start
+  [2, 'big-wrap-small', '大腸包小腸'], // slot 2
+  [3, 'cheese', '起司爆漿'],          // slot 3
+  [5, 'squidink', '墨魚香腸'],        // slot 5
+  [6, 'great-wall', '萬里腸城'],      // slot 6
+  [7, 'mala', '麻辣螺螄'],           // slot 7
 ];
 
 export class MorningScene extends Phaser.Scene {
@@ -71,23 +69,18 @@ export class MorningScene extends Phaser.Scene {
       notifications.unshift(storyBeat); // story beats show first
     }
 
-    // Check sausage unlocks
-    for (const [day, id, name] of UNLOCK_SCHEDULE) {
-      if (gameState.day >= day && !gameState.unlockedSausages.includes(id)) {
-        updateGameState({
-          unlockedSausages: [...gameState.unlockedSausages, id],
-        });
-        notifications.push(`新品種解鎖：${name}！`);
-      }
-    }
+    // Show current slot position at top of notifications
+    const currentSlot = GRID_SLOTS.find(s => s.tier === gameState.playerSlot) || GRID_SLOTS[0];
+    const currentSlotName = `${currentSlot.emoji} ${currentSlot.name}`;
+    notifications.unshift(`📍 目前位置：第 ${gameState.playerSlot} 層 — ${currentSlotName}`);
 
-    // Check battle-based unlocks
-    for (const [id, name] of BATTLE_UNLOCKS) {
-      if (gameState.stats.battlesWon > 0 && !gameState.unlockedSausages.includes(id)) {
+    // Check slot-based sausage unlocks
+    for (const [requiredSlot, id, name] of SLOT_UNLOCKS) {
+      if (gameState.playerSlot >= requiredSlot && !gameState.unlockedSausages.includes(id)) {
         updateGameState({
           unlockedSausages: [...gameState.unlockedSausages, id],
         });
-        notifications.push(`戰鬥獎勵解鎖：${name}！`);
+        notifications.push(`📍 第 ${requiredSlot} 層解鎖：${name}！`);
       }
     }
 
