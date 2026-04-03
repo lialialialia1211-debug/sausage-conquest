@@ -1074,7 +1074,7 @@ export class BattleScene extends Phaser.Scene {
       const maxH = height * 0.35;
       const maxW = width * 0.35;
       const scale = Math.min(maxH / portrait.height, maxW / portrait.width);
-      portrait.setScale(scale).setDepth(this.opponentEmoji.depth - 1);
+      portrait.setScale(scale).setDepth(this.opponentEmoji.depth + 1);
       this.opponentEmoji.setAlpha(0); // hide emoji, show portrait instead
     }
 

@@ -792,7 +792,7 @@ export class GrillScene extends Phaser.Scene {
 
   private setupWarmingZone(width: number, height: number): void {
     this.wzX = (width - width * 0.5) / 2; // centered, 50% width
-    this.wzY = height * GRILL_Y_FRAC + 80; // BELOW the grill with more space
+    this.wzY = height * GRILL_Y_FRAC + 90; // BELOW the heat buttons
     this.wzSlotW = width * 0.5;
 
     // Zone label
@@ -1006,21 +1006,20 @@ export class GrillScene extends Phaser.Scene {
     });
   }
 
-  private setupHeatButtons(_width: number, height: number): void {
-    // Heat buttons on left side, between grill and warming zone
-    const btnY = height * GRILL_Y_FRAC + 55;
+  private setupHeatButtons(width: number, height: number): void {
+    // Heat buttons centered below grill
+    const btnY = height * GRILL_Y_FRAC + 45;
     const levels: { level: HeatLevel; label: string; icon: string }[] = [
       { level: 'low',    label: '小火', icon: '🔥' },
       { level: 'medium', label: '中火', icon: '🔥🔥' },
       { level: 'high',   label: '大火', icon: '🔥🔥🔥' },
     ];
 
-    const btnW = 72;
+    const btnW = 52;
     const btnH = 44;
-    const gap = 10;
-    const totalW = levels.length * btnW + (levels.length - 1) * gap;
-    // Left side: start near edge, away from centered warming zone
-    const startX = 16;
+    const gap = 8;
+    const totalW = 3 * btnW + 2 * gap;
+    const startX = (width - totalW) / 2;
 
     levels.forEach((item, i) => {
       const bx = startX + i * (btnW + gap) + btnW / 2;
@@ -1038,7 +1037,7 @@ export class GrillScene extends Phaser.Scene {
 
     this.updateHeatButtonStyles();
 
-    this.add.text(startX + totalW / 2, btnY - 26, '火力控制', {
+    this.add.text(startX + totalW / 2, btnY - 22, '火力控制', {
       fontSize: '12px',
       fontFamily: FONT,
       color: COLOR_DIM,
@@ -1046,16 +1045,16 @@ export class GrillScene extends Phaser.Scene {
   }
 
   private setupSpeedButtons(width: number, height: number): void {
-    // Speed buttons on right side, between grill and warming zone
-    const btnY = height * GRILL_Y_FRAC + 55;
+    // Speed buttons below warming zone, right of center
+    const btnY = height * GRILL_Y_FRAC + 230;
     const speeds = [1, 2, 3];
 
     const btnW = 36;
     const btnH = 28;
     const gap = 5;
     const totalBtnW = speeds.length * btnW + (speeds.length - 1) * gap;
-    // Right side: align to right edge
-    const startX = width - totalBtnW - 16;
+    // Right of center
+    const startX = width / 2 + 20;
 
     speeds.forEach((spd, i) => {
       const bx = startX + i * (btnW + gap) + btnW / 2;
@@ -1069,7 +1068,7 @@ export class GrillScene extends Phaser.Scene {
     this.updateSpeedButtonStyles();
 
     const centerX = startX + totalBtnW / 2;
-    this.add.text(centerX, btnY - 20, '速度', {
+    this.add.text(centerX, btnY - 16, '速度', {
       fontSize: '12px',
       fontFamily: FONT,
       color: COLOR_DIM,
@@ -1294,9 +1293,9 @@ export class GrillScene extends Phaser.Scene {
   private setupEndButton(width: number, height: number): void {
     const btnW = 100;
     const btnH = 30;
-    // Place below warming zone
-    const bx = width / 2;
-    const by = height * GRILL_Y_FRAC + 260;
+    // Same row as speed buttons, left of center
+    const bx = width / 2 - 60;
+    const by = height * GRILL_Y_FRAC + 230;
 
     this.createButton(bx, by, btnW, btnH, '結束營業', () => {
       this.endGrilling();
