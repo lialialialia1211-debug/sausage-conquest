@@ -908,7 +908,9 @@ export class GrillScene extends Phaser.Scene {
 
   private setupCustomerQueue(width: number, _height: number): void {
     const queueY = this.scale.height * 0.13;
-    this.customerQueue = new CustomerQueue(this, 28, queueY);
+    // Center queue: 6 slots × 73px = 438px; offset by half to center on screen
+    const queueX = Math.round(width / 2 - 219);
+    this.customerQueue = new CustomerQueue(this, queueX, queueY);
     this.customerQueue.onTimeout((customerId: string) => {
       this.onCustomerTimeout(customerId);
     });
@@ -1411,14 +1413,23 @@ export class GrillScene extends Phaser.Scene {
 
   private triggerCombat(customer: Customer): void {
     this.paused = true;
-    const witnessCount = Math.floor(Math.random() * 5); // 0-4
 
-    // Show karen alert splash
+    // Show pre-combat notification using personality emoji
+    const emoji = getPersonalityEmoji(customer.personality);
+    this.showFeedback(
+      `${emoji} 麻煩來了！`,
+      this.scale.width / 2,
+      this.scale.height * 0.25,
+      '#ff4444',
+    );
+
+    // Show karen alert splash FIRST, then open combat panel after it fades
     if (this.textures.exists('karen-alert')) {
-      const alert = this.add.image(this.scale.width / 2, this.scale.height / 2, 'karen-alert')
-        .setDepth(45);
-      const maxW = this.scale.width * 0.5;
-      const maxH = this.scale.height * 0.4;
+      const w = this.scale.width;
+      const h = this.scale.height;
+      const alert = this.add.image(w / 2, h / 2, 'karen-alert').setDepth(45);
+      const maxW = w * 0.5;
+      const maxH = h * 0.4;
       const scale = Math.min(maxW / alert.width, maxH / alert.height);
       alert.setScale(0).setAlpha(0);
 
@@ -1431,26 +1442,27 @@ export class GrillScene extends Phaser.Scene {
         ease: 'Back.Out',
       });
 
-      // Auto-dismiss after 1.5s
+      // After 1.5s, dismiss alert and THEN open combat panel
       this.time.delayedCall(1500, () => {
         this.tweens.add({
           targets: alert,
           alpha: 0,
           scale: scale * 0.8,
-          duration: 300,
-          onComplete: () => alert.destroy(),
+          duration: 200,
+          onComplete: () => {
+            alert.destroy();
+            this.openCombatPanel(customer);
+          },
         });
       });
+    } else {
+      // No image, open panel immediately
+      this.openCombatPanel(customer);
     }
+  }
 
-    // Show pre-combat notification using personality emoji
-    const emoji = getPersonalityEmoji(customer.personality);
-    this.showFeedback(
-      `${emoji} 麻煩來了！`,
-      this.scale.width / 2,
-      this.scale.height * 0.25,
-      '#ff4444',
-    );
+  private openCombatPanel(customer: Customer): void {
+    const witnessCount = Math.floor(Math.random() * 5); // 0-4
 
     const panelArea = document.getElementById('panel-area');
     if (!panelArea) {

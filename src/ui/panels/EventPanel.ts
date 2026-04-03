@@ -8,7 +8,7 @@ export class EventPanel {
 
   constructor(event: GameEvent) {
     this.panel = document.createElement('div');
-    this.panel.className = 'game-panel ui-interactive event-panel';
+    this.panel.className = 'game-panel ui-interactive event-panel fade-in';
 
     this.buildChoicePhase(event);
   }

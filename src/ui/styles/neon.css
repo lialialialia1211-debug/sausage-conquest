@@ -231,14 +231,31 @@ body {
   animation: neon-flicker 4s infinite;
 }
 
-/* Fade in animation */
+/* Fade in animation — flashy entrance */
 @keyframes fade-in {
   from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
 .fade-in {
-  animation: fade-in 0.4s ease forwards;
+  animation: panelFlashIn 0.4s ease-out;
+}
+
+@keyframes panelFlashIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.85) translateY(20px);
+    filter: brightness(2);
+  }
+  50% {
+    opacity: 1;
+    filter: brightness(1.5);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+    filter: brightness(1);
+  }
 }
 
 /* ─── MorningPanel — sausage card styles ─── */
@@ -1414,6 +1431,12 @@ body {
   border-radius: 12px;
   margin-bottom: 10px;
   text-align: center;
+  animation: badgeGlow 1.5s ease-in-out infinite alternate;
+}
+
+@keyframes badgeGlow {
+  from { box-shadow: 0 0 5px currentColor; }
+  to { box-shadow: 0 0 15px currentColor, 0 0 30px currentColor; }
 }
 
 .event-category-badge[data-category='customer'] {

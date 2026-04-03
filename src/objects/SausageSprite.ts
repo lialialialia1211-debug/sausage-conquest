@@ -92,6 +92,23 @@ export class SausageSprite extends Phaser.GameObjects.Container {
     }).setOrigin(0.5);
     this.add(this.labelText);
 
+    // Try to display art image on top of programmatic body
+    const textureKey = `sausage-${sausage.sausageTypeId}`;
+    if (scene.textures.exists(textureKey)) {
+      const artImage = scene.add.image(0, 0, textureKey);
+      // Scale to fit the sausage body size (approximately 60×24 px)
+      const targetW = 56;
+      const targetH = 28;
+      const scale = Math.min(targetW / artImage.width, targetH / artImage.height);
+      artImage.setScale(scale);
+      artImage.setDepth(1); // above the gfx body
+      this.add(artImage); // add to container
+
+      // Hide the programmatic body since we have art
+      this.sausageGfx.setVisible(false);
+      if (this.varietyGfx) this.varietyGfx.setVisible(false);
+    }
+
     // Hit area — only covers the sausage body, not above it (起鍋 button lives above)
     const hitZone = scene.add.zone(0, 6, SAUSAGE_W + 20, SAUSAGE_H + 30)
       .setInteractive({ cursor: 'pointer' });
