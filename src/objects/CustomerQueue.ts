@@ -6,9 +6,9 @@ import { SAUSAGE_MAP } from '../data/sausages';
 import { CONDIMENTS } from '../data/condiments';
 import { gameState } from '../state/GameState';
 
-const CUSTOMER_SLOT_W = 73;
-const PATIENCE_BAR_H = 5;
-const PATIENCE_BAR_W = 62;
+const CUSTOMER_SLOT_W = 100;
+const PATIENCE_BAR_H = 6;
+const PATIENCE_BAR_W = 80;
 
 // Emoji based on patience fraction
 function getCustomerEmoji(frac: number): string {
@@ -50,13 +50,13 @@ export class CustomerQueue extends Phaser.GameObjects.Container {
     // Spawn far right, then tween to proper slot position
     const slotIndex = this.displays.filter(d => d.state === 'waiting').length;
     const targetX = slotIndex * CUSTOMER_SLOT_W;
-    const spawnX = targetX + 286; // enter from right
+    const spawnX = targetX + 400; // enter from right
 
     const container = this.scene.add.container(spawnX, 0);
     this.add(container);
 
     const emojiText = this.scene.add.text(0, 0, getCustomerEmoji(1), {
-      fontSize: '36px',
+      fontSize: '48px',
       align: 'center',
     }).setOrigin(0.5);
 
@@ -75,7 +75,7 @@ export class CustomerQueue extends Phaser.GameObjects.Container {
 
     if (this.scene.textures.exists(imageKey)) {
       const portrait = this.scene.add.image(0, 0, imageKey);
-      const pScale = Math.min(50 / portrait.width, 50 / portrait.height);
+      const pScale = Math.min(70 / portrait.width, 70 / portrait.height);
       portrait.setScale(pScale);
       container.add(portrait);
       // Move emoji behind/hide it
@@ -86,7 +86,7 @@ export class CustomerQueue extends Phaser.GameObjects.Container {
 
     const patBarBg = this.scene.add.graphics();
     patBarBg.fillStyle(0x333333, 1);
-    patBarBg.fillRect(-PATIENCE_BAR_W / 2, 29, PATIENCE_BAR_W, PATIENCE_BAR_H);
+    patBarBg.fillRect(-PATIENCE_BAR_W / 2, 38, PATIENCE_BAR_W, PATIENCE_BAR_H);
 
     const patBarFill = this.scene.add.graphics();
 
@@ -102,8 +102,8 @@ export class CustomerQueue extends Phaser.GameObjects.Container {
         .join('');
       const bubbleText = condimentEmojis ? `${sausageEmoji}${condimentEmojis}` : sausageEmoji;
 
-      orderBubble = this.scene.add.text(0, -47, bubbleText, {
-        fontSize: '17px',
+      orderBubble = this.scene.add.text(0, -60, bubbleText, {
+        fontSize: '20px',
         align: 'center',
       }).setOrigin(0.5);
     }
@@ -111,8 +111,8 @@ export class CustomerQueue extends Phaser.GameObjects.Container {
     if (customer.loyaltyBadge && customer.loyaltyBadge !== 'none') {
       const badgeEmoji = customer.loyaltyBadge === 'gold' ? '🥇'
         : customer.loyaltyBadge === 'silver' ? '🥈' : '🥉';
-      badgeBubble = this.scene.add.text(CUSTOMER_SLOT_W / 2 - 8, -39, badgeEmoji, {
-        fontSize: '14px',
+      badgeBubble = this.scene.add.text(CUSTOMER_SLOT_W / 2 - 10, -50, badgeEmoji, {
+        fontSize: '16px',
       }).setOrigin(0.5);
     }
 
@@ -376,7 +376,7 @@ export class CustomerQueue extends Phaser.GameObjects.Container {
 
     if (fillW > 0) {
       display.patBarFill.fillStyle(color, 1);
-      display.patBarFill.fillRect(-PATIENCE_BAR_W / 2, 29, fillW, PATIENCE_BAR_H);
+      display.patBarFill.fillRect(-PATIENCE_BAR_W / 2, 38, fillW, PATIENCE_BAR_H);
     }
   }
 }

@@ -601,28 +601,34 @@ export class GrillScene extends Phaser.Scene {
       this.bgGrillImage = bgImg;
     }
 
-    // Fire underneath the grill
+    // Fire flames BELOW the grill rack (multiple small flames in a row)
     if (this.textures.exists('fire-flame')) {
-      const fire = this.add.image(width / 2, height * 0.52, 'fire-flame');
-      const fScale = Math.min((width * 0.7) / fire.width, 50 / fire.height);
-      fire.setScale(fScale).setAlpha(0.6).setDepth(0);
-
-      // Gentle flicker animation
-      this.tweens.add({
-        targets: fire,
-        alpha: { from: 0.5, to: 0.7 },
-        scaleX: { from: fScale * 0.95, to: fScale * 1.05 },
-        duration: 400,
-        yoyo: true,
-        repeat: -1,
-        ease: 'Sine.easeInOut',
-      });
+      const fireY = height * GRILL_Y_FRAC + 50; // below grill slots
+      const flameCount = 4;
+      for (let i = 0; i < flameCount; i++) {
+        const fx = width * 0.25 + (width * 0.5 / (flameCount - 1)) * i;
+        const fire = this.add.image(fx, fireY, 'fire-flame');
+        const fScale = Math.min(35 / fire.width, 35 / fire.height);
+        fire.setScale(fScale).setAlpha(0.7).setDepth(-1);
+        // Each flame flickers at slightly different timing
+        this.tweens.add({
+          targets: fire,
+          alpha: { from: 0.5, to: 0.8 },
+          scaleY: { from: fScale * 0.9, to: fScale * 1.15 },
+          duration: 300 + i * 80,
+          yoyo: true,
+          repeat: -1,
+          ease: 'Sine.easeInOut',
+        });
+      }
     }
 
+    // Grill mesh — sits BEHIND sausages (depth -1, under grill slot depth)
     if (this.textures.exists('grill-mesh')) {
-      const mesh = this.add.image(width / 2, height * 0.44, 'grill-mesh');
-      const mScale = Math.min((width * 0.85) / mesh.width, 100 / mesh.height);
-      mesh.setScale(mScale).setAlpha(0.7).setDepth(1);
+      const meshY = height * GRILL_Y_FRAC + 15; // centered on grill area
+      const mesh = this.add.image(width / 2, meshY, 'grill-mesh');
+      const mScale = Math.min((width * 0.7) / mesh.width, 40 / mesh.height);
+      mesh.setScale(mScale).setAlpha(0.35).setDepth(-1);
     }
 
     // Warm glow around grill area
@@ -980,13 +986,13 @@ export class GrillScene extends Phaser.Scene {
   }
 
   private setupCustomerQueue(width: number, _height: number): void {
-    const queueY = this.scale.height * 0.13;
+    const queueY = this.scale.height * 0.18;
     if (this.textures.exists('queue-bg')) {
       const qbg = this.add.image(width / 2, queueY, 'queue-bg');
       qbg.setDisplaySize(width, 100).setAlpha(0.5).setDepth(0);
     }
     // Center queue: 6 slots × 73px = 438px; offset by half to center on screen
-    const queueX = Math.round(width / 2 - 219);
+    const queueX = Math.round(width / 2 - 250);
     this.customerQueue = new CustomerQueue(this, queueX, queueY);
     this.customerQueue.onTimeout((customerId: string) => {
       this.onCustomerTimeout(customerId);
