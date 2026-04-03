@@ -101,9 +101,9 @@ export class BootScene extends Phaser.Scene {
     // Title: cover image logo (on TOP of everything)
     let title: Phaser.GameObjects.Image | Phaser.GameObjects.Text;
     if (this.textures.exists('cover')) {
-      const cover = this.add.image(cx, 60, 'cover');
+      const cover = this.add.image(cx, height * 0.12, 'cover');
       const maxW = width * 0.65;
-      const maxH = height * 0.18;
+      const maxH = height * 0.15;
       const scale = Math.min(maxW / cover.width, maxH / cover.height);
       cover.setScale(scale).setDepth(10);
       title = cover;
@@ -131,7 +131,7 @@ export class BootScene extends Phaser.Scene {
     });
 
     // Subtitle (above illustration)
-    this.add.text(cx, 105, '台灣夜市香腸征服之路', {
+    this.add.text(cx, height * 0.2, '台灣夜市香腸征服之路', {
       fontSize: '16px',
       fontFamily: 'Microsoft JhengHei, PingFang TC, sans-serif',
       color: '#ff6b00',
