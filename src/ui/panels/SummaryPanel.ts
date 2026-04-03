@@ -41,6 +41,8 @@ export class SummaryPanel {
   constructor(data: SummaryData) {
     this.panel = document.createElement('div');
     this.panel.className = 'game-panel ui-interactive summary-panel';
+    this.panel.style.cssText += '; font-size:12px; line-height:1.4;';
+    this.panel.style.padding = '8px';
 
     const { dailyReport, grillStats, salesLog } = data;
     const isBankrupt = gameState.money <= 0;
@@ -169,7 +171,7 @@ export class SummaryPanel {
     // Button
     const btnCenter = document.createElement('div');
     btnCenter.className = 'btn-center';
-    btnCenter.style.marginTop = '20px';
+    btnCenter.style.marginTop = '8px';
 
     const btn = document.createElement('button');
     btn.className = 'btn-neon';
@@ -222,7 +224,7 @@ export class SummaryPanel {
 
     const section = document.createElement('div');
     section.className = 'summary-grill-stats';
-    section.style.marginTop = '10px';
+    section.style.marginTop = '4px';
 
     // Section title
     const title = document.createElement('div');
@@ -252,7 +254,7 @@ export class SummaryPanel {
     // Total tips row
     const tipsRow = document.createElement('div');
     tipsRow.className = 'summary-revenue-row';
-    tipsRow.style.marginBottom = '8px';
+    tipsRow.style.marginBottom = '4px';
 
     const tipsLabel = document.createElement('span');
     tipsLabel.className = 'summary-rev-label';
@@ -282,7 +284,7 @@ export class SummaryPanel {
     grid.style.gridTemplateColumns = '1fr 1fr';
     grid.style.gap = '2px 12px';
     grid.style.fontSize = '12px';
-    grid.style.marginBottom = '8px';
+    grid.style.marginBottom = '4px';
     grid.style.paddingLeft = '8px';
 
     const subScores = [
@@ -360,7 +362,7 @@ export class SummaryPanel {
     const tileNum = String(slot + 1).padStart(2, '0');
     const tileImg = document.createElement('img');
     tileImg.src = `map-tile-${tileNum}.png`;
-    tileImg.style.cssText = 'width:60px; height:60px; object-fit:cover; border-radius:6px; margin-right:8px; display:block; margin-bottom:6px;';
+    tileImg.style.cssText = 'width:44px; height:44px; object-fit:cover; border-radius:4px; margin-right:6px; display:block; margin-bottom:4px;';
     el.appendChild(tileImg);
 
     const locationRow = document.createElement('div');
@@ -391,7 +393,7 @@ export class SummaryPanel {
 
     if (day % 2 === 0) {
       const battleHint = document.createElement('div');
-      battleHint.style.cssText = 'margin-top: 8px; color: #ff8844; font-size: 13px; text-align: center;';
+      battleHint.style.cssText = 'margin-top: 4px; color: #ff8844; font-size: 12px; text-align: center;';
       battleHint.textContent = '⚔️ 明天可發起換位血戰！';
       el.appendChild(battleHint);
     }
@@ -480,7 +482,7 @@ export class SummaryPanel {
     if (waste && (waste.grillRemaining > 0 || waste.warmingRemaining > 0)) {
       const wasteEl = document.createElement('div');
       wasteEl.className = 'summary-grill-row';
-      wasteEl.style.marginTop = '6px';
+      wasteEl.style.marginTop = '3px';
       wasteEl.style.color = '#ff9944';
       wasteEl.style.fontSize = '12px';
       wasteEl.textContent = `今日浪費：烤架殘留 ${waste.grillRemaining} 根 + 保溫區冷掉 ${waste.warmingRemaining} 根`;

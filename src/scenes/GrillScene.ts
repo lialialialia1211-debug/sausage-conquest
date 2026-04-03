@@ -1098,8 +1098,8 @@ export class GrillScene extends Phaser.Scene {
   }
 
   private setupInventoryPanel(width: number, height: number): void {
-    const panelY = height * 0.88;
-    const panelH = height * 0.12;
+    const panelY = height * 0.90;
+    const panelH = height * 0.10;
 
     // Background
     const bg = this.add.graphics();
@@ -1137,8 +1137,8 @@ export class GrillScene extends Phaser.Scene {
       ...unavailable.map(id => ({ id, qty: 0, hasStock: false })),
     ];
 
-    const btnW = 140;
-    const btnH = 90;
+    const btnW = 100;
+    const btnH = 60;
     const gap = 8;
     const totalBtns = allItems.length;
     const totalW = totalBtns * btnW + (totalBtns - 1) * gap;
@@ -1178,7 +1178,7 @@ export class GrillScene extends Phaser.Scene {
       const textureKey = `sausage-${id}`;
       if (this.textures.exists(textureKey)) {
         const img = this.add.image(0, -10, textureKey);
-        const imgScale = Math.min(100 / img.width, 70 / img.height);
+        const imgScale = Math.min(70 / img.width, 45 / img.height);
         img.setScale(imgScale).setAlpha(hasStock ? 1 : 0.3);
         container.add(img);
       }
@@ -1226,8 +1226,8 @@ export class GrillScene extends Phaser.Scene {
 
   private updateInventoryDisplay(): void {
     const { width, height } = this.scale;
-    const panelY = height * 0.88;
-    const panelH = height * 0.12;
+    const panelY = height * 0.90;
+    const panelH = height * 0.10;
     this.rebuildInventoryButtons(width, panelY, panelH);
   }
 
@@ -1237,8 +1237,8 @@ export class GrillScene extends Phaser.Scene {
       const isSelected = this.selectedInventoryType === id;
       const qty = this.inventoryCopy[id] ?? 0;
       const hasStock = qty > 0;
-      const btnW = 140;
-      const btnH = 90;
+      const btnW = 100;
+      const btnH = 60;
 
       bgGfx.clear();
       if (!hasStock) {
@@ -1258,7 +1258,7 @@ export class GrillScene extends Phaser.Scene {
 
   private setupHUD(width: number, _height: number): void {
     // ── Top left: timer ──────────────────────────────────────────────────
-    this.timerText = this.add.text(16, 14, '⏱ 90s', {
+    this.timerText = this.add.text(16, 55, '⏱ 90s', {
       fontSize: '18px',
       fontFamily: FONT,
       color: '#ffcc44',
@@ -1283,7 +1283,7 @@ export class GrillScene extends Phaser.Scene {
       .filter(Boolean);
 
     if (priceEntries.length > 0) {
-      this.add.text(width / 2, 38, priceEntries.join('  '), {
+      this.add.text(width / 2, 72, priceEntries.join('  '), {
         fontSize: '11px',
         fontFamily: FONT,
         color: '#ffcc44',
@@ -1638,6 +1638,52 @@ export class GrillScene extends Phaser.Scene {
 
   private showGrillEventOverlay(event: GrillEvent): void {
     this.isShowingGrillEvent = true;
+    const { width: w, height: h } = this.scale;
+
+    // Show karen-alert splash FIRST for customer-related events
+    const eventImageMap: Record<string, string> = {
+      'nuisance': 'karen-alert',
+      'thug': 'karen-alert',
+      'beggar': 'karen-alert',
+      'authority': 'karen-alert',
+    };
+
+    const splashKey = eventImageMap[event.category];
+    if (splashKey && this.textures.exists(splashKey)) {
+      // Full screen splash (same style as triggerCombat)
+      const splash = this.add.image(w / 2, h / 2, splashKey).setDepth(300);
+      const maxW = w * 0.5;
+      const maxH = h * 0.4;
+      const scale = Math.min(maxW / splash.width, maxH / splash.height);
+      splash.setScale(0).setAlpha(0);
+
+      this.tweens.add({
+        targets: splash,
+        scale: { from: 0, to: scale },
+        alpha: { from: 0, to: 1 },
+        duration: 300,
+        ease: 'Back.Out',
+      });
+
+      // After 1.2s, fade out and THEN show the actual event panel
+      this.time.delayedCall(1200, () => {
+        this.tweens.add({
+          targets: splash,
+          alpha: 0,
+          duration: 200,
+          onComplete: () => {
+            splash.destroy();
+            this.buildGrillEventPanel(event);
+          },
+        });
+      });
+    } else {
+      // No splash image, show panel directly
+      this.buildGrillEventPanel(event);
+    }
+  }
+
+  private buildGrillEventPanel(event: GrillEvent): void {
     const { width, height } = this.scale;
 
     const container = this.add.container(0, 0).setDepth(300);
@@ -1677,27 +1723,8 @@ export class GrillScene extends Phaser.Scene {
     }).setOrigin(0.5, 0);
     container.add(headerTxt);
 
-    // Map grill event categories to customer images
-    const eventImageMap: Record<string, string> = {
-      'nuisance': 'karen-alert',
-      'thug': 'karen-alert',
-      'beggar': 'karen-alert',
-      'authority': 'karen-alert',
-    };
-
-    let descOffsetY = 58;
-    const eventImgKey = eventImageMap[event.category];
-    if (eventImgKey && this.textures.exists(eventImgKey)) {
-      const eventImg = this.add.image(cx, panelY + 70, eventImgKey);
-      const imgScale = Math.min(60 / eventImg.width, 60 / eventImg.height);
-      eventImg.setScale(imgScale).setDepth(22);
-      container.add(eventImg);
-      // Shift description text down to make room
-      descOffsetY = 110;
-    }
-
-    // Description
-    const descTxt = this.add.text(cx, panelY + descOffsetY, event.description, {
+    // Description (no inline image — splash already showed it)
+    const descTxt = this.add.text(cx, panelY + 58, event.description, {
       fontSize: '13px',
       fontFamily: FONT,
       color: '#ffeecc',
