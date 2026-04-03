@@ -1067,7 +1067,6 @@ export class GrillScene extends Phaser.Scene {
     allItems.forEach(({ id, qty, hasStock }) => {
       const bx = startX + btnW / 2;
       const info = SAUSAGE_MAP[id];
-      const label = info ? `${info.emoji} ×${qty}` : `×${qty}`;
 
       const container = this.add.container(bx, centerY);
       const bgGfx = this.add.graphics();
@@ -1093,8 +1092,17 @@ export class GrillScene extends Phaser.Scene {
 
       drawBg(false, false);
 
-      const txt = this.add.text(0, -4, label, {
-        fontSize: '14px',
+      // Show sausage art image in inventory button if available
+      const textureKey = `sausage-${id}`;
+      if (this.textures.exists(textureKey)) {
+        const img = this.add.image(0, -6, textureKey);
+        const imgScale = Math.min(30 / img.width, 22 / img.height);
+        img.setScale(imgScale).setAlpha(hasStock ? 1 : 0.3);
+        container.add(img);
+      }
+
+      const txt = this.add.text(0, hasStock && this.textures.exists(textureKey) ? 12 : -4, `×${qty}`, {
+        fontSize: '13px',
         fontFamily: FONT,
         color: hasStock ? COLOR_ORANGE : '#442200',
         align: 'center',
