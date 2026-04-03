@@ -800,9 +800,9 @@ export class GrillScene extends Phaser.Scene {
   private readonly wzSlotH = 28; // compact height
 
   private setupWarmingZone(width: number, height: number): void {
-    this.wzX = width * 0.05;    // left side
-    this.wzY = height * 0.62;   // below heat buttons
-    this.wzSlotW = width * 0.45; // left 45% of screen
+    this.wzSlotW = width * 0.5;               // 50% width, centered
+    this.wzX = (width - this.wzSlotW) / 2;    // centered horizontally
+    this.wzY = height * 0.62;                 // below heat buttons
 
     // Zone label
     this.add.text(this.wzX + this.wzSlotW / 2, this.wzY - 16, '保溫區（點擊出餐）', {
@@ -816,18 +816,6 @@ export class GrillScene extends Phaser.Scene {
       this.createWarmingSlotVisual();
     }
 
-    // Condiment reference on right side (quick visual guide)
-    const condX = width * 0.55;
-    const condY = height * 0.62;
-    this.add.text(condX, condY - 15, '配料參考', {
-      fontSize: '11px', color: '#888', fontFamily: FONT
-    }).setDepth(5);
-    const condNames = ['🧄蒜泥', '🟢芥末', '🌶️辣椒', '🥬酸菜', '🧅洋蔥', '🌿九層塔', '🫘醬油', '🥜花生'];
-    condNames.forEach((name, i) => {
-      const cx = condX + (i % 4) * 55;
-      const cy = condY + Math.floor(i / 4) * 18;
-      this.add.text(cx, cy, name, { fontSize: '10px', color: '#aaa', fontFamily: FONT }).setDepth(5);
-    });
   }
 
   private createWarmingSlotVisual(): WarmingSlot {
@@ -2276,8 +2264,8 @@ export class GrillScene extends Phaser.Scene {
     const bg = this.add.rectangle(w / 2, h / 2, w, h, 0x000000, 0.85).setInteractive();
     this.condimentOverlay.add(bg);
 
-    // Title
-    const title = this.add.text(w / 2, 40, '加料台', {
+    // Title — centered vertically on screen
+    const title = this.add.text(w / 2, h * 0.28, '🌭 加料台', {
       fontSize: '22px', color: '#ffcc00', fontStyle: 'bold', fontFamily: FONT
     }).setOrigin(0.5);
     this.condimentOverlay.add(title);
@@ -2289,19 +2277,19 @@ export class GrillScene extends Phaser.Scene {
       .map((id: string) => { const c = CONDIMENTS.find(c => c.id === id); return c ? `${c.emoji} ${c.name}` : id; })
       .join(' → ');
 
-    const orderLabel = this.add.text(w / 2, 75, `客人要：${orderSausageName}`, {
+    const orderLabel = this.add.text(w / 2, h * 0.33, `📋 客人要：${orderSausageName}`, {
       fontSize: '14px', color: '#44aaff', fontFamily: FONT
     }).setOrigin(0.5);
     this.condimentOverlay.add(orderLabel);
 
     const sausageKey = `sausage-${customer.order?.sausageType || ''}`;
     if (this.textures.exists(sausageKey)) {
-      const sausageImg = this.add.image(w / 2 - 100, 75, sausageKey);
+      const sausageImg = this.add.image(w / 2 - 100, h * 0.33, sausageKey);
       sausageImg.setScale(Math.min(40 / sausageImg.width, 40 / sausageImg.height));
       this.condimentOverlay!.add(sausageImg);
     }
 
-    const condimentLabel = this.add.text(w / 2, 98,
+    const condimentLabel = this.add.text(w / 2, h * 0.355,
       wantedCondiments ? `配料：${wantedCondiments}` : '不加料', {
         fontSize: '13px', color: '#88ff88', fontFamily: FONT
       }).setOrigin(0.5);
@@ -2310,25 +2298,25 @@ export class GrillScene extends Phaser.Scene {
     // Loyalty badge display
     if (customer.loyaltyBadge && customer.loyaltyBadge !== 'none') {
       const badgeInfo = getBadgeInfo(customer.loyaltyBadge);
-      const badgeText = this.add.text(w / 2, 118, `${badgeInfo.emoji} ${badgeInfo.name}`, {
+      const badgeText = this.add.text(w / 2, h * 0.375, `${badgeInfo.emoji} ${badgeInfo.name}`, {
         fontSize: '12px', color: '#ffcc00', fontFamily: FONT
       }).setOrigin(0.5);
       this.condimentOverlay.add(badgeText);
     }
 
     // Selected condiments display
-    const selectedDisplay = this.add.text(w / 2, 145, '已加：（無）', {
+    const selectedDisplay = this.add.text(w / 2, h * 0.395, '已加：（無）', {
       fontSize: '13px', color: '#ffffff', fontFamily: FONT
     }).setOrigin(0.5);
     this.condimentOverlay.add(selectedDisplay);
 
-    // Condiment buttons — 2 rows of 4
+    // Condiment buttons — 2 rows of 4, centered
     const btnW = 80;
-    const btnH = 55;
+    const btnH = 60;
     const gap = 8;
     const cols = 4;
     const startX = w / 2 - (cols * btnW + (cols - 1) * gap) / 2;
-    const startY = 170;
+    const startY = h * 0.43;
 
     CONDIMENTS.forEach((condiment, i) => {
       const col = i % cols;
@@ -2344,18 +2332,18 @@ export class GrillScene extends Phaser.Scene {
       const condimentTexKey = `condiment-${condiment.id}`;
       let condimentIcon: Phaser.GameObjects.Image | Phaser.GameObjects.Text;
       if (this.textures.exists(condimentTexKey)) {
-        const condImg = this.add.image(x, y - 8, condimentTexKey);
+        const condImg = this.add.image(x, y - 5, condimentTexKey);
         const cScale = Math.min(40 / condImg.width, 40 / condImg.height);
         condImg.setScale(cScale);
         condimentIcon = condImg;
       } else {
         condimentIcon = this.add.text(x, y - 10, condiment.emoji, {
-          fontSize: '20px'
+          fontSize: '24px'
         }).setOrigin(0.5);
       }
 
-      const btnName = this.add.text(x, y + 14, condiment.name, {
-        fontSize: '11px', color: '#cccccc', fontFamily: FONT
+      const btnName = this.add.text(x, y + 20, condiment.name, {
+        fontSize: '10px', color: '#cccccc', fontFamily: FONT
       }).setOrigin(0.5);
 
       btnBg.on('pointerdown', () => {
@@ -2379,7 +2367,7 @@ export class GrillScene extends Phaser.Scene {
       this.condimentOverlay!.add([btnBg, condimentIcon, btnName]);
     });
 
-    const btnRowY = startY + 2 * (btnH + gap) + 20;
+    const btnRowY = startY + 2 * (btnH + gap) + 30;
 
     // Serve button
     const serveBtn = this.add.text(w / 2 - 80, btnRowY, '出餐！', {
