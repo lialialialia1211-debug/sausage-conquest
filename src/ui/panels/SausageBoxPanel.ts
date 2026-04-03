@@ -1,6 +1,6 @@
 // SausageBoxPanel — 摸香腸箱小遊戲 HTML panel (pure DOM, no Phaser)
 import { EventBus } from '../../utils/EventBus';
-import { addMoney } from '../../state/GameState';
+import { addMoney, gameState, updateGameState } from '../../state/GameState';
 
 // --- Slot prize definitions ---
 interface SlotPrize {
@@ -8,22 +8,101 @@ interface SlotPrize {
   label: string;
   probability: number;
   colorClass: string;
+  effectDesc: string;         // shown after reveal
+  applyEffect?: () => void;   // side-effect when drawn
+}
+
+const FUNNY_NOTHING_TEXTS = [
+  '人生如此，老闆辛苦了',
+  '謝謝光臨，下次再來',
+  '今天手氣不好，明天繼續',
+  '香腸都送給上帝了',
+  '老天爺說：不行',
+];
+
+function randomNothing(): string {
+  return FUNNY_NOTHING_TEXTS[Math.floor(Math.random() * FUNNY_NOTHING_TEXTS.length)];
 }
 
 const PRIZES: SlotPrize[] = [
-  { emoji: '🌭', label: '再來一根', probability: 0.15, colorClass: 'prize-gold' },
-  { emoji: '🏷️', label: '折價券',   probability: 0.25, colorClass: 'prize-blue' },
-  { emoji: '💩', label: '謝謝惠顧', probability: 0.60, colorClass: 'prize-gray' },
+  {
+    emoji: '🌭',
+    label: '再來一根',
+    probability: 0.10,
+    colorClass: 'prize-gold',
+    effectDesc: '庫存加 1 根隨機香腸！',
+    applyEffect: () => {
+      const types = gameState.unlockedSausages;
+      if (types.length > 0) {
+        const pick = types[Math.floor(Math.random() * types.length)];
+        const inv = { ...gameState.inventory };
+        inv[pick] = (inv[pick] ?? 0) + 1;
+        updateGameState({ inventory: inv });
+      }
+    },
+  },
+  {
+    emoji: '💰',
+    label: '小金庫',
+    probability: 0.15,
+    colorClass: 'prize-blue',
+    effectDesc: '',   // filled in dynamically
+    applyEffect: () => {
+      const amount = 30 + Math.floor(Math.random() * 51); // $30–$80
+      addMoney(amount);
+      // Patch effectDesc at runtime via a tag on the prize object
+      (PRIZES[1] as any).__lastAmount = amount;
+    },
+  },
+  {
+    emoji: '🎯',
+    label: '精準之眼',
+    probability: 0.10,
+    colorClass: 'prize-purple',
+    effectDesc: '接下來 3 次出餐自動滿分！',
+    applyEffect: () => {
+      (gameState as any).autoPerfectServes = ((gameState as any).autoPerfectServes ?? 0) + 3;
+    },
+  },
+  {
+    emoji: '🔥',
+    label: '火力全開',
+    probability: 0.10,
+    colorClass: 'prize-red',
+    effectDesc: '下次烤架熱度提升速率 +50%！',
+    applyEffect: () => {
+      (gameState as any).heatRateBonus = ((gameState as any).heatRateBonus ?? 0) + 0.5;
+    },
+  },
+  {
+    emoji: '💩',
+    label: '謝謝惠顧',
+    probability: 0.55,
+    colorClass: 'prize-gray',
+    effectDesc: '',   // filled in dynamically per draw
+  },
 ];
 
-function drawPrize(): SlotPrize {
+interface DrawnPrize extends SlotPrize {
+  resolvedEffectDesc: string;
+}
+
+function drawPrize(): DrawnPrize {
   const rand = Math.random();
   let cumulative = 0;
   for (const prize of PRIZES) {
     cumulative += prize.probability;
-    if (rand < cumulative) return prize;
+    if (rand < cumulative) {
+      // Resolve dynamic descriptions before returning
+      let desc = prize.effectDesc;
+      if (prize.emoji === '💩') {
+        desc = randomNothing();
+      }
+      return { ...prize, resolvedEffectDesc: desc };
+    }
   }
-  return PRIZES[PRIZES.length - 1];
+  const last = PRIZES[PRIZES.length - 1];
+  return { ...last, resolvedEffectDesc: randomNothing() };
 }
 
 // --- Style injection (runs once) ---
@@ -138,6 +217,18 @@ function injectStyles(): void {
     }
     .prize-gray .slot-face-label { color: #888; }
 
+    .prize-purple .slot-face {
+      border-color: #b57bee;
+      box-shadow: 0 0 12px rgba(181, 123, 238, 0.5);
+    }
+    .prize-purple .slot-face-label { color: #b57bee; }
+
+    .prize-red .slot-face {
+      border-color: #ff4444;
+      box-shadow: 0 0 12px rgba(255, 68, 68, 0.5);
+    }
+    .prize-red .slot-face-label { color: #ff4444; }
+
     .sausage-box-open-btn {
       display: block;
       margin: 0 auto 16px;
@@ -236,7 +327,7 @@ export class SausageBoxPanel {
   private panel: HTMLElement;
   private openBtn!: HTMLButtonElement;
   private slotInners: HTMLElement[] = [];
-  private prizes: SlotPrize[] = [];
+  private prizes: DrawnPrize[] = [];
   private resultSection!: HTMLElement;
   private continueBtn!: HTMLButtonElement;
   private timeoutIds: number[] = [];
@@ -328,6 +419,18 @@ export class SausageBoxPanel {
     // Collect money immediately when customer plays
     addMoney(20);
 
+    // Apply prize effects now (before reveal for state consistency)
+    for (const prize of this.prizes) {
+      if (prize.applyEffect) {
+        try { prize.applyEffect(); } catch { /* ignore */ }
+        // Resolve 小金庫 description after effect applied
+        if (prize.emoji === '💰') {
+          const amount = (PRIZES[1] as any).__lastAmount ?? '?';
+          prize.resolvedEffectDesc = `獲得 $${amount} 現金！`;
+        }
+      }
+    }
+
     // Reveal slots one by one with 500ms stagger + shake effect
     this.slotInners.forEach((inner, index) => {
       this.timeoutIds.push(window.setTimeout(() => {
@@ -398,20 +501,27 @@ export class SausageBoxPanel {
     // Revenue line — always show
     lines.push({ label: '💰 收入', value: '+$20', color: '#ffd700' });
 
-    // Prize effects
-    const hasFree = this.prizes.some(p => p.emoji === '🌭');
-    const hasDiscount = this.prizes.some(p => p.emoji === '🏷️');
-    const allNothing = this.prizes.every(p => p.emoji === '💩');
+    // Show each drawn prize's resolved effect description
+    const colorMap: Record<string, string> = {
+      'prize-gold': '#ffd700',
+      'prize-blue': '#4dabf7',
+      'prize-purple': '#b57bee',
+      'prize-red': '#ff4444',
+      'prize-gray': '#888',
+    };
 
-    if (allNothing) {
-      lines.push({ label: '🎯 中獎結果', value: '全部謝謝惠顧', color: '#888' });
-    } else {
-      if (hasFree) {
-        lines.push({ label: '🌭 再來一根', value: '下位客人免費加一根', color: '#ffd700' });
-      }
-      if (hasDiscount) {
-        lines.push({ label: '🏷️ 折價券', value: '下位客人半價', color: '#4dabf7' });
-      }
+    const seen = new Set<string>();
+    for (const prize of this.prizes) {
+      const key = prize.emoji;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const count = this.prizes.filter(p => p.emoji === key).length;
+      const countPrefix = count > 1 ? `×${count} ` : '';
+      lines.push({
+        label: `${prize.emoji} ${prize.label}`,
+        value: `${countPrefix}${prize.resolvedEffectDesc}`,
+        color: colorMap[prize.colorClass] ?? '#aaa',
+      });
     }
 
     return lines;

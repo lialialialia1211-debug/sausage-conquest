@@ -23,8 +23,8 @@ export const GRID_SLOTS: GridSlot[] = [
   { id: 5, name: '十字路口',   emoji: '➕', rent: 220, baseTraffic: 45, trafficMultiplier: 1.6,  tier: 5, description: '四面八方的人流',           opponentId: 'influencer',    opponentDifficulty: 2 },
   { id: 6, name: '廟口前',     emoji: '🏮', rent: 300, baseTraffic: 50, trafficMultiplier: 1.8,  tier: 6, description: '拜拜完就想吃東西',         opponentId: 'fat-sister',    opponentDifficulty: 3 },
   { id: 7, name: '夜市入口',   emoji: '🚪', rent: 380, baseTraffic: 55, trafficMultiplier: 2.0,  tier: 7, description: '第一眼就看到你',           opponentId: 'student',       opponentDifficulty: 3 },
-  { id: 8, name: '舞台旁',     emoji: '🎤', rent: 450, baseTraffic: 65, trafficMultiplier: 2.3,  tier: 8, description: '表演散場客人超多',         opponentId: 'sausage-prince', opponentDifficulty: 4 },
-  { id: 9, name: '夜市正中央', emoji: '👑', rent: 500, baseTraffic: 75, trafficMultiplier: 3.0,  tier: 9, description: '夜市的心臟，人流最密集',   opponentId: 'sausage-king',  opponentDifficulty: 5 },
+  { id: 8, name: '舞台旁',     emoji: '🎤', rent: 350, baseTraffic: 65, trafficMultiplier: 2.3,  tier: 8, description: '表演散場客人超多',         opponentId: 'sausage-prince', opponentDifficulty: 4 },
+  { id: 9, name: '夜市正中央', emoji: '👑', rent: 400, baseTraffic: 75, trafficMultiplier: 3.0,  tier: 9, description: '夜市的心臟，人流最密集',   opponentId: 'sausage-king',  opponentDifficulty: 5 },
 ];
 
 // AI opponent display info

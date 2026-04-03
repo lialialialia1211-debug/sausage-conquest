@@ -11,15 +11,42 @@ let customerIdCounter = 0;
  * Generate a random order for a customer based on the current day.
  * Sausage types unlock progressively; condiments are chosen at random.
  */
-function generateOrder(day: number): CustomerOrder {
+function generateOrder(day: number, personality?: string): CustomerOrder {
   // Get unlocked sausage types based on day
   const unlocked: string[] = ['black-pig', 'flying-fish-roe', 'garlic-bomb'];
   if (day >= 5) unlocked.push('cheese');
   if (day >= 8) unlocked.push('squidink');
   if (day >= 12) unlocked.push('mala');
 
-  // Pick random sausage type from unlocked
-  const sausageType = unlocked[Math.floor(Math.random() * unlocked.length)];
+  let sausageType: string;
+
+  // Some personalities have preferences
+  if (personality === 'karen') {
+    // Karens always order the most expensive available
+    sausageType = unlocked.reduce((a, b) => {
+      const sa = SAUSAGE_TYPES.find(s => s.id === a);
+      const sb = SAUSAGE_TYPES.find(s => s.id === b);
+      return (sa?.suggestedPrice || 0) > (sb?.suggestedPrice || 0) ? a : b;
+    });
+  } else if (personality === 'fatcat') {
+    // VIPs want premium or special sausages
+    const premium = unlocked.filter(id => {
+      const s = SAUSAGE_TYPES.find(s => s.id === id);
+      return s && (s.cost >= 30 || s.specialEffect);
+    });
+    sausageType = premium.length > 0
+      ? premium[Math.floor(Math.random() * premium.length)]
+      : unlocked[Math.floor(Math.random() * unlocked.length)];
+  } else if (personality === 'influencer') {
+    // Influencers want photogenic food (special effect sausages)
+    const special = unlocked.filter(id => SAUSAGE_TYPES.find(s => s.id === id)?.specialEffect);
+    sausageType = special.length > 0
+      ? special[Math.floor(Math.random() * special.length)]
+      : unlocked[Math.floor(Math.random() * unlocked.length)];
+  } else {
+    // Normal random selection
+    sausageType = unlocked[Math.floor(Math.random() * unlocked.length)];
+  }
 
   // Pick 0-3 condiments
   const condimentCount = Math.floor(Math.random() * 4); // 0, 1, 2, or 3
@@ -69,7 +96,7 @@ export function generateCustomers(gridFootTraffic: number, marketingBonus: numbe
       patience: (30 + Math.random() * 30) * patienceMult,
       maxPrice: Math.round(avgPrice * (1.2 + (record.badge === 'gold' ? 0.5 : record.badge === 'silver' ? 0.3 : 0.1))),
       personality: 'normal' as CustomerPersonality,
-      order: generateOrder(gameState.day),
+      order: generateOrder(gameState.day, 'normal'),
       loyaltyId,
       loyaltyBadge: record.badge,
     };
@@ -91,7 +118,9 @@ export function generateCustomers(gridFootTraffic: number, marketingBonus: numbe
     const avgExpectedPrice = unlockedPrices.length > 0
       ? unlockedPrices.reduce((sum, p) => sum + p, 0) / unlockedPrices.length
       : 38;
-    const maxPrice = Math.round(avgExpectedPrice * maxPriceMultiplier);
+    // Higher tiers attract wealthier customers
+    const tierPremium = 1 + (gameState.playerSlot - 1) * 0.08; // tier 1 = 1.0x, tier 9 = 1.64x
+    const maxPrice = Math.round(avgExpectedPrice * maxPriceMultiplier * tierPremium);
 
     // ~30% of customers have a type preference
     const hasPreference = Math.random() < 0.3;
@@ -126,13 +155,15 @@ export function generateCustomers(gridFootTraffic: number, marketingBonus: numbe
     }
 
     const { id: loyaltyId } = getOrCreateLoyalty();
+    // Higher tiers attract customers happy to wait at popular spots
+    const tierPatienceBonus = 1 + (gameState.playerSlot - 1) * 0.05; // tier 1 = 1.0, tier 9 = 1.4
     customers.push({
       id: `customer-${++customerIdCounter}`,
-      patience: 30 + Math.random() * 30, // 30-60 seconds
+      patience: (30 + Math.random() * 30) * tierPatienceBonus,
       preferredType,
       maxPrice,
       personality,
-      order: generateOrder(gameState.day),
+      order: generateOrder(gameState.day, personality),
       loyaltyId,
       loyaltyBadge: 'none' as LoyaltyBadge,
       ...(isVIP !== undefined ? { isVIP } : {}),
@@ -149,20 +180,24 @@ export function generateCustomers(gridFootTraffic: number, marketingBonus: numbe
     const avgExpectedPrice = unlockedPrices.length > 0
       ? unlockedPrices.reduce((sum, p) => sum + p, 0) / unlockedPrices.length
       : 38;
-    const maxPrice = Math.round(avgExpectedPrice * maxPriceMultiplier);
+    // Higher tiers attract wealthier customers
+    const tierPremium = 1 + (gameState.playerSlot - 1) * 0.08; // tier 1 = 1.0x, tier 9 = 1.64x
+    const maxPrice = Math.round(avgExpectedPrice * maxPriceMultiplier * tierPremium);
     const battleTypes: BattleType[] = ['normal', 'ranged', 'aoe', 'tank', 'assassin', 'support'];
     const hasPreference = Math.random() < 0.3;
     const preferredType = hasPreference
       ? battleTypes[Math.floor(Math.random() * battleTypes.length)]
       : undefined;
     const { id: loyaltyId } = getOrCreateLoyalty();
+    // Higher tiers attract customers happy to wait at popular spots
+    const tierPatienceBonus = 1 + (gameState.playerSlot - 1) * 0.05; // tier 1 = 1.0, tier 9 = 1.4
     customers.push({
       id: `customer-${++customerIdCounter}`,
-      patience: 12 + Math.random() * 13,
+      patience: (12 + Math.random() * 13) * tierPatienceBonus,
       preferredType,
       maxPrice,
       personality: 'normal',
-      order: generateOrder(gameState.day),
+      order: generateOrder(gameState.day, 'normal'),
       loyaltyId,
       loyaltyBadge: 'none' as LoyaltyBadge,
     });

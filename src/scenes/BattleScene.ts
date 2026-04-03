@@ -1,7 +1,7 @@
 // BattleScene — 第一人稱香腸格鬥（First-person sausage fighting）
 import Phaser from 'phaser';
 import { EventBus } from '../utils/EventBus';
-import { gameState, spendMoney } from '../state/GameState';
+import { gameState, spendMoney, addMoney } from '../state/GameState';
 
 import {
   calculateBattleCost,
@@ -9,6 +9,7 @@ import {
   applySimulationBuff,
 } from '../systems/AutoChessEngine';
 import { sfx } from '../utils/SoundFX';
+import { SAUSAGE_MAP } from '../data/sausages';
 
 // ── Layout constants ───────────────────────────────────────────────────────────
 const FONT = 'Microsoft JhengHei, PingFang TC, sans-serif';
@@ -77,6 +78,17 @@ export class BattleScene extends Phaser.Scene {
   private opponentHpLabel!: Phaser.GameObjects.Text;
   private screenVignette!: Phaser.GameObjects.Graphics;
 
+  // ── Weapon (B1) ──────────────────────────────────────────────────────────────
+  private weaponBonus: number = 1;
+  private weaponName: string = '';
+
+  // ── Opponent special (B2) ────────────────────────────────────────────────────
+  private opponentSpecialUsed: boolean = false;
+
+  // ── Dodge (B3) ───────────────────────────────────────────────────────────────
+  private isDodging: boolean = false;
+  private dodgeCooldown: number = 0;
+
   // ── Tween / animation state ──────────────────────────────────────────────────
   private opponentBaseScale = 1;
   private energyPulseTween: Phaser.Tweens.Tween | null = null;
@@ -110,6 +122,11 @@ export class BattleScene extends Phaser.Scene {
     this.isDone = false;
     this.battleTimer = 60;
     this.energyPulseTween = null;
+    this.weaponBonus = 1;
+    this.weaponName = '';
+    this.opponentSpecialUsed = false;
+    this.isDodging = false;
+    this.dodgeCooldown = 0;
 
     // Determine difficulty from playerSlot
     this.difficulty = Math.max(1, Math.min(5, gameState.playerSlot));
@@ -268,8 +285,24 @@ export class BattleScene extends Phaser.Scene {
     this.aiAttackTimer = 0;
     this.battleTimer = 60;
 
+    // B1: Calculate weapon bonus from best sausage in inventory
+    const bestSausage = Object.keys(gameState.inventory)
+      .filter(id => (gameState.inventory as Record<string, number>)[id] > 0)
+      .map(id => SAUSAGE_MAP[id])
+      .filter(Boolean)
+      .sort((a, b) => b.cost - a.cost)[0];
+
+    this.weaponBonus = bestSausage ? 1 + (bestSausage.cost / 60) : 1.0;
+    this.weaponName = bestSausage?.name || '普通香腸';
+
     this.setupInputListeners();
     this.showInfoMessage('戰鬥開始！', '#44ff88', 1200);
+
+    // Show weapon info after start message
+    this.time.delayedCall(600, () => {
+      const bonusStr = this.weaponBonus.toFixed(2);
+      this.showInfoMessage(`武器：${this.weaponName} (×${bonusStr}倍傷害)`, '#ffcc44', 2000);
+    });
   }
 
   // ── Input listeners ──────────────────────────────────────────────────────────
@@ -284,6 +317,9 @@ export class BattleScene extends Phaser.Scene {
     if (this.input.keyboard) {
       this.input.keyboard.on('keydown-SPACE', () => this.doSpecialAttack());
       this.input.keyboard.on('keydown-E', () => this.doSpecialAttack());
+      // B3: Dodge keys
+      this.input.keyboard.on('keydown-D', () => this.doDodge());
+      this.input.keyboard.on('keydown-SHIFT', () => this.doDodge());
     }
   }
 
@@ -334,7 +370,7 @@ export class BattleScene extends Phaser.Scene {
 
     if (hit) {
       sfx.playAttack();
-      const dmg = headshot ? 15 : 8;
+      const dmg = Math.round((headshot ? 15 : 8) * this.weaponBonus);
       this.dealDamageToOpponent(dmg);
       this.energy = Math.min(100, this.energy + 10);
       this.showOpponentReaction(dmg, headshot, false);
@@ -348,6 +384,7 @@ export class BattleScene extends Phaser.Scene {
         this.cameras.main.shake(100, 0.01);
         this.flashFullScreen(0xffffff, 0.15, 50);
       }
+
     } else {
       this.spawnDamageNumber(pointer.x, pointer.y - 10, '未中', '#666666');
     }
@@ -388,12 +425,13 @@ export class BattleScene extends Phaser.Scene {
     const hit = this.isHitOnOpponent(pointer);
     if (hit) {
       sfx.playHeavyHit();
-      this.dealDamageToOpponent(20);
+      const heavyDmg = Math.round(20 * this.weaponBonus);
+      this.dealDamageToOpponent(heavyDmg);
       this.opponentStunTimer = 1.0;
       this.energy = Math.min(100, this.energy + 5);
       this.cameras.main.shake(250, 0.018);
       this.flashFullScreen(0xffffff, 0.20, 50);
-      this.spawnDamageNumber(pointer.x, pointer.y - 20, '重擊！ -20', '#ff6600');
+      this.spawnDamageNumber(pointer.x, pointer.y - 20, `重擊！ -${heavyDmg}`, '#ff6600');
       this.showOpponentReaction(20, false, false);
 
       // Opponent pushed back: brief y offset tween
@@ -488,11 +526,12 @@ export class BattleScene extends Phaser.Scene {
       onComplete: () => {
         charcoal.destroy();
         sfx.playExplosion();
-        this.dealDamageToOpponent(35);
+        const specialDmg = Math.round(35 * this.weaponBonus);
+        this.dealDamageToOpponent(specialDmg);
         // Stronger screen shake
         this.cameras.main.shake(300, 0.03);
         this.flashFullScreen(0xff2200, 0.45, 120);
-        this.spawnDamageNumber(width / 2, this.opponentEmoji.y, '木炭轟炸！ -35', '#ff4400');
+        this.spawnDamageNumber(width / 2, this.opponentEmoji.y, `木炭轟炸！ -${specialDmg}`, '#ff4400');
         spawnFireParticles();
         this.showOpponentReaction(35, false, true);
 
@@ -514,6 +553,13 @@ export class BattleScene extends Phaser.Scene {
   private doOpponentAttack(): void {
     if (this.isDone) return;
     const { width, height } = this.scale;
+
+    // B2: Trigger special move when opponent HP < 50% (once per battle)
+    if (!this.opponentSpecialUsed && this.opponentHp < this.opponentMaxHp * 0.5) {
+      this.opponentSpecialUsed = true;
+      this.doOpponentSpecial();
+      return; // skip normal attack this tick
+    }
 
     // Opponent lunges: scale up AND move forward (downward toward player)
     const origY = this.opponentEmoji.y;
@@ -547,6 +593,11 @@ export class BattleScene extends Phaser.Scene {
     });
 
     const hitChance = Math.random();
+    // B3: Check dodge before applying damage
+    if (this.isDodging) {
+      this.spawnInfoFloat(width / 2, height - 120, 'MISS！閃避成功！', '#44aaff');
+      return;
+    }
     if (hitChance < 0.70) {
       sfx.playPlayerHit();
       this.playerHp = Math.max(0, this.playerHp - this.aiDamage);
@@ -575,6 +626,100 @@ export class BattleScene extends Phaser.Scene {
         '#44ff88',
       );
     }
+  }
+
+  // ── B2: Opponent special move ─────────────────────────────────────────────────
+
+  private doOpponentSpecial(): void {
+    const w = this.scale.width;
+    const h = this.scale.height;
+
+    const specials = [
+      { name: '馬桶刷旋風', emoji: '🧹', damage: 20, text: '對手掏出馬桶刷瘋狂旋轉！' },
+      { name: '直播閃光', emoji: '📱', damage: 15, text: '對手開閃光燈直播！你被閃瞎 2 秒！' },
+      { name: '臭豆腐毒氣', emoji: '💨', damage: 18, text: '對手丟出臭豆腐！毒氣彌漫！' },
+      { name: '黃金香腸', emoji: '✨', damage: 25, text: '對手掏出傳說中的黃金香腸！' },
+      { name: '鐵板燒技', emoji: '🔥', damage: 30, text: '對手使出鐵板燒終極奧義！' },
+    ];
+
+    const special = specials[Math.min(this.difficulty - 1, specials.length - 1)];
+
+    this.flashFullScreen(0xff0000, 0.4, 200);
+
+    const nameText = this.add.text(w / 2, h * 0.3, `⚡ ${special.name}`, {
+      fontSize: '24px',
+      fontFamily: FONT,
+      color: '#ff4444',
+      fontStyle: 'bold',
+      stroke: '#000000',
+      strokeThickness: 3,
+    }).setOrigin(0.5).setDepth(40);
+
+    const descText = this.add.text(w / 2, h * 0.38, special.text, {
+      fontSize: '14px',
+      fontFamily: FONT,
+      color: '#ffcc00',
+    }).setOrigin(0.5).setDepth(40);
+
+    const emojiText = this.add.text(w / 2, h * 0.15, special.emoji, {
+      fontSize: '80px',
+      fontFamily: FONT,
+    }).setOrigin(0.5).setDepth(40);
+
+    this.tweens.add({
+      targets: emojiText,
+      y: h * 0.7,
+      scale: { from: 1, to: 2.5 },
+      duration: 600,
+      ease: 'Power2',
+      onComplete: () => {
+        // B3: Special can also be dodged
+        if (this.isDodging) {
+          this.spawnDamageNumber(w / 2, h * 0.6, 'MISS！閃避必殺技！', '#44aaff');
+        } else {
+          this.playerHp = Math.max(0, this.playerHp - special.damage);
+          this.cameras.main.shake(300, 0.03);
+          this.flashFullScreen(0xff0000, 0.3, 150);
+          sfx.playPlayerHit();
+          this.spawnDamageNumber(w / 2, h * 0.6, `-${special.damage}`, '#ff4444');
+          if (this.playerHp <= 0) this.endFight('opponent');
+        }
+        emojiText.destroy();
+        this.time.delayedCall(1000, () => {
+          nameText.destroy();
+          descText.destroy();
+        });
+      },
+    });
+  }
+
+  // ── B3: Dodge mechanic ────────────────────────────────────────────────────────
+
+  private doDodge(): void {
+    if (this.isDodging || this.dodgeCooldown > 0 || !this.isFighting || this.isDone) return;
+
+    this.isDodging = true;
+    this.dodgeCooldown = 1.5;
+
+    this.flashFullScreen(0x4444ff, 0.2, 100);
+    const dodgeText = this.add.text(this.scale.width / 2, this.scale.height * 0.5, '閃避！', {
+      fontSize: '20px',
+      fontFamily: FONT,
+      color: '#44aaff',
+      fontStyle: 'bold',
+    }).setOrigin(0.5).setDepth(40);
+
+    this.tweens.add({
+      targets: dodgeText,
+      y: dodgeText.y - 40,
+      alpha: 0,
+      duration: 600,
+      onComplete: () => dodgeText.destroy(),
+    });
+
+    this.time.delayedCall(400, () => {
+      this.isDodging = false;
+    });
   }
 
   // ── Damage helper ─────────────────────────────────────────────────────────────
@@ -621,8 +766,27 @@ export class BattleScene extends Phaser.Scene {
     if (winner === 'player') color = '#44ff88';
     if (winner === 'opponent') color = '#ff4455';
 
+    // B4: Battle rewards on win
+    const resultLines: string[] = [resultMsg];
+    if (winner === 'player') {
+      const goldReward = 50 + this.difficulty * 30; // $80–$200
+      addMoney(goldReward);
+
+      const dropRoll = Math.random();
+      let dropText = '';
+      if (dropRoll < 0.1) {
+        dropText = '獲得神秘配方！';
+      } else if (dropRoll < 0.3) {
+        const bonusSausages = 3 + this.difficulty;
+        dropText = `搶到 ${bonusSausages} 根對手的香腸！`;
+      }
+
+      resultLines.push(`戰利品：$${goldReward}`);
+      if (dropText) resultLines.push(dropText);
+    }
+
     this.time.delayedCall(600, () => {
-      this.showResult(resultMsg, color);
+      this.showResult(resultLines.join('\n'), color);
     });
   }
 
@@ -652,6 +816,8 @@ export class BattleScene extends Phaser.Scene {
     this.normalCd = Math.max(0, this.normalCd - dt);
     this.heavyCd = Math.max(0, this.heavyCd - dt);
     this.opponentStunTimer = Math.max(0, this.opponentStunTimer - dt);
+    // B3: Dodge cooldown tick
+    this.dodgeCooldown = Math.max(0, this.dodgeCooldown - dt);
 
     // Move crosshair
     const pointer = this.input.activePointer;
@@ -908,7 +1074,7 @@ export class BattleScene extends Phaser.Scene {
     }).setOrigin(0.5).setDepth(11);
 
     // HUD help text
-    this.add.text(width / 2, height - 12, '左鍵：揮香腸  右鍵：強力衝刺  空白/E：特殊技能', {
+    this.add.text(width / 2, height - 12, '左鍵：揮香腸  右鍵：強力衝刺  空白/E：特殊技能  D/Shift：閃避', {
       fontSize: '10px',
       fontFamily: FONT,
       color: '#554466',
@@ -1177,6 +1343,8 @@ export class BattleScene extends Phaser.Scene {
     if (this.input.keyboard) {
       this.input.keyboard.off('keydown-SPACE');
       this.input.keyboard.off('keydown-E');
+      this.input.keyboard.off('keydown-D');
+      this.input.keyboard.off('keydown-SHIFT');
     }
     EventBus.off('battle-start');
     EventBus.off('battle-skip');

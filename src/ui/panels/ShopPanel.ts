@@ -17,8 +17,11 @@ import {
   sendDogToCollect,
 } from '../../systems/LoanSharkEngine';
 import type { PlayerLoan } from '../../systems/LoanSharkEngine';
+import { getAllAchievements } from '../../systems/AchievementEngine';
+import { DELIVERY_MISSIONS, getTotalInventorySausages } from '../../data/deliveries';
+import type { DeliveryMission } from '../../data/deliveries';
 
-export type ShopTab = 'upgrades' | 'workers' | 'marketing' | 'loans';
+export type ShopTab = 'upgrades' | 'workers' | 'marketing' | 'loans' | 'achievements';
 
 export class ShopPanel {
   private panel: HTMLElement;
@@ -65,16 +68,19 @@ export class ShopPanel {
     const workersContent = this.buildWorkersTab();
     const marketingContent = this.buildMarketingTab();
     const loansContent = this.buildLoansTab();
+    const achievementsContent = this.buildAchievementsTab();
 
     contentArea.appendChild(upgradesContent);
     contentArea.appendChild(workersContent);
     contentArea.appendChild(marketingContent);
     contentArea.appendChild(loansContent);
+    contentArea.appendChild(achievementsContent);
 
     this.tabContents.set('upgrades', upgradesContent);
     this.tabContents.set('workers', workersContent);
     this.tabContents.set('marketing', marketingContent);
     this.tabContents.set('loans', loansContent);
+    this.tabContents.set('achievements', achievementsContent);
 
     this.panel.appendChild(contentArea);
 
@@ -97,6 +103,7 @@ export class ShopPanel {
       { key: 'workers', label: '工讀生' },
       { key: 'marketing', label: '行銷道具' },
       { key: 'loans', label: '資金周轉' },
+      { key: 'achievements', label: '🏆 成就' },
     ];
 
     for (const tab of tabs) {
@@ -658,6 +665,9 @@ export class ShopPanel {
       this.pendingBorrower = getRandomBorrower();
     }
     container.appendChild(this.buildLoanSharkSection());
+
+    // Section D: 外送任務
+    container.appendChild(this.buildDeliverySection());
 
     // Divider
     const divider = document.createElement('hr');
@@ -1307,6 +1317,9 @@ export class ShopPanel {
     // Section C: 放高利貸
     content.appendChild(this.buildLoanSharkSection());
 
+    // Section D: 外送任務
+    content.appendChild(this.buildDeliverySection());
+
     // Divider
     const divider = document.createElement('hr');
     divider.style.cssText = 'border: none; border-top: 1px solid #333; margin: 16px 0;';
@@ -1318,6 +1331,218 @@ export class ShopPanel {
 
     content.appendChild(this.buildBankSection());
     content.appendChild(this.buildSharkSection());
+  }
+
+  // ── Section D: 外送任務 ────────────────────────────────────────────────────
+
+  private buildDeliverySection(): HTMLElement {
+    const section = document.createElement('div');
+    section.className = 'loan-lender-section';
+    section.style.marginBottom = '12px';
+
+    const titleEl = document.createElement('div');
+    titleEl.className = 'loan-section-title';
+    titleEl.textContent = '🚴 外送任務';
+    section.appendChild(titleEl);
+
+    const totalSausages = getTotalInventorySausages(gameState.inventory);
+
+    const stockEl = document.createElement('div');
+    stockEl.className = 'loan-terms';
+    stockEl.style.marginBottom = '8px';
+    stockEl.textContent = `目前庫存：共 ${totalSausages} 根香腸`;
+    section.appendChild(stockEl);
+
+    const available = DELIVERY_MISSIONS.filter(
+      (d) => d.minDay <= gameState.day && d.undergroundRepRequired <= (gameState.undergroundRep ?? 0),
+    );
+
+    if (available.length === 0) {
+      const emptyEl = document.createElement('div');
+      emptyEl.className = 'loan-ineligible';
+      emptyEl.style.opacity = '0.6';
+      emptyEl.textContent = '目前沒有可接的任務，繼續營業解鎖更多。';
+      section.appendChild(emptyEl);
+      return section;
+    }
+
+    for (const mission of available) {
+      section.appendChild(this.buildDeliveryCard(mission, totalSausages));
+    }
+
+    return section;
+  }
+
+  private buildDeliveryCard(mission: DeliveryMission, totalSausages: number): HTMLElement {
+    const canAccept = totalSausages >= mission.requiredSausages;
+    const riskStars = '⭐'.repeat(mission.riskLevel) + '☆'.repeat(3 - mission.riskLevel);
+
+    const card = document.createElement('div');
+    card.className = 'shop-item-card';
+    card.style.cssText = 'flex-direction:column; align-items:stretch; margin-bottom:8px;';
+
+    // Header row: emoji + name + risk
+    const headerRow = document.createElement('div');
+    headerRow.style.cssText = 'display:flex; align-items:center; gap:8px; margin-bottom:4px;';
+
+    const emojiEl = document.createElement('span');
+    emojiEl.style.fontSize = '1.4rem';
+    emojiEl.textContent = mission.clientEmoji;
+
+    const nameEl = document.createElement('div');
+    nameEl.style.cssText = 'font-weight:bold; color:#ffcc00; flex:1;';
+    nameEl.textContent = mission.clientName;
+
+    const riskEl = document.createElement('div');
+    riskEl.style.cssText = 'font-size:0.75rem; color:#aaa;';
+    riskEl.textContent = `風險 ${riskStars}`;
+
+    headerRow.appendChild(emojiEl);
+    headerRow.appendChild(nameEl);
+    headerRow.appendChild(riskEl);
+    card.appendChild(headerRow);
+
+    // Description
+    const descEl = document.createElement('div');
+    descEl.style.cssText = 'font-size:0.82rem; color:#ccc; margin-bottom:6px;';
+    descEl.textContent = mission.description;
+    card.appendChild(descEl);
+
+    // Requirements row
+    const reqRow = document.createElement('div');
+    reqRow.style.cssText = 'display:flex; gap:12px; font-size:0.82rem; margin-bottom:8px;';
+
+    const reqSausEl = document.createElement('span');
+    reqSausEl.style.color = canAccept ? '#4caf50' : '#ff4444';
+    reqSausEl.textContent = `需要 ${mission.requiredSausages} 根`;
+
+    const rewardEl = document.createElement('span');
+    rewardEl.style.color = '#ffd700';
+    rewardEl.textContent = `酬勞 $${mission.reward}`;
+
+    reqRow.appendChild(reqSausEl);
+    reqRow.appendChild(rewardEl);
+    card.appendChild(reqRow);
+
+    // Accept button
+    const acceptBtn = document.createElement('button');
+    acceptBtn.className = 'btn-neon shop-item-btn';
+    if (!canAccept) {
+      acceptBtn.textContent = `庫存不足（差 ${mission.requiredSausages - totalSausages} 根）`;
+      acceptBtn.disabled = true;
+      acceptBtn.style.cssText = 'opacity:0.4; cursor:not-allowed; border-color:var(--text-dim); color:var(--text-dim); text-shadow:none; box-shadow:none;';
+    } else {
+      acceptBtn.textContent = '接單出發 🚴';
+      acceptBtn.addEventListener('click', () => this.onAcceptDelivery(mission, card, acceptBtn));
+    }
+    card.appendChild(acceptBtn);
+
+    return card;
+  }
+
+  private onAcceptDelivery(mission: DeliveryMission, card: HTMLElement, btn: HTMLButtonElement): void {
+    // Deduct sausages evenly across inventory types
+    let remaining = mission.requiredSausages;
+    const newInventory = { ...gameState.inventory };
+    for (const key of Object.keys(newInventory)) {
+      if (remaining <= 0) break;
+      const deduct = Math.min(newInventory[key] ?? 0, remaining);
+      newInventory[key] = (newInventory[key] ?? 0) - deduct;
+      remaining -= deduct;
+    }
+
+    updateGameState({ inventory: newInventory });
+
+    // Risk check
+    let caught = false;
+    if (mission.riskLevel === 2 && Math.random() < 0.2) {
+      caught = true;
+    } else if (mission.riskLevel >= 3 && Math.random() < 0.3) {
+      caught = true;
+    }
+
+    if (caught) {
+      // Deduct underground rep
+      updateGameState({ undergroundRep: Math.max(0, (gameState.undergroundRep ?? 0) - 5) });
+      btn.textContent = '😱 被逮到！地下聲望 -5，貨已沒收';
+      btn.disabled = true;
+      btn.style.cssText = 'opacity:0.7; cursor:not-allowed; border-color:#ff4444; color:#ff4444;';
+      card.style.opacity = '0.6';
+    } else {
+      // Give reward
+      updateGameState({ money: gameState.money + mission.reward });
+      this.refreshMoneyDisplay();
+      btn.textContent = `✅ 送達！獲得 $${mission.reward}`;
+      btn.disabled = true;
+      btn.style.cssText = 'opacity:0.8; cursor:not-allowed; border-color:#4caf50; color:#4caf50;';
+      card.style.opacity = '0.6';
+    }
+  }
+
+  // ── Tab 5: 成就殿堂 ────────────────────────────────────────────────────────
+
+  private buildAchievementsTab(): HTMLElement {
+    const container = document.createElement('div');
+    container.className = 'shop-section';
+
+    const header = document.createElement('h3');
+    header.style.cssText = 'text-align:center; color:#ffcc00; margin-bottom:12px; font-size:1.1rem; letter-spacing:1px;';
+    header.textContent = '🏆 成就殿堂';
+    container.appendChild(header);
+
+    const allAchievements = getAllAchievements();
+    const unlockedCount = allAchievements.filter((a) => a.unlocked).length;
+
+    for (const achievement of allAchievements) {
+      const card = document.createElement('div');
+      card.style.cssText = `
+        display:flex;
+        gap:10px;
+        padding:8px 10px;
+        margin-bottom:6px;
+        border-radius:6px;
+        border:1px solid ${achievement.unlocked ? '#ffcc00' : '#333'};
+        opacity:${achievement.unlocked ? '1' : '0.45'};
+        background:${achievement.unlocked ? 'rgba(255,204,0,0.06)' : 'rgba(255,255,255,0.02)'};
+        align-items:flex-start;
+      `;
+
+      const emojiEl = document.createElement('span');
+      emojiEl.style.cssText = 'font-size:1.5rem; line-height:1; flex-shrink:0; margin-top:2px;';
+      emojiEl.textContent = achievement.unlocked ? achievement.emoji : '🔒';
+
+      const infoEl = document.createElement('div');
+      infoEl.style.cssText = 'display:flex; flex-direction:column; gap:2px;';
+
+      const nameEl = document.createElement('div');
+      nameEl.style.cssText = `font-weight:bold; font-size:0.9rem; color:${achievement.unlocked ? '#ffcc00' : '#666'};`;
+      nameEl.textContent = achievement.name;
+
+      const descEl = document.createElement('div');
+      descEl.style.cssText = 'font-size:0.78rem; color:#aaa;';
+      descEl.textContent = achievement.unlocked ? achievement.description : '???';
+
+      infoEl.appendChild(nameEl);
+      infoEl.appendChild(descEl);
+
+      if (achievement.unlocked && achievement.joke) {
+        const jokeEl = document.createElement('div');
+        jokeEl.style.cssText = 'font-size:0.72rem; color:#888; font-style:italic; margin-top:1px;';
+        jokeEl.textContent = achievement.joke;
+        infoEl.appendChild(jokeEl);
+      }
+
+      card.appendChild(emojiEl);
+      card.appendChild(infoEl);
+      container.appendChild(card);
+    }
+
+    const countEl = document.createElement('div');
+    countEl.style.cssText = 'text-align:center; color:#ffcc00; margin-top:12px; font-size:0.9rem; letter-spacing:1px;';
+    countEl.textContent = `已解鎖 ${unlockedCount} / ${allAchievements.length}`;
+    container.appendChild(countEl);
+
+    return container;
   }
 
   // ── Bottom bar ─────────────────────────────────────────────────────────────

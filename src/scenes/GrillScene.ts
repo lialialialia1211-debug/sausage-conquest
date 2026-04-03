@@ -306,6 +306,53 @@ export class GrillScene extends Phaser.Scene {
       this.doFlipSlot(slot);
     });
 
+    // Wangcai interaction (if hired)
+    if (gameState.hiredWorkers?.includes('wangcai')) {
+      const wangcaiBtn = this.add.text(
+        this.scale.width - 10, this.scale.height - 120,
+        '🐕 摸旺財',
+        { fontSize: '14px', color: '#ffaa00', backgroundColor: '#1a1a1a', padding: { x: 8, y: 5 } }
+      ).setOrigin(1, 1).setInteractive({ useHandCursor: true }).setDepth(10);
+
+      let wangcaiCooldown = 0;
+
+      wangcaiBtn.on('pointerdown', () => {
+        if (wangcaiCooldown > 0) {
+          this.showFeedback('旺財在休息...', wangcaiBtn.x - 50, wangcaiBtn.y - 20, '#888888');
+          return;
+        }
+        wangcaiCooldown = 30;
+
+        const roll = Math.random();
+        if (roll < 0.3) {
+          const found = 10 + Math.floor(Math.random() * 30);
+          addMoney(found);
+          this.showFeedback(`🐕 旺財叼回了 $${found}！`, wangcaiBtn.x - 80, wangcaiBtn.y - 30, '#ffcc00');
+        } else if (roll < 0.5) {
+          const waiting = this.customerQueue.getWaitingCustomers();
+          const badOne = waiting.find(c => c.personality === 'karen' || c.personality === 'enforcer');
+          if (badOne) {
+            this.customerQueue.serveCustomer(badOne.id, false);
+            this.customers = this.customers.filter(c => c.id !== badOne.id);
+            this.showFeedback('🐕 旺財把奧客嚇跑了！', wangcaiBtn.x - 80, wangcaiBtn.y - 30, '#44ff44');
+          } else {
+            this.showFeedback('🐕 旺財搖搖尾巴，很開心', wangcaiBtn.x - 80, wangcaiBtn.y - 30, '#ffaa00');
+          }
+        } else if (roll < 0.7) {
+          this.customerQueue.multiplyAllPatience(1.1);
+          this.showFeedback('🐕 旺財賣萌！客人都被療癒了', wangcaiBtn.x - 80, wangcaiBtn.y - 30, '#ff88cc');
+        } else {
+          this.showFeedback('🐕 汪！（搖尾巴）', wangcaiBtn.x - 80, wangcaiBtn.y - 30, '#ffaa00');
+        }
+      });
+
+      this.time.addEvent({
+        delay: 1000,
+        loop: true,
+        callback: () => { if (wangcaiCooldown > 0) wangcaiCooldown--; },
+      });
+    }
+
     // Show ready overlay (paused until player clicks start)
     this.showReadyOverlay(width, height);
   }
@@ -928,6 +975,22 @@ export class GrillScene extends Phaser.Scene {
       fontFamily: FONT,
       color: COLOR_DIM,
     }).setOrigin(1, 0);
+
+    // Dismiss button — remove first customer in queue at cost of -1 reputation
+    const dismissBtn = this.add.text(
+      width - 10, queueY - 10,
+      '🚫 趕走第一位',
+      { fontSize: '12px', color: '#ff6666', backgroundColor: '#1a1a1a', padding: { x: 6, y: 3 } }
+    ).setOrigin(1, 1).setInteractive({ useHandCursor: true }).setDepth(10);
+
+    dismissBtn.on('pointerdown', () => {
+      const next = this.customerQueue.getNextCustomer();
+      if (!next) return;
+      this.customerQueue.serveCustomer(next.id, false);
+      this.customers = this.customers.filter(c => c.id !== next.id);
+      changeReputation(-1);
+      this.showFeedback('🚫 趕走了客人 聲望-1', this.scale.width / 2, queueY - 30, '#ff6666');
+    });
   }
 
   private setupHeatButtons(width: number, height: number): void {
@@ -1942,6 +2005,12 @@ export class GrillScene extends Phaser.Scene {
       return;
     }
 
+    // If customer ordered no condiments, skip condiment station entirely
+    if (!nextCustomer.order?.condiments || nextCustomer.order.condiments.length === 0) {
+      this.selectedCondiments = [];
+      this.finalizeServe(warmSlot, warmSlot.sausage, nextCustomer);
+      return;
+    }
     this.openCondimentStation(warmSlot, warmSlot.sausage, nextCustomer);
   }
 

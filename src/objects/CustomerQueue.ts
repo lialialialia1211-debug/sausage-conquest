@@ -4,6 +4,7 @@ import Phaser from 'phaser';
 import type { Customer } from '../types';
 import { SAUSAGE_MAP } from '../data/sausages';
 import { CONDIMENTS } from '../data/condiments';
+import { gameState } from '../state/GameState';
 
 const CUSTOMER_SLOT_W = 73;
 const PATIENCE_BAR_H = 5;
@@ -91,10 +92,65 @@ export class CustomerQueue extends Phaser.GameObjects.Container {
       }).setOrigin(0.5);
     }
 
-    const toAdd: Phaser.GameObjects.GameObject[] = [emojiText, patBarBg, patBarFill];
+    // Personality-based visual frame
+    const frameGfx = this.scene.add.graphics();
+    const frameColors: Record<string, number> = {
+      karen: 0xff4444,
+      enforcer: 0xff8800,
+      inspector: 0x4488ff,
+      fatcat: 0xffcc00,
+      spy: 0x8844ff,
+      influencer: 0xff44ff,
+    };
+    const frameColor = frameColors[customer.personality];
+    if (frameColor) {
+      frameGfx.lineStyle(2, frameColor, 0.8);
+      frameGfx.strokeRoundedRect(
+        -CUSTOMER_SLOT_W / 2 + 4, -22,
+        CUSTOMER_SLOT_W - 8, 50,
+        6,
+      );
+    }
+    if (customer.isVIP) {
+      frameGfx.lineStyle(3, 0xffcc00, 1);
+      frameGfx.strokeRoundedRect(
+        -CUSTOMER_SLOT_W / 2 + 2, -24,
+        CUSTOMER_SLOT_W - 4, 54,
+        8,
+      );
+    }
+
+    // Returning customer name tag and wave animation
+    let nameTag: Phaser.GameObjects.Text | null = null;
+    if (customer.loyaltyBadge && customer.loyaltyBadge !== 'none' && customer.loyaltyId) {
+      const loyalty = gameState?.customerLoyalty?.[customer.loyaltyId];
+      if (loyalty) {
+        nameTag = this.scene.add.text(0, 38, loyalty.name, {
+          fontSize: '10px',
+          color: '#ffcc00',
+          backgroundColor: '#1a1a0a',
+          padding: { x: 3, y: 1 },
+        }).setOrigin(0.5);
+      }
+
+      this.scene.tweens.add({
+        targets: container,
+        scaleX: { from: 1, to: 1.15 },
+        scaleY: { from: 1, to: 1.15 },
+        duration: 200,
+        yoyo: true,
+        repeat: 1,
+        ease: 'Sine.easeInOut',
+        delay: 400,
+      });
+    }
+
+    const toAdd: Phaser.GameObjects.GameObject[] = [frameGfx, emojiText, patBarBg, patBarFill];
     if (orderBubble) toAdd.push(orderBubble);
     if (badgeBubble) toAdd.push(badgeBubble);
+    if (nameTag) toAdd.push(nameTag);
     container.add(toAdd);
+    container.sendToBack(frameGfx);
 
     const display: CustomerDisplay = {
       customer,
