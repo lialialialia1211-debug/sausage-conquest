@@ -4,22 +4,24 @@ import { applyEventChoice } from '../../systems/EventEngine';
 import type { GameEvent, EventChoice } from '../../data/events';
 
 const EVENT_IMAGES: Record<string, string> = {
-  'costco-guy': 'event-costco-guy.png',
-  'food-critic': 'event-food-critic.png',
-  'drunk-uncle': 'event-drunk-uncle.png',
-  'protection-fee': 'event-thugs.png',
-  'territory-threat': 'event-thugs.png',
-  'gang-offer': 'event-thugs.png',
-  'inspector-surprise': 'event-inspector.png',
+  // Customer-related events all use karen-alert
+  'costco-guy': 'karen-alert.png',
+  'food-critic': 'karen-alert.png',
+  'drunk-uncle': 'karen-alert.png',
+  'protection-fee': 'karen-alert.png',
+  'territory-threat': 'karen-alert.png',
+  'gang-offer': 'karen-alert.png',
+  'inspector-surprise': 'karen-alert.png',
+  'management-fee-weekly': 'karen-alert.png',
+  'influencer-livestream': 'karen-alert.png',
+  'competitor-spy': 'karen-alert.png',
+  'media-crisis-exposed': 'karen-alert.png',
+  'employee-strike': 'karen-alert.png',
+  'expired-ingredient-gamble': 'karen-alert.png',
+  'underground-delivery': 'karen-alert.png',
+  // Non-customer events keep their own images
   'food-festival': 'event-food-festival.png',
   'rain-bonus': 'event-rain.png',
-  'management-fee-weekly': 'customer-inspector.png',
-  'influencer-livestream': 'customer-influencer.png',
-  'competitor-spy': 'customer-thug.png',
-  'media-crisis-exposed': 'karen-alert.png',
-  'employee-strike': 'customer-karen.png',
-  'expired-ingredient-gamble': 'event-food-critic.png',
-  'underground-delivery': 'event-thugs.png',
 };
 
 export class EventPanel {

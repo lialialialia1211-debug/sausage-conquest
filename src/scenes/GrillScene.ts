@@ -38,7 +38,7 @@ import type { SpecialEffectResult } from '../data/sausage-effects';
 // ── Layout constants ────────────────────────────────────────────────────────
 const GAME_DURATION = 90;      // seconds
 const MAX_GRILL_SLOTS = 4;     // 6 if grill-expand upgrade
-const GRILL_Y_FRAC = 0.42;    // grill vertical position as fraction of screen height (true center)
+const GRILL_Y_FRAC = 0.35;    // grill vertical position as fraction of screen height (true center)
 // Warming zone has no fixed limit — slots are created dynamically
 // Customer arrival scales with day: early days are calmer
 const BASE_ARRIVAL_INTERVAL = 10; // day 1 interval
@@ -797,47 +797,65 @@ export class GrillScene extends Phaser.Scene {
   private wzX = 0;
   private wzY = 0;
   private wzSlotW = 0;
-  private readonly wzSlotH = 36; // compact height
+  private readonly wzSlotH = 28; // compact height
 
   private setupWarmingZone(width: number, height: number): void {
-    this.wzX = (width - width * 0.5) / 2; // centered, 50% width
-    this.wzY = height * GRILL_Y_FRAC + 175; // below heat buttons (+140 + some gap)
-    this.wzSlotW = width * 0.5;
+    this.wzX = width * 0.05;    // left side
+    this.wzY = height * 0.62;   // below heat buttons
+    this.wzSlotW = width * 0.45; // left 45% of screen
 
     // Zone label
-    this.add.text(this.wzX + this.wzSlotW / 2, this.wzY - 22, '保溫區（點擊出餐）', {
-      fontSize: '12px',
+    this.add.text(this.wzX + this.wzSlotW / 2, this.wzY - 16, '保溫區（點擊出餐）', {
+      fontSize: '11px',
       fontFamily: FONT,
       color: COLOR_DIM,
-    }).setOrigin(0.5);
+    }).setOrigin(0.5).setDepth(5);
 
-    // Create initial 4 empty slots
-    for (let i = 0; i < 4; i++) {
+    // Create initial 10 empty slots (5x2 grid)
+    for (let i = 0; i < 10; i++) {
       this.createWarmingSlotVisual();
     }
+
+    // Condiment reference on right side (quick visual guide)
+    const condX = width * 0.55;
+    const condY = height * 0.62;
+    this.add.text(condX, condY - 15, '配料參考', {
+      fontSize: '11px', color: '#888', fontFamily: FONT
+    }).setDepth(5);
+    const condNames = ['🧄蒜泥', '🟢芥末', '🌶️辣椒', '🥬酸菜', '🧅洋蔥', '🌿九層塔', '🫘醬油', '🥜花生'];
+    condNames.forEach((name, i) => {
+      const cx = condX + (i % 4) * 55;
+      const cy = condY + Math.floor(i / 4) * 18;
+      this.add.text(cx, cy, name, { fontSize: '10px', color: '#aaa', fontFamily: FONT }).setDepth(5);
+    });
   }
 
   private createWarmingSlotVisual(): WarmingSlot {
     const idx = this.warmingSlots.length;
+    // 5x2 grid layout
+    const col = idx % 5;
+    const row = Math.floor(idx / 5);
+    const slotW = this.wzSlotW / 5;
     const gap = 4;
-    const sy = this.wzY + idx * (this.wzSlotH + gap);
-    const wx = this.wzX + this.wzSlotW / 2;
+    const sx = this.wzX + col * slotW;
+    const sy = this.wzY + row * (this.wzSlotH + gap);
+    const wx = sx + slotW / 2;
     const wy = sy + this.wzSlotH / 2;
 
     const bgGfx = this.add.graphics();
     bgGfx.lineStyle(1, 0x664422, 0.5);
     bgGfx.fillStyle(0x1a0800, 0.7);
-    bgGfx.fillRoundedRect(this.wzX, sy, this.wzSlotW, this.wzSlotH, 3);
-    bgGfx.strokeRoundedRect(this.wzX, sy, this.wzSlotW, this.wzSlotH, 3);
+    bgGfx.fillRoundedRect(sx, sy, slotW, this.wzSlotH, 3);
+    bgGfx.strokeRoundedRect(sx, sy, slotW, this.wzSlotH, 3);
 
     const infoText = this.add.text(wx, wy, '', {
-      fontSize: '11px',
+      fontSize: '9px',
       fontFamily: FONT,
       color: COLOR_DIM,
     }).setOrigin(0.5);
 
-    const stateText = this.add.text(this.wzX + this.wzSlotW - 6, wy, '', {
-      fontSize: '10px',
+    const stateText = this.add.text(sx + slotW - 3, wy, '', {
+      fontSize: '8px',
       fontFamily: FONT,
       color: '#888888',
     }).setOrigin(1, 0.5);
@@ -846,29 +864,29 @@ export class GrillScene extends Phaser.Scene {
     this.warmingSlots.push(slot);
 
     // Make clickable
-    const hitZone = this.add.zone(wx, wy, this.wzSlotW, this.wzSlotH).setInteractive({ cursor: 'pointer' });
+    const hitZone = this.add.zone(wx, wy, slotW, this.wzSlotH).setInteractive({ cursor: 'pointer' });
     hitZone.on('pointerdown', () => this.serveFromWarming(slot));
     hitZone.on('pointerover', () => {
       if (slot.sausage && slot.bgGfx) {
         slot.bgGfx.clear();
         slot.bgGfx.lineStyle(2, 0xff9900, 0.9);
         slot.bgGfx.fillStyle(0x2a1000, 0.85);
-        slot.bgGfx.fillRoundedRect(this.wzX, sy, this.wzSlotW, this.wzSlotH, 3);
-        slot.bgGfx.strokeRoundedRect(this.wzX, sy, this.wzSlotW, this.wzSlotH, 3);
+        slot.bgGfx.fillRoundedRect(sx, sy, slotW, this.wzSlotH, 3);
+        slot.bgGfx.strokeRoundedRect(sx, sy, slotW, this.wzSlotH, 3);
       }
     });
     hitZone.on('pointerout', () => {
       if (!slot.bgGfx) return;
       if (slot.sausage) {
-        this.redrawWarmingSlotBgQuality(slot, this.wzX, sy, this.wzSlotW, this.wzSlotH);
+        this.redrawWarmingSlotBgQuality(slot, sx, sy, slotW, this.wzSlotH);
       } else {
-        this.redrawWarmingSlotBg(slot, this.wzX, sy, this.wzSlotW, this.wzSlotH);
+        this.redrawWarmingSlotBg(slot, sx, sy, slotW, this.wzSlotH);
       }
     });
 
-    (slot as any).__x = this.wzX;
+    (slot as any).__x = sx;
     (slot as any).__y = sy;
-    (slot as any).__w = this.wzSlotW;
+    (slot as any).__w = slotW;
     (slot as any).__h = this.wzSlotH;
 
     return slot;
@@ -972,7 +990,7 @@ export class GrillScene extends Phaser.Scene {
   }
 
   private setupCustomerQueue(width: number, _height: number): void {
-    const queueY = this.scale.height * 0.24;
+    const queueY = this.scale.height * 0.17;
     if (this.textures.exists('queue-bg')) {
       const qbg = this.add.image(width / 2, queueY, 'queue-bg');
       qbg.setDisplaySize(width, 100).setAlpha(0.5).setDepth(0);
@@ -1016,23 +1034,23 @@ export class GrillScene extends Phaser.Scene {
   }
 
   private setupHeatButtons(width: number, height: number): void {
-    // Heat buttons centered, below grill rack + fire area (rack ends ~+125)
-    const btnY = height * GRILL_Y_FRAC + 140;
+    // Heat buttons centered at fixed percentage — 55% of screen height
+    const btnY = height * 0.55;
     const levels: { level: HeatLevel; label: string; icon: string }[] = [
       { level: 'low',    label: '小火', icon: '🔥' },
       { level: 'medium', label: '中火', icon: '🔥🔥' },
       { level: 'high',   label: '大火', icon: '🔥🔥🔥' },
     ];
 
-    const btnW = 52;
-    const btnH = 44;
-    const gap = 8;
+    const btnW = 48;
+    const btnH = 24;
+    const gap = 6;
     const totalW = 3 * btnW + 2 * gap;
     const startX = (width - totalW) / 2;
 
     levels.forEach((item, i) => {
       const bx = startX + i * (btnW + gap) + btnW / 2;
-      const btn = this.createButton(bx, btnY, btnW, btnH, `${item.icon}\n${item.label}`, () => {
+      const btn = this.createButton(bx, btnY, btnW, btnH, `${item.icon} ${item.label}`, () => {
         this.heatLevel = item.level;
         this.updateHeatButtonStyles();
         // Update fire glow intensity
@@ -1041,29 +1059,32 @@ export class GrillScene extends Phaser.Scene {
         const grillY = h * GRILL_Y_FRAC + 34;
         this.redrawFireGlow(barStartX, grillY + 7 * 13, w * 0.61);
       });
+      // Override font size to 11px
+      const txtObj = btn.list[1] as Phaser.GameObjects.Text;
+      txtObj.setFontSize('11px');
       this.heatButtons.push(btn);
     });
 
     this.updateHeatButtonStyles();
 
-    this.add.text(startX + totalW / 2, btnY - 22, '火力控制', {
-      fontSize: '12px',
+    this.add.text(startX + totalW / 2, btnY - 16, '火力控制', {
+      fontSize: '11px',
       fontFamily: FONT,
       color: COLOR_DIM,
     }).setOrigin(0.5);
   }
 
   private setupSpeedButtons(width: number, height: number): void {
-    // Speed buttons below warming zone
-    const btnY = height * GRILL_Y_FRAC + 330;
+    // Speed buttons at 80% screen height, left third of screen
+    const btnY = height * 0.80;
     const speeds = [1, 2, 3];
 
     const btnW = 36;
-    const btnH = 28;
+    const btnH = 22;
     const gap = 5;
     const totalBtnW = speeds.length * btnW + (speeds.length - 1) * gap;
-    // Right of center
-    const startX = width / 2 + 20;
+    // Left third of screen
+    const startX = width * 0.05;
 
     speeds.forEach((spd, i) => {
       const bx = startX + i * (btnW + gap) + btnW / 2;
@@ -1071,14 +1092,17 @@ export class GrillScene extends Phaser.Scene {
         this.speedMultiplier = spd;
         this.updateSpeedButtonStyles();
       });
+      // Override font size to 11px
+      const txtObj = btn.list[1] as Phaser.GameObjects.Text;
+      txtObj.setFontSize('11px');
       this.speedButtons.push(btn);
     });
 
     this.updateSpeedButtonStyles();
 
     const centerX = startX + totalBtnW / 2;
-    this.add.text(centerX, btnY - 16, '速度', {
-      fontSize: '12px',
+    this.add.text(centerX, btnY - 14, '速度', {
+      fontSize: '11px',
       fontFamily: FONT,
       color: COLOR_DIM,
     }).setOrigin(0.5);
@@ -1086,8 +1110,8 @@ export class GrillScene extends Phaser.Scene {
   }
 
   private setupInventoryPanel(width: number, height: number): void {
-    const panelY = height - 120;
-    const panelH = 110;
+    const panelY = height * 0.88;
+    const panelH = height * 0.12;
 
     // Background
     const bg = this.add.graphics();
@@ -1214,8 +1238,8 @@ export class GrillScene extends Phaser.Scene {
 
   private updateInventoryDisplay(): void {
     const { width, height } = this.scale;
-    const panelY = height - 120;
-    const panelH = 110;
+    const panelY = height * 0.88;
+    const panelH = height * 0.12;
     this.rebuildInventoryButtons(width, panelY, panelH);
   }
 
@@ -1300,14 +1324,24 @@ export class GrillScene extends Phaser.Scene {
   }
 
   private setupEndButton(width: number, height: number): void {
-    const btnW = 100;
-    const btnH = 30;
-    // Same row as speed buttons
-    const bx = width / 2 - 60;
-    const by = height * GRILL_Y_FRAC + 330;
+    const btnW = 80;
+    const btnH = 22;
+    // Same row as speed buttons — centered
+    const bx = width * 0.5;
+    const by = height * 0.80;
 
     this.createButton(bx, by, btnW, btnH, '結束營業', () => {
       this.endGrilling();
+    });
+
+    // Restart button — right side of same row
+    const restartBtn = this.add.text(width * 0.75, by, '重新開始', {
+      fontSize: '12px', color: '#ff6666', backgroundColor: '#1a0a0a',
+      padding: { x: 6, y: 3 }, fontFamily: FONT
+    }).setOrigin(0.5).setInteractive({ useHandCursor: true }).setDepth(10);
+    restartBtn.on('pointerdown', () => {
+      if (this.bgm) { this.bgm.stop(); this.bgm.destroy(); this.bgm = null; }
+      this.scene.start('BootScene');
     });
   }
 
@@ -1358,8 +1392,8 @@ export class GrillScene extends Phaser.Scene {
       const isActive = levels[i] === this.heatLevel;
       const bg = btn.list[0] as Phaser.GameObjects.Graphics;
       const txt = btn.list[1] as Phaser.GameObjects.Text;
-      const btnW = 72;
-      const btnH = 44;
+      const btnW = 48;
+      const btnH = 24;
       bg.clear();
       if (isActive) {
         bg.fillStyle(0xff6b00, 0.38);
@@ -1657,10 +1691,10 @@ export class GrillScene extends Phaser.Scene {
 
     // Map grill event categories to customer images
     const eventImageMap: Record<string, string> = {
-      'nuisance': 'customer-karen',
-      'thug': 'customer-thug',
-      'beggar': 'customer-beggar',
-      'authority': 'customer-inspector',
+      'nuisance': 'karen-alert',
+      'thug': 'karen-alert',
+      'beggar': 'karen-alert',
+      'authority': 'karen-alert',
     };
 
     let descOffsetY = 58;
