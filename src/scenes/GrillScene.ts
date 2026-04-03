@@ -140,6 +140,9 @@ export class GrillScene extends Phaser.Scene {
   private fireGlowGfx!: Phaser.GameObjects.Graphics;
   private timerFlashTween: Phaser.Tweens.Tween | null = null;
 
+  // ── Background overlay reference ─────────────────────────────────────────
+  private bgGrillImage: Phaser.GameObjects.Image | null = null;
+
   // ── Combat state ─────────────────────────────────────────────────────────
   private currentCombatPanel: CombatPanel | null = null;
   private combatCustomersHandled: Set<string> = new Set();
@@ -171,25 +174,7 @@ export class GrillScene extends Phaser.Scene {
   // ── Scene lifecycle ──────────────────────────────────────────────────────
 
   preload(): void {
-    // Preload sausage art
-    for (const s of SAUSAGE_TYPES) {
-      if (s.image) {
-        this.load.image(`sausage-${s.id}`, s.image);
-      }
-    }
-    // Preload karen alert
-    this.load.image('karen-alert', 'karen-alert.png');
-    this.load.image('bg-grill', 'bg-grill.png');
-
-    // Condiment images
-    const condimentIds = ['garlic-paste', 'wasabi', 'chili-sauce', 'sauerkraut', 'onion-dice', 'basil', 'soy-paste', 'peanut'];
-    condimentIds.forEach(id => this.load.image(`condiment-${id}`, `condiment-${id}.png`));
-    // Customer portraits
-    const customerImages = ['customer-normal-male', 'customer-normal-female', 'customer-karen', 'customer-thug', 'customer-beggar', 'customer-inspector', 'customer-fatcat', 'customer-influencer'];
-    customerImages.forEach(key => this.load.image(key, `${key}.png`));
-    this.load.image('grill-mesh', 'grill-mesh.png');
-    this.load.image('tongs', 'tongs.png');
-    this.load.image('queue-bg', 'queue-bg.png');
+    // All textures preloaded in BootScene
   }
 
   create(): void {
@@ -613,6 +598,25 @@ export class GrillScene extends Phaser.Scene {
     if (this.textures.exists('bg-grill')) {
       const bgImg = this.add.image(width / 2, height / 2, 'bg-grill');
       bgImg.setDisplaySize(width, height).setAlpha(0.45).setDepth(0);
+      this.bgGrillImage = bgImg;
+    }
+
+    // Fire underneath the grill
+    if (this.textures.exists('fire-flame')) {
+      const fire = this.add.image(width / 2, height * 0.52, 'fire-flame');
+      const fScale = Math.min((width * 0.7) / fire.width, 50 / fire.height);
+      fire.setScale(fScale).setAlpha(0.6).setDepth(0);
+
+      // Gentle flicker animation
+      this.tweens.add({
+        targets: fire,
+        alpha: { from: 0.5, to: 0.7 },
+        scaleX: { from: fScale * 0.95, to: fScale * 1.05 },
+        duration: 400,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut',
+      });
     }
 
     if (this.textures.exists('grill-mesh')) {
@@ -3075,6 +3079,13 @@ export class GrillScene extends Phaser.Scene {
       infoText.destroy();
       btnText.destroy();
       this.paused = false;
+      if (this.bgGrillImage) {
+        this.tweens.add({
+          targets: this.bgGrillImage,
+          alpha: 0.15,
+          duration: 500,
+        });
+      }
     });
   }
 

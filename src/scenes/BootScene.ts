@@ -25,10 +25,66 @@ export class BootScene extends Phaser.Scene {
   }
 
   preload(): void {
+    // ── Cover & Prologue ──
     this.load.image('cover', 'cover.png');
     this.load.image('prologue-1', 'story-prologue-1.png');
     this.load.image('prologue-2', 'story-prologue-2.png');
     this.load.image('prologue-3', 'story-prologue-3.png');
+
+    // ── Backgrounds ──
+    this.load.image('bg-grill', 'bg-grill.png');
+    this.load.image('bg-shop', 'bg-shop.png');
+    this.load.image('bg-event', 'bg-event.png');
+
+    // ── Grill scene assets ──
+    this.load.image('grill-mesh', 'grill-mesh.png');
+    this.load.image('fire-flame', 'fire-flame.png');
+    this.load.image('fire-intense', 'fire-intense.png');
+    this.load.image('heat-box', 'heat-box.png');
+    this.load.image('grill-meter', 'grill-meter.png');
+    this.load.image('tongs', 'tongs.png');
+    this.load.image('queue-bg', 'queue-bg.png');
+    this.load.image('karen-alert', 'karen-alert.png');
+    this.load.image('dialogue-box', 'dialogue-box.png');
+    this.load.image('card-frame', 'card-frame.png');
+    this.load.image('nightmarket-map', 'nightmarket-map.png');
+
+    // ── Sausage art (9 types) ──
+    const sausageIds = ['black-pig', 'flying-fish-roe', 'garlic-bomb', 'cheese', 'squidink', 'mala', 'big-taste', 'big-wrap-small', 'great-wall'];
+    sausageIds.forEach(id => this.load.image(`sausage-${id}`, `sausage-${id}.png`));
+
+    // ── Condiment art (8 types) ──
+    const condimentIds = ['garlic-paste', 'wasabi', 'chili-sauce', 'sauerkraut', 'onion-dice', 'basil', 'soy-paste', 'peanut'];
+    condimentIds.forEach(id => this.load.image(`condiment-${id}`, `condiment-${id}.png`));
+
+    // ── Customer portraits (8 types) ──
+    const customerTypes = ['normal-male', 'normal-female', 'karen', 'thug', 'beggar', 'inspector', 'fatcat', 'influencer'];
+    customerTypes.forEach(t => this.load.image(`customer-${t}`, `customer-${t}.png`));
+
+    // ── Opponent portraits (8) ──
+    const opponents = ['toilet-uncle', 'alley-gang', 'uncle', 'influencer', 'fat-sister', 'student', 'sausage-prince', 'sausage-king'];
+    opponents.forEach(id => this.load.image(`opponent-${id}`, `opponent-${id}.png`));
+
+    // ── Player & Battle ──
+    this.load.image('player-portrait', 'player.png');
+    this.load.image('battle-cover', 'battle-cover.png');
+    this.load.image('battle-attack-normal', 'battle-attack-normal.png');
+    this.load.image('battle-attack-garlic', 'battle-attack-garlic.png');
+    this.load.image('battle-attack-cheese', 'battle-attack-cheese.png');
+    this.load.image('hp-bar-player', 'hp-bar-player.png');
+    this.load.image('hp-bar-opponent', 'hp-bar-opponent.png');
+
+    // ── Story day illustrations ──
+    [5, 10, 15, 20, 25].forEach(d => this.load.image(`story-day${d}`, `story-day${d}.png`));
+
+    // ── Map tiles (9) ──
+    for (let i = 2; i <= 10; i++) {
+      this.load.image(`map-tile-${String(i).padStart(2, '0')}`, `map-tile-${String(i).padStart(2, '0')}.png`);
+    }
+
+    // ── HUD icons ──
+    this.load.image('hud-money', 'hud-money.png');
+    this.load.image('hud-day', 'hud-day.png');
   }
 
   create(): void {

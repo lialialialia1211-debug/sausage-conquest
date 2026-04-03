@@ -101,12 +101,7 @@ export class BattleScene extends Phaser.Scene {
   // ── preload (KEEP AS-IS) ─────────────────────────────────────────────────────
 
   preload(): void {
-    this.load.image('battle-cover', 'battle-cover.png');
-    const opponents = ['toilet-uncle', 'alley-gang', 'uncle', 'influencer', 'fat-sister', 'student', 'sausage-prince', 'sausage-king'];
-    opponents.forEach(id => this.load.image(`opponent-${id}`, `opponent-${id}.png`));
-    this.load.image('player-portrait', 'player.png');
-
-    this.load.image('tongs', 'tongs.png');
+    // All textures preloaded in BootScene
   }
 
   // ── create ───────────────────────────────────────────────────────────────────
@@ -375,6 +370,21 @@ export class BattleScene extends Phaser.Scene {
             duration: 300,
             onComplete: () => burst.destroy(),
           });
+
+          // Attack impact sprite
+          if (this.textures.exists('battle-attack-normal')) {
+            const impact = this.add.image(pointer.x, pointer.y, 'battle-attack-normal').setDepth(42);
+            const impScale = Math.min(60 / impact.width, 60 / impact.height);
+            impact.setScale(0).setAlpha(0.9);
+            this.tweens.add({
+              targets: impact,
+              scale: impScale,
+              alpha: 0,
+              duration: 400,
+              ease: 'Power2',
+              onComplete: () => impact.destroy(),
+            });
+          }
         }
         attackObj.destroy();
       },
@@ -546,6 +556,21 @@ export class BattleScene extends Phaser.Scene {
         this.spawnDamageNumber(width / 2, this.opponentEmoji.y, `木炭轟炸！ -${specialDmg}`, '#ff4400');
         spawnFireParticles();
         this.showOpponentReaction(35, false, true);
+
+        // Cheese burst effect for special attack
+        if (this.textures.exists('battle-attack-cheese')) {
+          const burst = this.add.image(width / 2, height * 0.5, 'battle-attack-cheese').setDepth(42);
+          const bScale = Math.min(120 / burst.width, 120 / burst.height);
+          burst.setScale(0);
+          this.tweens.add({
+            targets: burst,
+            scale: bScale,
+            alpha: { from: 1, to: 0 },
+            angle: { from: 0, to: 180 },
+            duration: 600,
+            onComplete: () => burst.destroy(),
+          });
+        }
 
         // Opponent turns dark for 1 second
         this.opponentEmoji.setTint(0x222222);
@@ -1075,6 +1100,21 @@ export class BattleScene extends Phaser.Scene {
   // ── HUD ───────────────────────────────────────────────────────────────────────
 
   private setupHUD(width: number, height: number): void {
+    // HP bar image frames (decorative backgrounds behind graphics bars)
+    const barH = 14;
+    const playerBarW = width * 0.32;
+    const oppBarW = width * 0.32;
+    const barY = height - 56;
+
+    if (this.textures.exists('hp-bar-player')) {
+      const hpFrame = this.add.image(10 + playerBarW / 2, barY + barH / 2, 'hp-bar-player');
+      hpFrame.setDisplaySize(playerBarW + 10, barH + 6).setAlpha(0.7).setDepth(9);
+    }
+    if (this.textures.exists('hp-bar-opponent')) {
+      const oppFrame = this.add.image(width - 10 - oppBarW / 2, barY + barH / 2, 'hp-bar-opponent');
+      oppFrame.setDisplaySize(oppBarW + 10, barH + 6).setAlpha(0.7).setDepth(9);
+    }
+
     // Graphics objects (filled in redrawBars)
     this.playerHpBar = this.add.graphics().setDepth(10);
     this.opponentHpBarFill = this.add.graphics().setDepth(10);

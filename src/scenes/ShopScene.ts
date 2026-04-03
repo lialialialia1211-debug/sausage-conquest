@@ -11,7 +11,7 @@ export class ShopScene extends Phaser.Scene {
   }
 
   preload(): void {
-    this.load.image('bg-shop', 'bg-shop.png');
+    // All textures preloaded in BootScene
   }
 
   create(): void {

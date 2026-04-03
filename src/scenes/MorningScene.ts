@@ -27,7 +27,7 @@ export class MorningScene extends Phaser.Scene {
   }
 
   preload(): void {
-    [5, 10, 15, 20, 25].forEach(d => this.load.image(`story-day${d}`, `story-day${d}.png`));
+    // All textures preloaded in BootScene
   }
 
   create(): void {
