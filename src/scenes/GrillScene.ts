@@ -1325,6 +1325,8 @@ export class GrillScene extends Phaser.Scene {
     }).setOrigin(0.5).setInteractive({ useHandCursor: true }).setDepth(10);
     restartBtn.on('pointerdown', () => {
       if (this.bgm) { this.bgm.stop(); this.bgm.destroy(); this.bgm = null; }
+      // Full game state reset
+      this.resetFullGameState();
       this.scene.start('BootScene');
     });
   }
@@ -3187,5 +3189,61 @@ export class GrillScene extends Phaser.Scene {
 
     // Remove keyboard listeners
     this.input.keyboard?.removeAllListeners();
+  }
+
+  private resetFullGameState(): void {
+    updateGameState({
+      day: 1,
+      money: 8000,
+      reputation: 50,
+      phase: 'boot',
+      playerSlot: 1,
+      inventory: {},
+      map: { 1: 'player', 2: 'enemy', 3: 'enemy', 4: 'enemy', 5: 'enemy', 6: 'enemy', 7: 'enemy', 8: 'enemy', 9: 'enemy' },
+      upgrades: {},
+      prices: {},
+      selectedSlot: 1,
+      unlockedSausages: ['black-pig', 'flying-fish-roe', 'garlic-bomb', 'big-taste'],
+      hiredWorkers: [],
+      marketingPurchases: {},
+      grillEventCooldowns: {},
+      workerSalaryPaid: false,
+      undergroundRep: 0,
+      reputationCrisisDay: -1,
+      chaosCount: 0,
+      dailyChaosActions: [],
+      hasBodyguard: false,
+      bodyguardDaysLeft: 0,
+      blackMarketUnlocked: false,
+      blackMarketStock: {},
+      customerLoyalty: {},
+      dailyOrderScores: [],
+      battleBonus: 0,
+      playerLoans: [],
+      gameMode: '',
+      dailyExpenses: 0,
+      dailySalesLog: [],
+      dailyGrillStats: { perfect: 0, ok: 0, raw: 0, burnt: 0, 'half-cooked': 0, 'slightly-burnt': 0, carbonized: 0 },
+      warmingZone: [],
+      dailyWaste: { grillRemaining: 0, warmingRemaining: 0 },
+      dailyTrafficBonus: 0,
+      skipDay: false,
+      activeOpponents: [],
+      defeatedOpponents: [],
+      stats: {
+        totalSausagesSold: 0,
+        totalRevenue: 0,
+        totalExpenses: 0,
+        battlesWon: 0,
+        battlesLost: 0,
+        totalPerfect: 0,
+        totalBurnt: 0,
+        totalCarbonized: 0,
+        totalLoansRepaid: 0,
+      },
+      loans: { active: null, bankBlacklisted: false },
+      managementFee: { weeklyAmount: 500, lastPaidDay: 0, isResisting: false, resistDays: 0, bribedInspector: false, rebranded: false },
+      hui: { isActive: false, day: 0, cycle: 0, members: [], pot: 0, dailyFee: 100, playerHasCollected: false, playerBidAmount: 0, runaway: false, totalPaidIn: 0, totalCollected: 0 },
+    });
   }
 }
