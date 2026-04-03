@@ -187,6 +187,9 @@ export class GrillScene extends Phaser.Scene {
     // Customer portraits
     const customerImages = ['customer-normal-male', 'customer-normal-female', 'customer-karen', 'customer-thug', 'customer-beggar', 'customer-inspector', 'customer-fatcat', 'customer-influencer'];
     customerImages.forEach(key => this.load.image(key, `${key}.png`));
+    this.load.image('grill-mesh', 'grill-mesh.png');
+    this.load.image('tongs', 'tongs.png');
+    this.load.image('queue-bg', 'queue-bg.png');
   }
 
   create(): void {
@@ -612,6 +615,12 @@ export class GrillScene extends Phaser.Scene {
       bgImg.setDisplaySize(width, height).setAlpha(0.3).setDepth(0);
     }
 
+    if (this.textures.exists('grill-mesh')) {
+      const mesh = this.add.image(width / 2, height * 0.44, 'grill-mesh');
+      const mScale = Math.min((width * 0.8) / mesh.width, 60 / mesh.height);
+      mesh.setScale(mScale).setAlpha(0.5).setDepth(1);
+    }
+
     // Warm glow around grill area
     const glowY = height * GRILL_Y_FRAC;
     const glow = this.add.graphics();
@@ -968,6 +977,10 @@ export class GrillScene extends Phaser.Scene {
 
   private setupCustomerQueue(width: number, _height: number): void {
     const queueY = this.scale.height * 0.13;
+    if (this.textures.exists('queue-bg')) {
+      const qbg = this.add.image(width / 2, queueY, 'queue-bg');
+      qbg.setDisplaySize(width, 80).setAlpha(0.3).setDepth(0);
+    }
     // Center queue: 6 slots × 73px = 438px; offset by half to center on screen
     const queueX = Math.round(width / 2 - 219);
     this.customerQueue = new CustomerQueue(this, queueX, queueY);
@@ -1077,6 +1090,11 @@ export class GrillScene extends Phaser.Scene {
       '🔄 翻面',
       { fontSize: '16px', color: '#ffcc00', backgroundColor: '#1a1a2e', padding: { x: 10, y: 6 } }
     ).setInteractive({ useHandCursor: true }).setDepth(10);
+
+    if (this.textures.exists('tongs')) {
+      const tongsImg = this.add.image(flipBtn.x - 30, flipBtn.y, 'tongs');
+      tongsImg.setScale(Math.min(24 / tongsImg.width, 24 / tongsImg.height)).setDepth(10);
+    }
 
     flipBtn.on('pointerdown', () => {
       // Flip the hovered slot, or first occupied slot if none hovered

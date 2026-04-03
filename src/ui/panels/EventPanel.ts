@@ -3,6 +3,18 @@ import { EventBus } from '../../utils/EventBus';
 import { applyEventChoice } from '../../systems/EventEngine';
 import type { GameEvent, EventChoice } from '../../data/events';
 
+const EVENT_IMAGES: Record<string, string> = {
+  'costco-guy': 'event-costco-guy.png',
+  'food-critic': 'event-food-critic.png',
+  'drunk-uncle': 'event-drunk-uncle.png',
+  'protection-fee': 'event-thugs.png',
+  'territory-threat': 'event-thugs.png',
+  'gang-offer': 'event-thugs.png',
+  'inspector-surprise': 'event-inspector.png',
+  'food-festival': 'event-food-festival.png',
+  'rain-bonus': 'event-rain.png',
+};
+
 export class EventPanel {
   private panel: HTMLElement;
 
@@ -49,6 +61,15 @@ export class EventPanel {
     titleEl.className = 'panel-title neon-flicker';
     titleEl.textContent = `${event.emoji} ${event.name}`;
     this.panel.appendChild(titleEl);
+
+    // Event illustration (if available for this event ID)
+    const eventImage = EVENT_IMAGES[event.id];
+    if (eventImage) {
+      const img = document.createElement('img');
+      img.src = eventImage;
+      img.style.cssText = 'width:100%; max-height:120px; object-fit:cover; border-radius:8px; margin:8px 0; opacity:0.85;';
+      this.panel.appendChild(img);
+    }
 
     // Description — support newlines via text nodes and <br> elements
     const descEl = document.createElement('div');

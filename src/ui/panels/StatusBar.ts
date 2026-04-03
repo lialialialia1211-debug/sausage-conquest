@@ -17,8 +17,8 @@ export class StatusBar {
     this.element = document.createElement('div');
     this.element.id = 'status-bar';
 
-    this.moneyEl = this.createItem('💰', formatMoney(gameState.money));
-    this.dayEl = this.createItem('📅', `Day ${gameState.day}`);
+    this.moneyEl = this.createItem('💰', formatMoney(gameState.money), 'hud-money.png');
+    this.dayEl = this.createItem('📅', `Day ${gameState.day}`, 'hud-day.png');
     this.repEl = this.createItem('⭐', `${gameState.reputation}`);
     this.undergroundRepEl = this.createItem('💀', `${gameState.undergroundRep}`);
     this.chaosEl = this.createItem('🌀', `${gameState.chaosCount}`);
@@ -52,19 +52,33 @@ export class StatusBar {
     EventBus.on('state-updated', this.onStateUpdated, this);
   }
 
-  private createItem(emoji: string, initialValue: string): HTMLElement {
+  private createItem(emoji: string, initialValue: string, iconSrc?: string): HTMLElement {
     const item = document.createElement('div');
     item.className = 'status-item';
 
-    const emojiSpan = document.createElement('span');
-    emojiSpan.className = 'emoji';
-    emojiSpan.textContent = emoji;
+    if (iconSrc) {
+      const iconImg = document.createElement('img');
+      iconImg.src = iconSrc;
+      iconImg.style.cssText = 'width:20px; height:20px; vertical-align:middle; margin-right:4px;';
+      iconImg.onerror = () => {
+        // Fallback to emoji if image fails to load
+        const emojiSpan = document.createElement('span');
+        emojiSpan.className = 'emoji';
+        emojiSpan.textContent = emoji;
+        item.replaceChild(emojiSpan, iconImg);
+      };
+      item.appendChild(iconImg);
+    } else {
+      const emojiSpan = document.createElement('span');
+      emojiSpan.className = 'emoji';
+      emojiSpan.textContent = emoji;
+      item.appendChild(emojiSpan);
+    }
 
     const valueSpan = document.createElement('span');
     valueSpan.className = 'value';
     valueSpan.textContent = initialValue;
 
-    item.appendChild(emojiSpan);
     item.appendChild(valueSpan);
 
     return item;

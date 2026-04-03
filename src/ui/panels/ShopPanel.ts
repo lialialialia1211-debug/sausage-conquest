@@ -1532,6 +1532,13 @@ export class ShopPanel {
       const emojiEl = document.createElement('span');
       emojiEl.style.cssText = 'font-size:1.5rem; line-height:1; flex-shrink:0; margin-top:2px;';
       emojiEl.textContent = achievement.unlocked ? achievement.emoji : '🔒';
+      if (achievement.unlocked && achievement.image) {
+        const img = document.createElement('img');
+        img.src = achievement.image;
+        img.style.cssText = 'width:40px; height:40px; object-fit:contain;';
+        emojiEl.textContent = '';
+        emojiEl.appendChild(img);
+      }
 
       const infoEl = document.createElement('div');
       infoEl.style.cssText = 'display:flex; flex-direction:column; gap:2px;';

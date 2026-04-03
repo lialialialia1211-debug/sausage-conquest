@@ -357,6 +357,12 @@ export class SummaryPanel {
     title.textContent = '📍 攤位位置';
     el.appendChild(title);
 
+    const tileNum = String(slot + 1).padStart(2, '0');
+    const tileImg = document.createElement('img');
+    tileImg.src = `map-tile-${tileNum}.png`;
+    tileImg.style.cssText = 'width:60px; height:60px; object-fit:cover; border-radius:6px; margin-right:8px; display:block; margin-bottom:6px;';
+    el.appendChild(tileImg);
+
     const locationRow = document.createElement('div');
     locationRow.className = 'summary-revenue-row';
     const locationLabel = document.createElement('span');

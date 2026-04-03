@@ -105,6 +105,10 @@ export class BattleScene extends Phaser.Scene {
     const opponents = ['toilet-uncle', 'alley-gang', 'uncle', 'influencer', 'fat-sister', 'student', 'sausage-prince', 'sausage-king'];
     opponents.forEach(id => this.load.image(`opponent-${id}`, `opponent-${id}.png`));
     this.load.image('player-portrait', 'player.png');
+    this.load.image('attack-normal', 'battle-attack-normal.png');
+    this.load.image('attack-garlic', 'battle-attack-garlic.png');
+    this.load.image('attack-cheese', 'battle-attack-cheese.png');
+    this.load.image('tongs', 'tongs.png');
   }
 
   // ── create ───────────────────────────────────────────────────────────────────
@@ -340,13 +344,19 @@ export class BattleScene extends Phaser.Scene {
     const { width, height } = this.scale;
 
     // Sausage arc swing: spawns at bottom-center, arcs toward pointer
-    const sausage = this.add.text(width / 2, height * 0.85, '🌭', {
-      fontSize: '48px',
-      fontFamily: FONT,
-    }).setOrigin(0.5).setDepth(40).setAngle(-45).setScale(1.5);
+    let attackObj: Phaser.GameObjects.Image | Phaser.GameObjects.Text;
+    if (this.textures.exists('tongs')) {
+      attackObj = this.add.image(width / 2, height * 0.85, 'tongs').setDepth(40);
+      attackObj.setScale(0.15).setAngle(-45);
+    } else {
+      attackObj = this.add.text(width / 2, height * 0.85, '🌭', {
+        fontSize: '48px',
+        fontFamily: FONT,
+      }).setOrigin(0.5).setDepth(40).setAngle(-45).setScale(1.5);
+    }
 
     this.tweens.add({
-      targets: sausage,
+      targets: attackObj,
       x: pointer.x,
       y: pointer.y,
       angle: 45,
@@ -368,7 +378,7 @@ export class BattleScene extends Phaser.Scene {
             onComplete: () => burst.destroy(),
           });
         }
-        sausage.destroy();
+        attackObj.destroy();
       },
     });
 

@@ -10,6 +10,10 @@ export class ShopScene extends Phaser.Scene {
     super({ key: 'ShopScene' });
   }
 
+  preload(): void {
+    this.load.image('bg-shop', 'bg-shop.png');
+  }
+
   create(): void {
     this.readyForNext = false;
     const { width, height } = this.scale;
@@ -19,6 +23,10 @@ export class ShopScene extends Phaser.Scene {
     const bg = this.add.graphics();
     bg.fillGradientStyle(0x00050a, 0x00050a, 0x000a15, 0x000a15, 1);
     bg.fillRect(0, 0, width, height);
+
+    if (this.textures.exists('bg-shop')) {
+      this.add.image(width / 2, height / 2, 'bg-shop').setDisplaySize(width, height).setAlpha(0.2);
+    }
 
     this.add.text(cx, cy, '🏪', { fontSize: '80px' }).setOrigin(0.5).setAlpha(0.15);
 

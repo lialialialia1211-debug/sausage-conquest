@@ -26,6 +26,10 @@ export class MorningScene extends Phaser.Scene {
     super({ key: 'MorningScene' });
   }
 
+  preload(): void {
+    [5, 10, 15, 20, 25].forEach(d => this.load.image(`story-day${d}`, `story-day${d}.png`));
+  }
+
   create(): void {
     this.readyForNext = false;
     const { width, height } = this.scale;
@@ -120,6 +124,21 @@ export class MorningScene extends Phaser.Scene {
     }).setOrigin(0.5);
 
     this.cameras.main.fadeIn(400, 0, 0, 0);
+
+    // Show story illustration overlay for story beat days
+    if (storyBeat && this.textures.exists(`story-day${gameState.day}`)) {
+      const img = this.add.image(cx, cy, `story-day${gameState.day}`);
+      const scale = Math.min((width * 0.6) / img.width, (height * 0.4) / img.height);
+      img.setScale(scale).setDepth(100).setAlpha(0);
+      this.tweens.add({
+        targets: img,
+        alpha: 0.9,
+        duration: 500,
+        yoyo: true,
+        hold: 2000,
+        onComplete: () => img.destroy(),
+      });
+    }
 
     // Show notifications if any, then show morning panel
     if (notifications.length > 0) {
