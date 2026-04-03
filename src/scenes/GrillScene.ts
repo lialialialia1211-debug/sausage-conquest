@@ -38,7 +38,7 @@ import type { SpecialEffectResult } from '../data/sausage-effects';
 // ── Layout constants ────────────────────────────────────────────────────────
 const GAME_DURATION = 90;      // seconds
 const MAX_GRILL_SLOTS = 4;     // 6 if grill-expand upgrade
-const GRILL_Y_FRAC = 0.44;    // grill vertical position as fraction of screen height
+const GRILL_Y_FRAC = 0.42;    // grill vertical position as fraction of screen height (true center)
 // Warming zone has no fixed limit — slots are created dynamically
 // Customer arrival scales with day: early days are calmer
 const BASE_ARRIVAL_INTERVAL = 10; // day 1 interval
@@ -629,7 +629,7 @@ export class GrillScene extends Phaser.Scene {
     if (this.textures.exists('grill-mesh')) {
       const maxSlots = gameState.upgrades['grill-expand'] ? 6 : MAX_GRILL_SLOTS;
       const meshW = 85 * maxSlots + 40; // just wide enough for all slots + padding
-      const meshY = height * GRILL_Y_FRAC + 5;
+      const meshY = height * GRILL_Y_FRAC;
       const mesh = this.add.image(width / 2, meshY, 'grill-mesh');
       const mScale = Math.min(meshW / mesh.width, 35 / mesh.height);
       mesh.setScale(mScale).setAlpha(0.4).setDepth(-1);
@@ -819,7 +819,7 @@ export class GrillScene extends Phaser.Scene {
 
   private setupWarmingZone(width: number, height: number): void {
     this.wzX = (width - width * 0.5) / 2; // centered, 50% width
-    this.wzY = height * GRILL_Y_FRAC + 60; // BELOW the grill
+    this.wzY = height * GRILL_Y_FRAC + 80; // BELOW the grill with more space
     this.wzSlotW = width * 0.5;
 
     // Zone label
@@ -1034,8 +1034,8 @@ export class GrillScene extends Phaser.Scene {
   }
 
   private setupHeatButtons(_width: number, height: number): void {
-    // Heat buttons on left side, clear of centered warming zone
-    const btnY = height * GRILL_Y_FRAC + 130;
+    // Heat buttons on left side, between grill and warming zone
+    const btnY = height * GRILL_Y_FRAC + 55;
     const levels: { level: HeatLevel; label: string; icon: string }[] = [
       { level: 'low',    label: '小火', icon: '🔥' },
       { level: 'medium', label: '中火', icon: '🔥🔥' },
@@ -1073,8 +1073,8 @@ export class GrillScene extends Phaser.Scene {
   }
 
   private setupSpeedButtons(width: number, height: number): void {
-    // Speed buttons on right side, clear of centered warming zone
-    const btnY = height * GRILL_Y_FRAC + 130;
+    // Speed buttons on right side, between grill and warming zone
+    const btnY = height * GRILL_Y_FRAC + 55;
     const speeds = [1, 2, 3];
 
     const btnW = 36;
@@ -1321,9 +1321,9 @@ export class GrillScene extends Phaser.Scene {
   private setupEndButton(width: number, height: number): void {
     const btnW = 100;
     const btnH = 30;
-    // Place below warming zone (warming zone ends at GRILL_Y_FRAC + 60 + 4*40 = GRILL_Y_FRAC + 220)
+    // Place below warming zone
     const bx = width / 2;
-    const by = height * GRILL_Y_FRAC + 240;
+    const by = height * GRILL_Y_FRAC + 260;
 
     this.createButton(bx, by, btnW, btnH, '結束營業', () => {
       this.endGrilling();
@@ -2500,50 +2500,34 @@ export class GrillScene extends Phaser.Scene {
 
   private showScorePopup(score: OrderScore, typeMatch: boolean, isVIP?: boolean): void {
     const w = this.scale.width;
-    const h = this.scale.height;
 
-    const popup = this.add.container(w / 2, h / 2).setDepth(25);
+    // Compact popup in top-left corner, not blocking grill
+    const popup = this.add.container(8, 80).setDepth(25);
 
-    const bg = this.add.rectangle(0, 0, 260, 200, 0x111122, 0.95)
-      .setStrokeStyle(2, getScoreColor(score.totalScore));
+    const bg = this.add.rectangle(75, 40, 155, 80, 0x111122, 0.9)
+      .setStrokeStyle(1, getScoreColor(score.totalScore));
     popup.add(bg);
 
-    // Stars
-    const starsText = this.add.text(0, -75, starsToString(score.stars), {
-      fontSize: '28px', color: '#ffcc00'
+    // Stars + total on one line
+    const starsLine = this.add.text(75, 18, `${starsToString(score.stars)} ${score.totalScore}分`, {
+      fontSize: '14px', color: '#ffcc00', fontFamily: FONT
     }).setOrigin(0.5);
-    popup.add(starsText);
+    popup.add(starsLine);
 
-    // Score breakdown
-    const lines = [
-      `烤功：${score.grillScore}`,
-      `配料：${score.condimentScore}`,
-      `保溫：${score.warmingScore}`,
-      `等待：${score.waitScore}`,
-    ];
-
-    if (!typeMatch) lines.push('送錯種類！');
-    if (isVIP) lines.push('VIP 雙倍價！');
-
-    lines.forEach((line, i) => {
-      const t = this.add.text(0, -40 + i * 20, line, {
-        fontSize: '13px', color: '#cccccc', fontFamily: FONT
-      }).setOrigin(0.5);
-      popup.add(t);
-    });
-
-    // Total + tip
-    const totalText = this.add.text(0, 55, `總分 ${score.totalScore} | 小費 $${score.tipAmount}`, {
-      fontSize: '15px', color: '#44ff44', fontStyle: 'bold', fontFamily: FONT
+    // Tip
+    const tipLine = this.add.text(75, 38, `小費 $${score.tipAmount}${isVIP ? ' VIP!' : ''}${!typeMatch ? ' 送錯!' : ''}`, {
+      fontSize: '12px', color: '#44ff44', fontFamily: FONT
     }).setOrigin(0.5);
-    popup.add(totalText);
+    popup.add(tipLine);
 
-    // Auto-dismiss after 2 seconds
-    this.time.delayedCall(2000, () => { if (popup.active) popup.destroy(); });
+    // Mini breakdown
+    const detail = this.add.text(75, 56, `烤${score.grillScore} 料${score.condimentScore} 溫${score.warmingScore} 等${score.waitScore}`, {
+      fontSize: '10px', color: '#888888', fontFamily: FONT
+    }).setOrigin(0.5);
+    popup.add(detail);
 
-    // Click to dismiss
-    bg.setInteractive();
-    bg.on('pointerdown', () => popup.destroy());
+    // Auto-dismiss after 1.5 seconds
+    this.time.delayedCall(1500, () => { if (popup.active) popup.destroy(); });
   }
 
   private onCustomerTimeout(customerId: string): void {

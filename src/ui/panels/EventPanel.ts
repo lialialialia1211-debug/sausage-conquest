@@ -13,6 +13,13 @@ const EVENT_IMAGES: Record<string, string> = {
   'inspector-surprise': 'event-inspector.png',
   'food-festival': 'event-food-festival.png',
   'rain-bonus': 'event-rain.png',
+  'management-fee-weekly': 'customer-inspector.png',
+  'influencer-livestream': 'customer-influencer.png',
+  'competitor-spy': 'customer-thug.png',
+  'media-crisis-exposed': 'karen-alert.png',
+  'employee-strike': 'customer-karen.png',
+  'expired-ingredient-gamble': 'event-food-critic.png',
+  'underground-delivery': 'event-thugs.png',
 };
 
 export class EventPanel {
