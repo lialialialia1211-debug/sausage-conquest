@@ -85,6 +85,9 @@ export class BootScene extends Phaser.Scene {
     // ── HUD icons ──
     this.load.image('hud-money', 'hud-money.png');
     this.load.image('hud-day', 'hud-day.png');
+
+    // ── BGM ──
+    this.load.audio('bgm-grill', 'bgm-grill.mp3');
   }
 
   create(): void {

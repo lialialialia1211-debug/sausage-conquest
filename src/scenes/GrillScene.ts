@@ -142,6 +142,7 @@ export class GrillScene extends Phaser.Scene {
 
   // ── Background overlay reference ─────────────────────────────────────────
   private bgGrillImage: Phaser.GameObjects.Image | null = null;
+  private bgm: Phaser.Sound.BaseSound | null = null;
 
   // ── Combat state ─────────────────────────────────────────────────────────
   private currentCombatPanel: CombatPanel | null = null;
@@ -2914,6 +2915,13 @@ export class GrillScene extends Phaser.Scene {
     if (this.isDone) return;
     this.isDone = true;
 
+    // Stop BGM
+    if (this.bgm) {
+      this.bgm.stop();
+      this.bgm.destroy();
+      this.bgm = null;
+    }
+
     // Clean up condiment station
     this.condimentOverlay?.destroy();
     this.condimentOverlay = null;
@@ -3076,6 +3084,16 @@ export class GrillScene extends Phaser.Scene {
       infoText.destroy();
       btnText.destroy();
       this.paused = false;
+
+      // Start BGM loop
+      if (this.sound.get('bgm-grill')) {
+        this.sound.get('bgm-grill')?.destroy();
+      }
+      if (this.cache.audio.exists('bgm-grill')) {
+        this.bgm = this.sound.add('bgm-grill', { loop: true, volume: 0.4 });
+        this.bgm.play();
+      }
+
       if (this.bgGrillImage) {
         this.tweens.add({
           targets: this.bgGrillImage,
@@ -3090,6 +3108,13 @@ export class GrillScene extends Phaser.Scene {
 
   shutdown(): void {
     this.time.removeAllEvents();
+
+    // Stop BGM
+    if (this.bgm) {
+      this.bgm.stop();
+      this.bgm.destroy();
+      this.bgm = null;
+    }
 
     // Clean up combat panel if still active
     if (this.currentCombatPanel) {
