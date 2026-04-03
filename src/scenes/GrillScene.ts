@@ -986,13 +986,13 @@ export class GrillScene extends Phaser.Scene {
   }
 
   private setupCustomerQueue(width: number, _height: number): void {
-    const queueY = this.scale.height * 0.18;
+    const queueY = this.scale.height * 0.24;
     if (this.textures.exists('queue-bg')) {
       const qbg = this.add.image(width / 2, queueY, 'queue-bg');
       qbg.setDisplaySize(width, 100).setAlpha(0.5).setDepth(0);
     }
-    // Center queue: 6 slots × 73px = 438px; offset by half to center on screen
-    const queueX = Math.round(width / 2 - 250);
+    // Center queue: 5 slots × 120px = 600px; offset by half to center on screen
+    const queueX = Math.round(width / 2 - 300);
     this.customerQueue = new CustomerQueue(this, queueX, queueY);
     this.customerQueue.onTimeout((customerId: string) => {
       this.onCustomerTimeout(customerId);
@@ -1094,34 +1094,11 @@ export class GrillScene extends Phaser.Scene {
       color: COLOR_DIM,
     }).setOrigin(0.5);
 
-    // Mobile flip button (visible on all devices, useful shortcut)
-    const flipBtn = this.add.text(
-      10, this.scale.height - 80,
-      '🔄 翻面',
-      { fontSize: '16px', color: '#ffcc00', backgroundColor: '#1a1a2e', padding: { x: 10, y: 6 } }
-    ).setInteractive({ useHandCursor: true }).setDepth(10);
-
-    if (this.textures.exists('tongs')) {
-      const tongsImg = this.add.image(flipBtn.x - 30, flipBtn.y, 'tongs');
-      tongsImg.setScale(Math.min(36 / tongsImg.width, 36 / tongsImg.height)).setDepth(10);
-    }
-
-    flipBtn.on('pointerdown', () => {
-      // Flip the hovered slot, or first occupied slot if none hovered
-      if (this.hoveredSlotIndex !== null) {
-        const slot = this.grillSlots[this.hoveredSlotIndex];
-        if (slot?.sausage) this.doFlipSlot(slot);
-      } else {
-        // Find first slot with a sausage and flip it
-        const firstOccupied = this.grillSlots.find(s => s.sausage);
-        if (firstOccupied) this.doFlipSlot(firstOccupied);
-      }
-    });
   }
 
   private setupInventoryPanel(width: number, height: number): void {
-    const panelY = height - 88;
-    const panelH = 68;
+    const panelY = height - 120;
+    const panelH = 110;
 
     // Background
     const bg = this.add.graphics();
@@ -1159,8 +1136,8 @@ export class GrillScene extends Phaser.Scene {
       ...unavailable.map(id => ({ id, qty: 0, hasStock: false })),
     ];
 
-    const btnW = 88;
-    const btnH = 44;
+    const btnW = 140;
+    const btnH = 90;
     const gap = 8;
     const totalBtns = allItems.length;
     const totalW = totalBtns * btnW + (totalBtns - 1) * gap;
@@ -1199,20 +1176,20 @@ export class GrillScene extends Phaser.Scene {
       // Show sausage art image in inventory button if available
       const textureKey = `sausage-${id}`;
       if (this.textures.exists(textureKey)) {
-        const img = this.add.image(0, -6, textureKey);
-        const imgScale = Math.min(45 / img.width, 32 / img.height);
+        const img = this.add.image(0, -10, textureKey);
+        const imgScale = Math.min(100 / img.width, 70 / img.height);
         img.setScale(imgScale).setAlpha(hasStock ? 1 : 0.3);
         container.add(img);
       }
 
-      const txt = this.add.text(0, hasStock && this.textures.exists(textureKey) ? 12 : -4, `×${qty}`, {
-        fontSize: '13px',
+      const txt = this.add.text(0, hasStock && this.textures.exists(textureKey) ? 30 : -4, `×${qty}`, {
+        fontSize: '16px',
         fontFamily: FONT,
         color: hasStock ? COLOR_ORANGE : '#442200',
         align: 'center',
       }).setOrigin(0.5);
 
-      const nameTxt = this.add.text(0, 12, info?.name ?? id, {
+      const nameTxt = this.add.text(0, 30, info?.name ?? id, {
         fontSize: '9px',
         fontFamily: FONT,
         color: hasStock ? '#886633' : '#331100',
@@ -1248,8 +1225,8 @@ export class GrillScene extends Phaser.Scene {
 
   private updateInventoryDisplay(): void {
     const { width, height } = this.scale;
-    const panelY = height - 88;
-    const panelH = 68;
+    const panelY = height - 120;
+    const panelH = 110;
     this.rebuildInventoryButtons(width, panelY, panelH);
   }
 
@@ -1259,8 +1236,8 @@ export class GrillScene extends Phaser.Scene {
       const isSelected = this.selectedInventoryType === id;
       const qty = this.inventoryCopy[id] ?? 0;
       const hasStock = qty > 0;
-      const btnW = 88;
-      const btnH = 44;
+      const btnW = 140;
+      const btnH = 90;
 
       bgGfx.clear();
       if (!hasStock) {
@@ -1278,7 +1255,7 @@ export class GrillScene extends Phaser.Scene {
     });
   }
 
-  private setupHUD(width: number, height: number): void {
+  private setupHUD(width: number, _height: number): void {
     // ── Top left: timer ──────────────────────────────────────────────────
     this.timerText = this.add.text(16, 14, '⏱ 90s', {
       fontSize: '18px',
@@ -1314,14 +1291,17 @@ export class GrillScene extends Phaser.Scene {
       }).setOrigin(0.5, 0).setDepth(10);
     }
 
-    // ── Bottom stats bar ─────────────────────────────────────────────────
-    const statsY = height - 100;
+    // ── Top-right stats display ──────────────────────────────────────────
+    const statsX = width - 10;
+    const statsY = 55; // below the status bar
 
-    this.statsText = this.add.text(16, statsY, '完美:0 | 普通:0 | 焦:0', {
-      fontSize: '12px',
+    this.statsText = this.add.text(statsX, statsY, '', {
+      fontSize: '14px',
       fontFamily: FONT,
-      color: COLOR_DIM,
-    }).setDepth(10);
+      color: '#ffffff',
+      backgroundColor: '#000000aa',
+      padding: { x: 8, y: 4 },
+    }).setOrigin(1, 0).setDepth(15);
 
     this.revenueText = this.add.text(width / 2, statsY, '💰 $0', {
       fontSize: '14px',
@@ -1334,7 +1314,7 @@ export class GrillScene extends Phaser.Scene {
     const btnW = 100;
     const btnH = 30;
     const bx = width - btnW / 2 - 12;
-    const by = height - 100;
+    const by = height - 135;
 
     this.createButton(bx, by, btnW, btnH, '結束營業', () => {
       this.endGrilling();
@@ -2662,7 +2642,7 @@ export class GrillScene extends Phaser.Scene {
     const halfCooked = this.grillStats['half-cooked'];
     const slightlyBurnt = this.grillStats['slightly-burnt'];
     this.statsText.setText(
-      `完美:${perfect} | 普通:${ok} | 微焦:${slightlyBurnt} | 焦:${burnt} | 碳:${carbonized} | 生:${halfCooked}`
+      `✅${perfect} 🟡${ok} 🟠${slightlyBurnt} 🔴${burnt} ⬛${carbonized} 🩶${halfCooked}`
     );
     this.revenueText.setText(`💰 $${this.sessionRevenue}`);
   }
