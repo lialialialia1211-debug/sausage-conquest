@@ -580,11 +580,18 @@ export class GrillScene extends Phaser.Scene {
     this.updateTimerDisplay();
 
     // Auto-end if no pending customers and nobody waiting
+    // Don't auto-end during combat, events, condiment station, or away activities
     if (
       !this.isDone &&
+      !this.paused &&
+      !this.isShowingGrillEvent &&
+      !this.isShowingCondimentStation &&
+      !this.isPlayerAway &&
+      !this.currentCombatPanel &&
       this.pendingCustomerQueue.length === 0 &&
       this.customerQueue.getWaitingCount() === 0 &&
-      this.salesLog.length > 0
+      this.salesLog.length > 0 &&
+      this.timeLeft < 85 // don't auto-end in the first 5 seconds
     ) {
       this.endGrilling();
     }
