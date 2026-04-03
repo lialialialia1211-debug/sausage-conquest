@@ -180,7 +180,7 @@ export class GrillScene extends Phaser.Scene {
     // Preload karen alert
     this.load.image('karen-alert', 'karen-alert.png');
     this.load.image('bg-grill', 'bg-grill.png');
-    this.load.image('player-portrait', 'player.png');
+
     // Condiment images
     const condimentIds = ['garlic-paste', 'wasabi', 'chili-sauce', 'sauerkraut', 'onion-dice', 'basil', 'soy-paste', 'peanut'];
     condimentIds.forEach(id => this.load.image(`condiment-${id}`, `condiment-${id}.png`));
@@ -612,13 +612,13 @@ export class GrillScene extends Phaser.Scene {
 
     if (this.textures.exists('bg-grill')) {
       const bgImg = this.add.image(width / 2, height / 2, 'bg-grill');
-      bgImg.setDisplaySize(width, height).setAlpha(0.3).setDepth(0);
+      bgImg.setDisplaySize(width, height).setAlpha(0.45).setDepth(0);
     }
 
     if (this.textures.exists('grill-mesh')) {
       const mesh = this.add.image(width / 2, height * 0.44, 'grill-mesh');
-      const mScale = Math.min((width * 0.8) / mesh.width, 60 / mesh.height);
-      mesh.setScale(mScale).setAlpha(0.5).setDepth(1);
+      const mScale = Math.min((width * 0.85) / mesh.width, 100 / mesh.height);
+      mesh.setScale(mScale).setAlpha(0.7).setDepth(1);
     }
 
     // Warm glow around grill area
@@ -979,7 +979,7 @@ export class GrillScene extends Phaser.Scene {
     const queueY = this.scale.height * 0.13;
     if (this.textures.exists('queue-bg')) {
       const qbg = this.add.image(width / 2, queueY, 'queue-bg');
-      qbg.setDisplaySize(width, 80).setAlpha(0.3).setDepth(0);
+      qbg.setDisplaySize(width, 100).setAlpha(0.5).setDepth(0);
     }
     // Center queue: 6 slots × 73px = 438px; offset by half to center on screen
     const queueX = Math.round(width / 2 - 219);
@@ -1093,7 +1093,7 @@ export class GrillScene extends Phaser.Scene {
 
     if (this.textures.exists('tongs')) {
       const tongsImg = this.add.image(flipBtn.x - 30, flipBtn.y, 'tongs');
-      tongsImg.setScale(Math.min(24 / tongsImg.width, 24 / tongsImg.height)).setDepth(10);
+      tongsImg.setScale(Math.min(36 / tongsImg.width, 36 / tongsImg.height)).setDepth(10);
     }
 
     flipBtn.on('pointerdown', () => {
@@ -1190,7 +1190,7 @@ export class GrillScene extends Phaser.Scene {
       const textureKey = `sausage-${id}`;
       if (this.textures.exists(textureKey)) {
         const img = this.add.image(0, -6, textureKey);
-        const imgScale = Math.min(30 / img.width, 22 / img.height);
+        const imgScale = Math.min(45 / img.width, 32 / img.height);
         img.setScale(imgScale).setAlpha(hasStock ? 1 : 0.3);
         container.add(img);
       }
@@ -2312,7 +2312,7 @@ export class GrillScene extends Phaser.Scene {
       let condimentIcon: Phaser.GameObjects.Image | Phaser.GameObjects.Text;
       if (this.textures.exists(condimentTexKey)) {
         const condImg = this.add.image(x, y - 8, condimentTexKey);
-        const cScale = Math.min(28 / condImg.width, 28 / condImg.height);
+        const cScale = Math.min(40 / condImg.width, 40 / condImg.height);
         condImg.setScale(cScale);
         condimentIcon = condImg;
       } else {

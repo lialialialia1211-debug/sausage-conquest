@@ -97,8 +97,8 @@ export class SausageSprite extends Phaser.GameObjects.Container {
     if (scene.textures.exists(textureKey)) {
       const artImage = scene.add.image(0, 0, textureKey);
       // Scale to fit the sausage body size (approximately 60×24 px)
-      const targetW = 56;
-      const targetH = 28;
+      const targetW = 80;
+      const targetH = 40;
       const scale = Math.min(targetW / artImage.width, targetH / artImage.height);
       artImage.setScale(scale);
       artImage.setDepth(1); // above the gfx body

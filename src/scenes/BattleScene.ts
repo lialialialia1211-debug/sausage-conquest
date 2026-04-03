@@ -105,9 +105,7 @@ export class BattleScene extends Phaser.Scene {
     const opponents = ['toilet-uncle', 'alley-gang', 'uncle', 'influencer', 'fat-sister', 'student', 'sausage-prince', 'sausage-king'];
     opponents.forEach(id => this.load.image(`opponent-${id}`, `opponent-${id}.png`));
     this.load.image('player-portrait', 'player.png');
-    this.load.image('attack-normal', 'battle-attack-normal.png');
-    this.load.image('attack-garlic', 'battle-attack-garlic.png');
-    this.load.image('attack-cheese', 'battle-attack-cheese.png');
+
     this.load.image('tongs', 'tongs.png');
   }
 
@@ -1049,7 +1047,8 @@ export class BattleScene extends Phaser.Scene {
     if (this.textures.exists(oppTextureKey)) {
       const portrait = this.add.image(this.opponentEmoji.x, this.opponentEmoji.y, oppTextureKey);
       const maxH = height * 0.35;
-      const scale = maxH / portrait.height;
+      const maxW = width * 0.35;
+      const scale = Math.min(maxH / portrait.height, maxW / portrait.width);
       portrait.setScale(scale).setDepth(this.opponentEmoji.depth - 1);
       this.opponentEmoji.setAlpha(0); // hide emoji, show portrait instead
     }
@@ -1057,7 +1056,7 @@ export class BattleScene extends Phaser.Scene {
     // Player portrait in bottom-left corner
     if (this.textures.exists('player-portrait')) {
       const playerPortrait = this.add.image(60, height - 60, 'player-portrait');
-      const pScale = 80 / playerPortrait.height;
+      const pScale = Math.min(80 / playerPortrait.height, 80 / playerPortrait.width);
       playerPortrait.setScale(pScale).setDepth(5);
     }
 

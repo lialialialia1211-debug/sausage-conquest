@@ -25,7 +25,7 @@ export class EventPanel {
 
     // Subtle event background illustration
     const bgDiv = document.createElement('div');
-    bgDiv.style.cssText = 'position:absolute; top:0; left:0; right:0; bottom:0; background:url(bg-event.png) center/cover; opacity:0.15; pointer-events:none; border-radius:inherit;';
+    bgDiv.style.cssText = 'position:absolute; top:0; left:0; right:0; bottom:0; background:url(bg-event.png) center/cover; opacity:0.25; pointer-events:none; border-radius:inherit;';
     this.panel.appendChild(bgDiv);
 
     this.buildChoicePhase(event);
@@ -67,7 +67,7 @@ export class EventPanel {
     if (eventImage) {
       const img = document.createElement('img');
       img.src = eventImage;
-      img.style.cssText = 'width:100%; max-height:120px; object-fit:cover; border-radius:8px; margin:8px 0; opacity:0.85;';
+      img.style.cssText = 'width:100%; max-height:120px; object-fit:contain; border-radius:8px; margin:8px 0; opacity:0.85;';
       this.panel.appendChild(img);
     }
 

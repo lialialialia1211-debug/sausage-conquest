@@ -68,17 +68,18 @@ export class CustomerQueue extends Phaser.GameObjects.Container {
       fatcat: 'customer-fatcat',
       spy: 'customer-inspector', // reuse inspector
       influencer: 'customer-influencer',
+      beggar: 'customer-beggar',
     };
     const imageKey = personalityImageMap[customer.personality]
       || (Math.random() < 0.5 ? 'customer-normal-male' : 'customer-normal-female');
 
     if (this.scene.textures.exists(imageKey)) {
       const portrait = this.scene.add.image(0, 0, imageKey);
-      const pScale = Math.min(30 / portrait.width, 30 / portrait.height);
+      const pScale = Math.min(50 / portrait.width, 50 / portrait.height);
       portrait.setScale(pScale);
       container.add(portrait);
       // Move emoji behind/hide it
-      emojiText.setAlpha(0.3);
+      emojiText.setAlpha(0);
       emojiText.setY(-18); // move emoji above as a small indicator
       emojiText.setFontSize(12);
     }
