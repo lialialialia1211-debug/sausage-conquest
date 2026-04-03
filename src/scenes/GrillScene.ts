@@ -141,6 +141,7 @@ export class GrillScene extends Phaser.Scene {
   private timerFlashTween: Phaser.Tweens.Tween | null = null;
 
   // ── Background overlay reference ─────────────────────────────────────────
+  // @ts-ignore — reserved for future bg manipulation
   private bgGrillImage: Phaser.GameObjects.Image | null = null;
   private bgm: Phaser.Sound.BaseSound | null = null;
 
@@ -596,45 +597,16 @@ export class GrillScene extends Phaser.Scene {
     bg.fillGradientStyle(COLOR_BG_TOP, COLOR_BG_TOP, COLOR_BG_BTM, COLOR_BG_BTM, 1);
     bg.fillRect(0, 0, width, height);
 
+    // Background image — very subtle, just atmosphere
     if (this.textures.exists('bg-grill')) {
       const bgImg = this.add.image(width / 2, height / 2, 'bg-grill');
-      bgImg.setDisplaySize(width, height).setAlpha(0.45).setDepth(0);
+      bgImg.setDisplaySize(width, height).setAlpha(0.12).setDepth(0);
       this.bgGrillImage = bgImg;
     }
 
-    // Fire flames BELOW the grill rack (multiple small flames in a row)
-    if (this.textures.exists('fire-flame')) {
-      const fireY = height * GRILL_Y_FRAC + 40;
-      const maxSlots = gameState.upgrades['grill-expand'] ? 6 : MAX_GRILL_SLOTS;
-      const flameCount = 4;
-      const flameSpread = 85 * maxSlots * 0.8;
-      for (let i = 0; i < flameCount; i++) {
-        const fx = (width - flameSpread) / 2 + (flameSpread / (flameCount - 1)) * i;
-        const fire = this.add.image(fx, fireY, 'fire-flame');
-        const fScale = Math.min(35 / fire.width, 35 / fire.height);
-        fire.setScale(fScale).setAlpha(0.7).setDepth(-1);
-        // Each flame flickers at slightly different timing
-        this.tweens.add({
-          targets: fire,
-          alpha: { from: 0.5, to: 0.8 },
-          scaleY: { from: fScale * 0.9, to: fScale * 1.15 },
-          duration: 300 + i * 80,
-          yoyo: true,
-          repeat: -1,
-          ease: 'Sine.easeInOut',
-        });
-      }
-    }
-
-    // Grill mesh — sits BEHIND sausages (depth -1, under grill slot depth)
-    if (this.textures.exists('grill-mesh')) {
-      const maxSlots = gameState.upgrades['grill-expand'] ? 6 : MAX_GRILL_SLOTS;
-      const meshW = 85 * maxSlots + 40; // just wide enough for all slots + padding
-      const meshY = height * GRILL_Y_FRAC;
-      const mesh = this.add.image(width / 2, meshY, 'grill-mesh');
-      const mScale = Math.min(meshW / mesh.width, 35 / mesh.height);
-      mesh.setScale(mScale).setAlpha(0.4).setDepth(-1);
-    }
+    // NOTE: fire-flame and grill-mesh removed from here.
+    // The programmatic grill rack (drawGrillRack) handles the visual.
+    // Art images were causing z-order conflicts and covering sausages.
 
     // Warm glow around grill area
     const glowY = height * GRILL_Y_FRAC;
@@ -3086,21 +3058,18 @@ export class GrillScene extends Phaser.Scene {
       this.paused = false;
 
       // Start BGM loop
-      if (this.sound.get('bgm-grill')) {
-        this.sound.get('bgm-grill')?.destroy();
-      }
-      if (this.cache.audio.exists('bgm-grill')) {
+      try {
+        // Stop any existing instance
+        this.sound.stopByKey('bgm-grill');
+        this.sound.removeByKey('bgm-grill');
         this.bgm = this.sound.add('bgm-grill', { loop: true, volume: 0.4 });
         this.bgm.play();
+      } catch (_e) {
+        // Audio may not be available (e.g. not preloaded or blocked by browser)
+        console.warn('BGM failed to play:', _e);
       }
 
-      if (this.bgGrillImage) {
-        this.tweens.add({
-          targets: this.bgGrillImage,
-          alpha: 0.15,
-          duration: 500,
-        });
-      }
+      // bg already at 0.12, no further adjustment needed
     });
   }
 
