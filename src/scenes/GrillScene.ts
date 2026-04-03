@@ -2499,7 +2499,6 @@ export class GrillScene extends Phaser.Scene {
   }
 
   private showScorePopup(score: OrderScore, typeMatch: boolean, isVIP?: boolean): void {
-    const w = this.scale.width;
 
     // Compact popup in top-left corner, not blocking grill
     const popup = this.add.container(8, 80).setDepth(25);
