@@ -107,6 +107,7 @@ export class SausageSprite extends Phaser.GameObjects.Container {
       // Hide the programmatic body since we have art
       this.sausageGfx.setVisible(false);
       if (this.varietyGfx) this.varietyGfx.setVisible(false);
+      this.labelText.setVisible(false);
     }
 
     // Hit area — only covers the sausage body, not above it (起鍋 button lives above)

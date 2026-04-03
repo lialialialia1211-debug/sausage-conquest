@@ -115,6 +115,13 @@ export class CombatPanel {
     titleEl.textContent = `${emoji} ${name}`;
     this.panel.appendChild(titleEl);
 
+    // Show karen-alert image for all combat encounters
+    const alertImg = document.createElement('img');
+    alertImg.src = 'karen-alert.png';
+    alertImg.style.cssText = 'width:100%; max-height:100px; object-fit:contain; margin:8px 0;';
+    alertImg.onerror = () => alertImg.style.display = 'none'; // hide if fails
+    this.panel.appendChild(alertImg);
+
     // Description
     const desc = PERSONALITY_DESCRIPTIONS[this.personality] ?? '有人在找你麻煩...';
     const descEl = document.createElement('div');

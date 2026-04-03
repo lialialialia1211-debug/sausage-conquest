@@ -603,10 +603,12 @@ export class GrillScene extends Phaser.Scene {
 
     // Fire flames BELOW the grill rack (multiple small flames in a row)
     if (this.textures.exists('fire-flame')) {
-      const fireY = height * GRILL_Y_FRAC + 50; // below grill slots
+      const fireY = height * GRILL_Y_FRAC + 40;
+      const maxSlots = gameState.upgrades['grill-expand'] ? 6 : MAX_GRILL_SLOTS;
       const flameCount = 4;
+      const flameSpread = 85 * maxSlots * 0.8;
       for (let i = 0; i < flameCount; i++) {
-        const fx = width * 0.25 + (width * 0.5 / (flameCount - 1)) * i;
+        const fx = (width - flameSpread) / 2 + (flameSpread / (flameCount - 1)) * i;
         const fire = this.add.image(fx, fireY, 'fire-flame');
         const fScale = Math.min(35 / fire.width, 35 / fire.height);
         fire.setScale(fScale).setAlpha(0.7).setDepth(-1);
@@ -625,10 +627,12 @@ export class GrillScene extends Phaser.Scene {
 
     // Grill mesh — sits BEHIND sausages (depth -1, under grill slot depth)
     if (this.textures.exists('grill-mesh')) {
-      const meshY = height * GRILL_Y_FRAC + 15; // centered on grill area
+      const maxSlots = gameState.upgrades['grill-expand'] ? 6 : MAX_GRILL_SLOTS;
+      const meshW = 85 * maxSlots + 40; // just wide enough for all slots + padding
+      const meshY = height * GRILL_Y_FRAC + 5;
       const mesh = this.add.image(width / 2, meshY, 'grill-mesh');
-      const mScale = Math.min((width * 0.7) / mesh.width, 40 / mesh.height);
-      mesh.setScale(mScale).setAlpha(0.35).setDepth(-1);
+      const mScale = Math.min(meshW / mesh.width, 35 / mesh.height);
+      mesh.setScale(mScale).setAlpha(0.4).setDepth(-1);
     }
 
     // Warm glow around grill area
@@ -733,12 +737,12 @@ export class GrillScene extends Phaser.Scene {
 
   private setupGrillSlots(width: number, height: number, slotCount: number): void {
     const grillY = height * GRILL_Y_FRAC - 10;
-    // Slots occupy left 65% of screen
-    const totalW = width * 0.60;
-    const startX = width * 0.04 + totalW / slotCount / 2;
+    const slotSpacing = 85; // fixed tight spacing between slots
+    const totalW = slotSpacing * slotCount;
+    const startX = (width - totalW) / 2 + slotSpacing / 2; // centered
 
     for (let i = 0; i < slotCount; i++) {
-      const x = startX + i * (totalW / slotCount);
+      const x = startX + i * slotSpacing;
       const slot: GrillSlot = { sprite: null, sausage: null, x, y: grillY, placeholderGfx: null, serveBtn: null, serveHint: null };
       this.grillSlots.push(slot);
       this.drawEmptySlotPlaceholder(slot);
@@ -814,9 +818,9 @@ export class GrillScene extends Phaser.Scene {
   private readonly wzSlotH = 36; // compact height
 
   private setupWarmingZone(width: number, height: number): void {
-    this.wzX = width * 0.70;
-    this.wzY = height * GRILL_Y_FRAC - 60;
-    this.wzSlotW = width * 0.27;
+    this.wzX = (width - width * 0.5) / 2; // centered, 50% width
+    this.wzY = height * GRILL_Y_FRAC + 60; // BELOW the grill
+    this.wzSlotW = width * 0.5;
 
     // Zone label
     this.add.text(this.wzX + this.wzSlotW / 2, this.wzY - 22, '保溫區（點擊出餐）', {
@@ -1029,7 +1033,8 @@ export class GrillScene extends Phaser.Scene {
     });
   }
 
-  private setupHeatButtons(width: number, height: number): void {
+  private setupHeatButtons(_width: number, height: number): void {
+    // Heat buttons on left side, clear of centered warming zone
     const btnY = height * GRILL_Y_FRAC + 130;
     const levels: { level: HeatLevel; label: string; icon: string }[] = [
       { level: 'low',    label: '小火', icon: '🔥' },
@@ -1041,8 +1046,8 @@ export class GrillScene extends Phaser.Scene {
     const btnH = 44;
     const gap = 10;
     const totalW = levels.length * btnW + (levels.length - 1) * gap;
-    // Place heat buttons in left 65% of screen
-    const startX = (width * 0.65 - totalW) / 2;
+    // Left side: start near edge, away from centered warming zone
+    const startX = 16;
 
     levels.forEach((item, i) => {
       const bx = startX + i * (btnW + gap) + btnW / 2;
@@ -1068,13 +1073,16 @@ export class GrillScene extends Phaser.Scene {
   }
 
   private setupSpeedButtons(width: number, height: number): void {
+    // Speed buttons on right side, clear of centered warming zone
     const btnY = height * GRILL_Y_FRAC + 130;
     const speeds = [1, 2, 3];
 
     const btnW = 36;
     const btnH = 28;
     const gap = 5;
-    const startX = width * 0.65 - (speeds.length * btnW + (speeds.length - 1) * gap) - 10;
+    const totalBtnW = speeds.length * btnW + (speeds.length - 1) * gap;
+    // Right side: align to right edge
+    const startX = width - totalBtnW - 16;
 
     speeds.forEach((spd, i) => {
       const bx = startX + i * (btnW + gap) + btnW / 2;
@@ -1087,7 +1095,7 @@ export class GrillScene extends Phaser.Scene {
 
     this.updateSpeedButtonStyles();
 
-    const centerX = startX + (speeds.length * btnW + (speeds.length - 1) * gap) / 2;
+    const centerX = startX + totalBtnW / 2;
     this.add.text(centerX, btnY - 20, '速度', {
       fontSize: '12px',
       fontFamily: FONT,
@@ -1313,8 +1321,9 @@ export class GrillScene extends Phaser.Scene {
   private setupEndButton(width: number, height: number): void {
     const btnW = 100;
     const btnH = 30;
-    const bx = width - btnW / 2 - 12;
-    const by = height - 135;
+    // Place below warming zone (warming zone ends at GRILL_Y_FRAC + 60 + 4*40 = GRILL_Y_FRAC + 220)
+    const bx = width / 2;
+    const by = height * GRILL_Y_FRAC + 240;
 
     this.createButton(bx, by, btnW, btnH, '結束營業', () => {
       this.endGrilling();
@@ -1665,8 +1674,27 @@ export class GrillScene extends Phaser.Scene {
     }).setOrigin(0.5, 0);
     container.add(headerTxt);
 
+    // Map grill event categories to customer images
+    const eventImageMap: Record<string, string> = {
+      'nuisance': 'customer-karen',
+      'thug': 'customer-thug',
+      'beggar': 'customer-beggar',
+      'authority': 'customer-inspector',
+    };
+
+    let descOffsetY = 58;
+    const eventImgKey = eventImageMap[event.category];
+    if (eventImgKey && this.textures.exists(eventImgKey)) {
+      const eventImg = this.add.image(cx, panelY + 70, eventImgKey);
+      const imgScale = Math.min(60 / eventImg.width, 60 / eventImg.height);
+      eventImg.setScale(imgScale).setDepth(22);
+      container.add(eventImg);
+      // Shift description text down to make room
+      descOffsetY = 110;
+    }
+
     // Description
-    const descTxt = this.add.text(cx, panelY + 58, event.description, {
+    const descTxt = this.add.text(cx, panelY + descOffsetY, event.description, {
       fontSize: '13px',
       fontFamily: FONT,
       color: '#ffeecc',
