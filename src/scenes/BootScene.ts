@@ -18,6 +18,7 @@ export class BootScene extends Phaser.Scene {
   private currentPage = 0;
   private typingTimer?: Phaser.Time.TimerEvent;
   private canAdvance = false;
+  private prologueImage?: Phaser.GameObjects.Image;
 
   constructor() {
     super({ key: 'BootScene' });
@@ -25,6 +26,9 @@ export class BootScene extends Phaser.Scene {
 
   preload(): void {
     this.load.image('cover', 'cover.png');
+    this.load.image('prologue-1', 'story-prologue-1.png');
+    this.load.image('prologue-2', 'story-prologue-2.png');
+    this.load.image('prologue-3', 'story-prologue-3.png');
   }
 
   create(): void {
@@ -212,6 +216,23 @@ export class BootScene extends Phaser.Scene {
       hintPulse.pause();
       hintText.setAlpha(0);
 
+      // Destroy previous page illustration
+      if (this.prologueImage) {
+        this.prologueImage.destroy();
+        this.prologueImage = undefined;
+      }
+
+      // Show per-page illustration above the story card
+      const prologueImageKey = `prologue-${pageIndex + 1}`;
+      if (this.textures.exists(prologueImageKey)) {
+        const img = this.add.image(cx, cy - 60, prologueImageKey);
+        const maxW = width * 0.5;
+        const maxH = height * 0.25;
+        const scale = Math.min(maxW / img.width, maxH / img.height);
+        img.setScale(scale).setAlpha(0.85);
+        this.prologueImage = img;
+      }
+
       const fullText = PROLOGUE_PAGES[pageIndex];
       let charIndex = 0;
       storyText.setText('');
@@ -265,6 +286,10 @@ export class BootScene extends Phaser.Scene {
       if (this.currentPage >= PROLOGUE_PAGES.length) {
         // All pages done — show mode selection cards
         hintPulse.stop();
+        if (this.prologueImage) {
+          this.prologueImage.destroy();
+          this.prologueImage = undefined;
+        }
         this.tweens.add({ targets: [hintText, ...dots], alpha: 0, duration: 300 });
         this.tweens.add({
           targets: modeCardObjects,

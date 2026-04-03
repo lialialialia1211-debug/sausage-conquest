@@ -154,6 +154,7 @@ export interface Worker {
   id: string;
   name: string;
   emoji: string;
+  image?: string;
   description: string;
   cost: number;        // one-time hire cost
   dailySalary: number; // daily pay

@@ -179,6 +179,14 @@ export class GrillScene extends Phaser.Scene {
     }
     // Preload karen alert
     this.load.image('karen-alert', 'karen-alert.png');
+    this.load.image('bg-grill', 'bg-grill.png');
+    this.load.image('player-portrait', 'player.png');
+    // Condiment images
+    const condimentIds = ['garlic-paste', 'wasabi', 'chili-sauce', 'sauerkraut', 'onion-dice', 'basil', 'soy-paste', 'peanut'];
+    condimentIds.forEach(id => this.load.image(`condiment-${id}`, `condiment-${id}.png`));
+    // Customer portraits
+    const customerImages = ['customer-normal-male', 'customer-normal-female', 'customer-karen', 'customer-thug', 'customer-beggar', 'customer-inspector', 'customer-fatcat', 'customer-influencer'];
+    customerImages.forEach(key => this.load.image(key, `${key}.png`));
   }
 
   create(): void {
@@ -598,6 +606,11 @@ export class GrillScene extends Phaser.Scene {
     const bg = this.add.graphics();
     bg.fillGradientStyle(COLOR_BG_TOP, COLOR_BG_TOP, COLOR_BG_BTM, COLOR_BG_BTM, 1);
     bg.fillRect(0, 0, width, height);
+
+    if (this.textures.exists('bg-grill')) {
+      const bgImg = this.add.image(width / 2, height / 2, 'bg-grill');
+      bgImg.setDisplaySize(width, height).setAlpha(0.3).setDepth(0);
+    }
 
     // Warm glow around grill area
     const glowY = height * GRILL_Y_FRAC;
@@ -2277,9 +2290,18 @@ export class GrillScene extends Phaser.Scene {
         .setStrokeStyle(1, isWanted ? 0x44ff44 : 0x444466)
         .setInteractive({ useHandCursor: true });
 
-      const btnEmoji = this.add.text(x, y - 10, condiment.emoji, {
-        fontSize: '20px'
-      }).setOrigin(0.5);
+      const condimentTexKey = `condiment-${condiment.id}`;
+      let condimentIcon: Phaser.GameObjects.Image | Phaser.GameObjects.Text;
+      if (this.textures.exists(condimentTexKey)) {
+        const condImg = this.add.image(x, y - 8, condimentTexKey);
+        const cScale = Math.min(28 / condImg.width, 28 / condImg.height);
+        condImg.setScale(cScale);
+        condimentIcon = condImg;
+      } else {
+        condimentIcon = this.add.text(x, y - 10, condiment.emoji, {
+          fontSize: '20px'
+        }).setOrigin(0.5);
+      }
 
       const btnName = this.add.text(x, y + 14, condiment.name, {
         fontSize: '11px', color: '#cccccc', fontFamily: FONT
@@ -2303,7 +2325,7 @@ export class GrillScene extends Phaser.Scene {
         selectedDisplay.setText(names.length > 0 ? `已加：${names.join(' ')}` : '已加：（無）');
       });
 
-      this.condimentOverlay!.add([btnBg, btnEmoji, btnName]);
+      this.condimentOverlay!.add([btnBg, condimentIcon, btnName]);
     });
 
     const btnRowY = startY + 2 * (btnH + gap) + 20;

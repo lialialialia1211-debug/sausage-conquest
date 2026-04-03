@@ -181,7 +181,14 @@ export class ShopPanel {
     detailEl.appendChild(descEl);
     detailEl.appendChild(costEl);
 
-    infoEl.appendChild(emojiEl);
+    if (upgrade.image) {
+      const imgEl = document.createElement('img');
+      imgEl.src = upgrade.image;
+      imgEl.style.cssText = 'width:48px; height:48px; object-fit:contain; border-radius:6px;';
+      infoEl.appendChild(imgEl);
+    } else {
+      infoEl.appendChild(emojiEl);
+    }
     infoEl.appendChild(detailEl);
 
     // Right: buy button
@@ -296,6 +303,7 @@ export class ShopPanel {
     nameEl.className = 'shop-item-name';
     nameEl.textContent = worker.name;
 
+
     const costEl = document.createElement('div');
     costEl.className = 'shop-item-cost';
     costEl.textContent = `僱用費 $${worker.cost}`;
@@ -331,7 +339,14 @@ export class ShopPanel {
     detailEl.appendChild(debuffEl);
     detailEl.appendChild(salaryEl);
 
-    infoEl.appendChild(emojiEl);
+    if (worker.image) {
+      const imgEl = document.createElement('img');
+      imgEl.src = worker.image;
+      imgEl.style.cssText = 'width:48px; height:48px; object-fit:contain; border-radius:6px;';
+      infoEl.appendChild(imgEl);
+    } else {
+      infoEl.appendChild(emojiEl);
+    }
     infoEl.appendChild(detailEl);
 
     // Right side: hire/fire buttons
@@ -497,7 +512,14 @@ export class ShopPanel {
     detailEl.appendChild(descEl);
     detailEl.appendChild(costEl);
 
-    topRow.appendChild(emojiEl);
+    if (item.image) {
+      const imgEl = document.createElement('img');
+      imgEl.src = item.image;
+      imgEl.style.cssText = 'width:48px; height:48px; object-fit:contain; border-radius:6px;';
+      topRow.appendChild(imgEl);
+    } else {
+      topRow.appendChild(emojiEl);
+    }
     topRow.appendChild(detailEl);
     card.appendChild(topRow);
 

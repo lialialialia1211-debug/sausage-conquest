@@ -60,6 +60,29 @@ export class CustomerQueue extends Phaser.GameObjects.Container {
       align: 'center',
     }).setOrigin(0.5);
 
+    // Try to show customer portrait image
+    const personalityImageMap: Record<string, string> = {
+      karen: 'customer-karen',
+      enforcer: 'customer-thug',
+      inspector: 'customer-inspector',
+      fatcat: 'customer-fatcat',
+      spy: 'customer-inspector', // reuse inspector
+      influencer: 'customer-influencer',
+    };
+    const imageKey = personalityImageMap[customer.personality]
+      || (Math.random() < 0.5 ? 'customer-normal-male' : 'customer-normal-female');
+
+    if (this.scene.textures.exists(imageKey)) {
+      const portrait = this.scene.add.image(0, 0, imageKey);
+      const pScale = Math.min(30 / portrait.width, 30 / portrait.height);
+      portrait.setScale(pScale);
+      container.add(portrait);
+      // Move emoji behind/hide it
+      emojiText.setAlpha(0.3);
+      emojiText.setY(-18); // move emoji above as a small indicator
+      emojiText.setFontSize(12);
+    }
+
     const patBarBg = this.scene.add.graphics();
     patBarBg.fillStyle(0x333333, 1);
     patBarBg.fillRect(-PATIENCE_BAR_W / 2, 29, PATIENCE_BAR_W, PATIENCE_BAR_H);

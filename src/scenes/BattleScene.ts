@@ -10,6 +10,7 @@ import {
 } from '../systems/AutoChessEngine';
 import { sfx } from '../utils/SoundFX';
 import { SAUSAGE_MAP } from '../data/sausages';
+import { GRID_SLOTS } from '../data/map';
 
 // ── Layout constants ───────────────────────────────────────────────────────────
 const FONT = 'Microsoft JhengHei, PingFang TC, sans-serif';
@@ -101,6 +102,9 @@ export class BattleScene extends Phaser.Scene {
 
   preload(): void {
     this.load.image('battle-cover', 'battle-cover.png');
+    const opponents = ['toilet-uncle', 'alley-gang', 'uncle', 'influencer', 'fat-sister', 'student', 'sausage-prince', 'sausage-king'];
+    opponents.forEach(id => this.load.image(`opponent-${id}`, `opponent-${id}.png`));
+    this.load.image('player-portrait', 'player.png');
   }
 
   // ── create ───────────────────────────────────────────────────────────────────
@@ -1027,6 +1031,25 @@ export class BattleScene extends Phaser.Scene {
     ).setOrigin(0.5);
 
     this.opponentBaseScale = 1;
+
+    // Try to show opponent portrait image instead of/alongside emoji
+    const opponentSlotData = GRID_SLOTS.find(s => s.tier === (gameState.playerSlot + 1));
+    const oppId = opponentSlotData?.opponentId || '';
+    const oppTextureKey = `opponent-${oppId}`;
+    if (this.textures.exists(oppTextureKey)) {
+      const portrait = this.add.image(this.opponentEmoji.x, this.opponentEmoji.y, oppTextureKey);
+      const maxH = height * 0.35;
+      const scale = maxH / portrait.height;
+      portrait.setScale(scale).setDepth(this.opponentEmoji.depth - 1);
+      this.opponentEmoji.setAlpha(0); // hide emoji, show portrait instead
+    }
+
+    // Player portrait in bottom-left corner
+    if (this.textures.exists('player-portrait')) {
+      const playerPortrait = this.add.image(60, height - 60, 'player-portrait');
+      const pScale = 80 / playerPortrait.height;
+      playerPortrait.setScale(pScale).setDepth(5);
+    }
 
     // Idle breathing animation
     this.tweens.add({

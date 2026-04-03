@@ -9,6 +9,12 @@ export class EventPanel {
   constructor(event: GameEvent) {
     this.panel = document.createElement('div');
     this.panel.className = 'game-panel ui-interactive event-panel fade-in';
+    this.panel.style.position = 'relative';
+
+    // Subtle event background illustration
+    const bgDiv = document.createElement('div');
+    bgDiv.style.cssText = 'position:absolute; top:0; left:0; right:0; bottom:0; background:url(bg-event.png) center/cover; opacity:0.15; pointer-events:none; border-radius:inherit;';
+    this.panel.appendChild(bgDiv);
 
     this.buildChoicePhase(event);
   }
