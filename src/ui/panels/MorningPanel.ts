@@ -133,6 +133,14 @@ export class MorningPanel {
     const emojiEl = document.createElement('span');
     emojiEl.className = 'sausage-emoji';
     emojiEl.textContent = sausage.emoji;
+    if (sausage.image) {
+      const img = document.createElement('img');
+      img.src = sausage.image;
+      img.style.cssText = 'width:48px; height:48px; object-fit:contain; border-radius:6px;';
+      img.alt = sausage.name;
+      emojiEl.textContent = '';
+      emojiEl.appendChild(img);
+    }
 
     const infoEl = document.createElement('div');
     infoEl.className = 'sausage-info';

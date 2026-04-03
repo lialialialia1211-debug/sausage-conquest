@@ -185,11 +185,11 @@ export interface BattleCostInfo {
 }
 
 /**
- * Battle entry costs 60 % of the player's current money.
+ * Battle entry costs 4 % of the player's current money.
  * Returns { playerCost, canAfford }.
  */
 export function calculateBattleCost(): BattleCostInfo {
-  const cost = Math.floor(gameState.money * 0.6);
+  const cost = Math.floor(gameState.money * 0.04);
   return {
     playerCost: cost,
     canAfford:  gameState.money >= cost && cost > 0,

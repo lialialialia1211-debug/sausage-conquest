@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { EventBus } from '../utils/EventBus';
 import { gameState, updateGameState } from '../state/GameState';
-import { spoilOvernight } from '../systems/EconomyEngine';
+import { spoilOvernight, payWorkerSalaries } from '../systems/EconomyEngine';
 import { processAIDaily, checkNewOpponent } from '../systems/AIEngine';
 import { STORY_BEATS } from '../data/dialogue';
 import { checkAndUnlockBlackMarket } from '../systems/BlackMarketEngine';
@@ -52,6 +52,14 @@ export class MorningScene extends Phaser.Scene {
         if (lost > 0) this.spoilageInfo[id] = lost;
       }
       processAIDaily();
+
+      // Pay worker salaries
+      if (gameState.hiredWorkers.length > 0) {
+        const salaryPaid = payWorkerSalaries();
+        if (salaryPaid > 0) {
+          notifications.push(`💰 工讀生薪水：-$${salaryPaid}`);
+        }
+      }
     }
 
     // Check new opponent appearance
@@ -85,7 +93,7 @@ export class MorningScene extends Phaser.Scene {
     }
 
     // Check black market unlock
-    if (gameState.day >= 5 && gameState.undergroundRep >= 20 && !gameState.blackMarketUnlocked) {
+    if (gameState.day >= 5 && gameState.undergroundRep >= 10 && !gameState.blackMarketUnlocked) {
       const unlocked = checkAndUnlockBlackMarket();
       if (unlocked) {
         notifications.push('💀 新管道解鎖：黑市供應商現在可以聯絡了。');

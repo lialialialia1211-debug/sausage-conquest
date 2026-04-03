@@ -62,6 +62,7 @@ export interface SausageType {
   id: string;
   name: string;
   emoji: string;
+  image?: string;  // path to art asset in public/
   cost: number;
   suggestedPrice: number;
   grillDifficulty: number; // 1-3 stars

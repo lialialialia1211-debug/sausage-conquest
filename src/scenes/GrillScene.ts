@@ -170,6 +170,17 @@ export class GrillScene extends Phaser.Scene {
 
   // ── Scene lifecycle ──────────────────────────────────────────────────────
 
+  preload(): void {
+    // Preload sausage art
+    for (const s of SAUSAGE_TYPES) {
+      if (s.image) {
+        this.load.image(`sausage-${s.id}`, s.image);
+      }
+    }
+    // Preload karen alert
+    this.load.image('karen-alert', 'karen-alert.png');
+  }
+
   create(): void {
     const { width, height } = this.scale;
 
@@ -1402,6 +1413,36 @@ export class GrillScene extends Phaser.Scene {
     this.paused = true;
     const witnessCount = Math.floor(Math.random() * 5); // 0-4
 
+    // Show karen alert splash
+    if (this.textures.exists('karen-alert')) {
+      const alert = this.add.image(this.scale.width / 2, this.scale.height / 2, 'karen-alert')
+        .setDepth(45);
+      const maxW = this.scale.width * 0.5;
+      const maxH = this.scale.height * 0.4;
+      const scale = Math.min(maxW / alert.width, maxH / alert.height);
+      alert.setScale(0).setAlpha(0);
+
+      // Punch-in animation
+      this.tweens.add({
+        targets: alert,
+        scale: { from: 0, to: scale },
+        alpha: { from: 0, to: 1 },
+        duration: 300,
+        ease: 'Back.Out',
+      });
+
+      // Auto-dismiss after 1.5s
+      this.time.delayedCall(1500, () => {
+        this.tweens.add({
+          targets: alert,
+          alpha: 0,
+          scale: scale * 0.8,
+          duration: 300,
+          onComplete: () => alert.destroy(),
+        });
+      });
+    }
+
     // Show pre-combat notification using personality emoji
     const emoji = getPersonalityEmoji(customer.personality);
     this.showFeedback(
@@ -2100,6 +2141,13 @@ export class GrillScene extends Phaser.Scene {
     }).setOrigin(0.5);
     this.condimentOverlay.add(orderLabel);
 
+    const sausageKey = `sausage-${customer.order?.sausageType || ''}`;
+    if (this.textures.exists(sausageKey)) {
+      const sausageImg = this.add.image(w / 2 - 100, 75, sausageKey);
+      sausageImg.setScale(Math.min(40 / sausageImg.width, 40 / sausageImg.height));
+      this.condimentOverlay!.add(sausageImg);
+    }
+
     const condimentLabel = this.add.text(w / 2, 98,
       wantedCondiments ? `配料：${wantedCondiments}` : '不加料', {
         fontSize: '13px', color: '#88ff88', fontFamily: FONT
@@ -2169,8 +2217,10 @@ export class GrillScene extends Phaser.Scene {
       this.condimentOverlay!.add([btnBg, btnEmoji, btnName]);
     });
 
+    const btnRowY = startY + 2 * (btnH + gap) + 20;
+
     // Serve button
-    const serveBtn = this.add.text(w / 2 - 60, startY + 2 * (btnH + gap) + 20, '出餐！', {
+    const serveBtn = this.add.text(w / 2 - 80, btnRowY, '出餐！', {
       fontSize: '18px', color: '#44ff44', backgroundColor: '#1a2a1a',
       padding: { x: 16, y: 10 }, fontFamily: FONT
     }).setOrigin(0.5).setInteractive({ useHandCursor: true });
@@ -2179,18 +2229,18 @@ export class GrillScene extends Phaser.Scene {
       this.finalizeServe(warmSlot, sausage, customer);
     });
 
-    // Skip condiments button
-    const skipBtn = this.add.text(w / 2 + 60, startY + 2 * (btnH + gap) + 20, '跳過加料', {
-      fontSize: '14px', color: '#888888', backgroundColor: '#1a1a1a',
-      padding: { x: 12, y: 8 }, fontFamily: FONT
+    // Quick serve button — prominent, yellow, same size as serve button
+    const quickBtn = this.add.text(w / 2 + 80, btnRowY, '⚡ 快速出餐（不加料）', {
+      fontSize: '18px', color: '#ffcc00', backgroundColor: '#2a2a1a',
+      padding: { x: 16, y: 10 }, fontFamily: FONT
     }).setOrigin(0.5).setInteractive({ useHandCursor: true });
 
-    skipBtn.on('pointerdown', () => {
+    quickBtn.on('pointerdown', () => {
       this.selectedCondiments = [];
       this.finalizeServe(warmSlot, sausage, customer);
     });
 
-    this.condimentOverlay.add([serveBtn, skipBtn]);
+    this.condimentOverlay.add([serveBtn, quickBtn]);
   }
 
   private finalizeServe(warmSlot: WarmingSlot, sausage: WarmingSausage, customer: Customer): void {

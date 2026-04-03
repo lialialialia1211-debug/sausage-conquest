@@ -121,9 +121,9 @@ export class BattleScene extends Phaser.Scene {
       this.playerHp = 150;
     }
 
-    // Set opponent HP based on difficulty
-    this.opponentMaxHp = this.difficulty * 20;
-    this.opponentHp = this.opponentMaxHp;
+    // Both sides start with equal HP
+    this.opponentMaxHp = 100;
+    this.opponentHp = 100;
 
     // AI settings
     // Interval: 2.5s at diff 1, 1.5s at diff 5 (linear interp)

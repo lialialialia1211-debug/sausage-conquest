@@ -47,7 +47,7 @@ export const BLACK_MARKET_ITEMS: BlackMarketItem[] = [
  * Either explicitly unlocked via flag, or auto-unlocked on day 5+ with enough underground rep.
  */
 export function isBlackMarketUnlocked(): boolean {
-  return gameState.blackMarketUnlocked || (gameState.day >= 5 && gameState.undergroundRep >= 20);
+  return gameState.blackMarketUnlocked || (gameState.day >= 5 && gameState.undergroundRep >= 10);
 }
 
 /**
@@ -55,7 +55,7 @@ export function isBlackMarketUnlocked(): boolean {
  * Returns true only on the transition frame (i.e., the moment it first unlocks).
  */
 export function checkAndUnlockBlackMarket(): boolean {
-  if (!gameState.blackMarketUnlocked && gameState.day >= 5 && gameState.undergroundRep >= 20) {
+  if (!gameState.blackMarketUnlocked && gameState.day >= 5 && gameState.undergroundRep >= 10) {
     updateGameState({ blackMarketUnlocked: true });
     return true; // just unlocked
   }

@@ -14,7 +14,7 @@ const POTENTIAL_BORROWERS = [
 ] as const;
 
 export function isLoanSharkUnlocked(): boolean {
-  return gameState.undergroundRep >= 60;
+  return gameState.undergroundRep >= 30;
 }
 
 /**
