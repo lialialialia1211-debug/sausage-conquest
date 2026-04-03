@@ -5,7 +5,7 @@ import type { Customer } from '../types';
 import { SAUSAGE_MAP } from '../data/sausages';
 import { gameState } from '../state/GameState';
 
-const CUSTOMER_SLOT_W = 120;
+const CUSTOMER_SLOT_W = 140;
 const PATIENCE_BAR_H = 7;
 const PATIENCE_BAR_W = 100;
 
@@ -49,7 +49,7 @@ export class CustomerQueue extends Phaser.GameObjects.Container {
     // Spawn far right, then tween to proper slot position
     const slotIndex = this.displays.filter(d => d.state === 'waiting').length;
     const targetX = slotIndex * CUSTOMER_SLOT_W;
-    const spawnX = targetX + 480; // enter from right
+    const spawnX = targetX + 560; // enter from right
 
     const container = this.scene.add.container(spawnX, 0);
     this.add(container);
@@ -74,7 +74,7 @@ export class CustomerQueue extends Phaser.GameObjects.Container {
 
     if (this.scene.textures.exists(imageKey)) {
       const portrait = this.scene.add.image(0, 0, imageKey);
-      const pScale = Math.min(85 / portrait.width, 85 / portrait.height);
+      const pScale = Math.min(100 / portrait.width, 100 / portrait.height);
       portrait.setScale(pScale);
       container.add(portrait);
       // Move emoji behind/hide it
@@ -85,7 +85,7 @@ export class CustomerQueue extends Phaser.GameObjects.Container {
 
     const patBarBg = this.scene.add.graphics();
     patBarBg.fillStyle(0x333333, 1);
-    patBarBg.fillRect(-PATIENCE_BAR_W / 2, 45, PATIENCE_BAR_W, PATIENCE_BAR_H);
+    patBarBg.fillRect(-PATIENCE_BAR_W / 2, 55, PATIENCE_BAR_W, PATIENCE_BAR_H);
 
     const patBarFill = this.scene.add.graphics();
 
@@ -373,7 +373,7 @@ export class CustomerQueue extends Phaser.GameObjects.Container {
 
     if (fillW > 0) {
       display.patBarFill.fillStyle(color, 1);
-      display.patBarFill.fillRect(-PATIENCE_BAR_W / 2, 45, fillW, PATIENCE_BAR_H);
+      display.patBarFill.fillRect(-PATIENCE_BAR_W / 2, 55, fillW, PATIENCE_BAR_H);
     }
   }
 }

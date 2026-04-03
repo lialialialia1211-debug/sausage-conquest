@@ -668,13 +668,9 @@ export class GrillScene extends Phaser.Scene {
     rack.strokePath();
   }
 
-  private redrawFireGlow(x: number, y: number, w: number): void {
+  private redrawFireGlow(_x: number, _y: number, _w: number): void {
     this.fireGlowGfx.clear();
-
-    // Intensity scales with heat
-    const alpha = this.heatLevel === 'low' ? 0.06 : this.heatLevel === 'medium' ? 0.12 : 0.20;
-    this.fireGlowGfx.fillStyle(0xff2200, alpha);
-    this.fireGlowGfx.fillRect(x, y, w, 28);
+    // Fire glow removed — was ugly colored block
   }
 
   private tickFireParticles(dt: number): void {
@@ -718,7 +714,7 @@ export class GrillScene extends Phaser.Scene {
   // ── UI setup ─────────────────────────────────────────────────────────────
 
   private setupGrillSlots(width: number, height: number, slotCount: number): void {
-    const grillY = height * GRILL_Y_FRAC - 10;
+    const grillY = height * GRILL_Y_FRAC - 20;
     const slotSpacing = 85; // fixed tight spacing between slots
     const totalW = slotSpacing * slotCount;
     const startX = (width - totalW) / 2 + slotSpacing / 2; // centered
@@ -1177,13 +1173,13 @@ export class GrillScene extends Phaser.Scene {
       // Show sausage art image in inventory button if available
       const textureKey = `sausage-${id}`;
       if (this.textures.exists(textureKey)) {
-        const img = this.add.image(0, -10, textureKey);
+        const img = this.add.image(0, -12, textureKey);
         const imgScale = Math.min(70 / img.width, 45 / img.height);
         img.setScale(imgScale).setAlpha(hasStock ? 1 : 0.3);
         container.add(img);
       }
 
-      const txt = this.add.text(0, hasStock && this.textures.exists(textureKey) ? 30 : -4, `×${qty}`, {
+      const txt = this.add.text(0, 25, `×${qty}`, {
         fontSize: '16px',
         fontFamily: FONT,
         color: hasStock ? COLOR_ORANGE : '#442200',
@@ -1640,7 +1636,6 @@ export class GrillScene extends Phaser.Scene {
     this.isShowingGrillEvent = true;
     const { width: w, height: h } = this.scale;
 
-    // Show karen-alert splash FIRST for customer-related events
     const eventImageMap: Record<string, string> = {
       'nuisance': 'karen-alert',
       'thug': 'karen-alert',
@@ -1650,32 +1645,36 @@ export class GrillScene extends Phaser.Scene {
 
     const splashKey = eventImageMap[event.category];
     if (splashKey && this.textures.exists(splashKey)) {
-      // Full screen splash (same style as triggerCombat)
+      // Show karen-alert with SHAKE + ZOOM animation (no black overlay)
       const splash = this.add.image(w / 2, h / 2, splashKey).setDepth(300);
-      const maxW = w * 0.5;
-      const maxH = h * 0.4;
-      const scale = Math.min(maxW / splash.width, maxH / splash.height);
+      const maxScale = Math.min((w * 0.45) / splash.width, (h * 0.35) / splash.height);
       splash.setScale(0).setAlpha(0);
 
+      // Zoom in
       this.tweens.add({
         targets: splash,
-        scale: { from: 0, to: scale },
+        scale: { from: 0, to: maxScale },
         alpha: { from: 0, to: 1 },
-        duration: 300,
+        duration: 250,
         ease: 'Back.Out',
-      });
+        onComplete: () => {
+          // SHAKE animation
+          this.cameras.main.shake(300, 0.015);
 
-      // After 1.2s, fade out and THEN show the actual event panel
-      this.time.delayedCall(1200, () => {
-        this.tweens.add({
-          targets: splash,
-          alpha: 0,
-          duration: 200,
-          onComplete: () => {
-            splash.destroy();
-            this.buildGrillEventPanel(event);
-          },
-        });
+          // After shake, shrink and fade out, then show panel
+          this.time.delayedCall(800, () => {
+            this.tweens.add({
+              targets: splash,
+              alpha: 0,
+              scale: maxScale * 0.5,
+              duration: 300,
+              onComplete: () => {
+                splash.destroy();
+                this.buildGrillEventPanel(event);
+              },
+            });
+          });
+        },
       });
     } else {
       // No splash image, show panel directly

@@ -41,8 +41,6 @@ export class SummaryPanel {
   constructor(data: SummaryData) {
     this.panel = document.createElement('div');
     this.panel.className = 'game-panel ui-interactive summary-panel';
-    this.panel.style.cssText += '; font-size:12px; line-height:1.4;';
-    this.panel.style.padding = '8px';
 
     const { dailyReport, grillStats, salesLog } = data;
     const isBankrupt = gameState.money <= 0;
@@ -59,17 +57,21 @@ export class SummaryPanel {
     dayHeader.textContent = `Day ${dailyReport.day} 結算報告`;
     this.panel.appendChild(dayHeader);
 
-    // Revenue breakdown box
+    // Revenue + grill stats side by side (flex row)
     const revenueBox = this.buildRevenueBox(dailyReport);
-    this.panel.appendChild(revenueBox);
+    const grillStatsEl = this.buildGrillStats(grillStats);
+
+    const flexRow = document.createElement('div');
+    flexRow.style.cssText = 'display:flex; gap:12px;';
+    revenueBox.style.flex = '1';
+    grillStatsEl.style.flex = '1';
+    flexRow.appendChild(revenueBox);
+    flexRow.appendChild(grillStatsEl);
+    this.panel.appendChild(flexRow);
 
     // Slot tier info
     const slotInfoEl = this.buildSlotInfo(dailyReport.day);
     this.panel.appendChild(slotInfoEl);
-
-    // Grill stats
-    const grillStatsEl = this.buildGrillStats(grillStats);
-    this.panel.appendChild(grillStatsEl);
 
     // Territory count
     const territoryEl = this.buildTerritoryRow();

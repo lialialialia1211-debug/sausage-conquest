@@ -895,11 +895,10 @@ body {
 /* ─── SummaryPanel styles ─── */
 
 .summary-panel {
-  max-width: 520px;
-  max-height: calc(100vh - 80px);
-  overflow-y: auto;
-  scrollbar-width: thin;
-  scrollbar-color: var(--neon-yellow) transparent;
+  max-width: 620px;
+  max-height: 95vh;
+  overflow-y: hidden;
+  padding: 12px 16px;
 }
 
 .summary-day-header {
