@@ -98,14 +98,14 @@ export class BootScene extends Phaser.Scene {
     const bg = this.add.graphics();
     this.drawBackground(bg, width, height, 0);
 
-    // Title: cover image logo (replaces text title)
+    // Title: cover image logo (on TOP of everything)
     let title: Phaser.GameObjects.Image | Phaser.GameObjects.Text;
     if (this.textures.exists('cover')) {
-      const cover = this.add.image(cx, cy - 110, 'cover');
-      const maxW = width * 0.75;
-      const maxH = height * 0.25;
+      const cover = this.add.image(cx, 60, 'cover');
+      const maxW = width * 0.65;
+      const maxH = height * 0.18;
       const scale = Math.min(maxW / cover.width, maxH / cover.height);
-      cover.setScale(scale).setDepth(1);
+      cover.setScale(scale).setDepth(10);
       title = cover;
     } else {
       // Fallback text title if image fails to load
@@ -130,49 +130,49 @@ export class BootScene extends Phaser.Scene {
       repeatDelay: 2000,
     });
 
-    // Subtitle
-    this.add.text(cx, cy - 45, '台灣夜市香腸征服之路', {
-      fontSize: '18px',
-      fontFamily: 'Microsoft JhengHei, PingFang TC, sans-serif',
-      color: '#ff6b00',
-    }).setOrigin(0.5);
-
-    // Story card background
-    const storyBg = this.add.graphics();
-    storyBg.fillStyle(0x12121a, 0.9);
-    storyBg.lineStyle(1, 0xffe600, 0.4);
-    storyBg.fillRoundedRect(cx - 270, cy - 60, 540, 140, 6);
-    storyBg.strokeRoundedRect(cx - 270, cy - 60, 540, 140, 6);
-    storyBg.setAlpha(0);
-
-    // Story text (typing effect target)
-    const storyText = this.add.text(cx, cy + 10, '', {
+    // Subtitle (above illustration)
+    this.add.text(cx, 105, '台灣夜市香腸征服之路', {
       fontSize: '16px',
       fontFamily: 'Microsoft JhengHei, PingFang TC, sans-serif',
-      color: '#ccccee',
+      color: '#ff6b00',
+    }).setOrigin(0.5).setDepth(10);
+
+    // Story card background (bottom area, above illustration)
+    const storyBg = this.add.graphics();
+    storyBg.fillStyle(0x000000, 0.7);
+    storyBg.lineStyle(1, 0xffe600, 0.4);
+    storyBg.fillRoundedRect(cx - 270, height - 180, 540, 140, 6);
+    storyBg.strokeRoundedRect(cx - 270, height - 180, 540, 140, 6);
+    storyBg.setAlpha(0).setDepth(5);
+
+    // Story text (typing effect target, at bottom)
+    const storyText = this.add.text(cx, height - 110, '', {
+      fontSize: '16px',
+      fontFamily: 'Microsoft JhengHei, PingFang TC, sans-serif',
+      color: '#ffffff',
       align: 'center',
       lineSpacing: 8,
       wordWrap: { width: 500 },
-    }).setOrigin(0.5).setAlpha(0);
+    }).setOrigin(0.5).setAlpha(0).setDepth(6);
 
-    // Page indicator dots
-    const dotY = cy + 102;
+    // Page indicator dots (at bottom)
+    const dotY = height - 30;
     const dots: Phaser.GameObjects.Graphics[] = [];
     for (let i = 0; i < PROLOGUE_PAGES.length; i++) {
       const dot = this.add.graphics();
       const dotX = cx + (i - 1) * 18;
       dot.fillStyle(i === 0 ? 0xffe600 : 0x555566, 1);
       dot.fillCircle(dotX, dotY, 4);
-      dot.setAlpha(0);
+      dot.setAlpha(0).setDepth(6);
       dots.push(dot);
     }
 
     // "點擊繼續" hint
-    const hintText = this.add.text(cx, cy + 120, '點擊繼續 ▶', {
+    const hintText = this.add.text(cx, height - 48, '點擊繼續 ▶', {
       fontSize: '13px',
       fontFamily: 'Microsoft JhengHei, PingFang TC, sans-serif',
-      color: '#776644',
-    }).setOrigin(0.5).setAlpha(0);
+      color: '#ffcc88',
+    }).setOrigin(0.5).setAlpha(0).setDepth(6);
 
     // Pulsing hint animation (starts after hint fades in)
     const hintPulse = this.tweens.add({
@@ -278,14 +278,22 @@ export class BootScene extends Phaser.Scene {
         this.prologueImage = undefined;
       }
 
-      // Show per-page illustration above the story card
+      // Show per-page illustration as near-fullscreen background
       const prologueImageKey = `prologue-${pageIndex + 1}`;
       if (this.textures.exists(prologueImageKey)) {
-        const img = this.add.image(cx, cy - 60, prologueImageKey);
-        const maxW = width * 0.5;
-        const maxH = height * 0.25;
-        const scale = Math.min(maxW / img.width, maxH / img.height);
-        img.setScale(scale).setAlpha(0.85);
+        const img = this.add.image(cx, cy, prologueImageKey);
+        // Fill the screen (cover mode)
+        const coverScale = Math.max(width / img.width, height / img.height);
+        img.setScale(coverScale).setAlpha(0.55).setDepth(0);
+
+        // Subtle slow zoom animation
+        this.tweens.add({
+          targets: img,
+          scale: coverScale * 1.05,
+          duration: 8000,
+          ease: 'Sine.easeInOut',
+        });
+
         this.prologueImage = img;
       }
 
