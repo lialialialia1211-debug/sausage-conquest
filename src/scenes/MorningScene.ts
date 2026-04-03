@@ -3,6 +3,8 @@ import { EventBus } from '../utils/EventBus';
 import { gameState, updateGameState } from '../state/GameState';
 import { spoilOvernight, payWorkerSalaries } from '../systems/EconomyEngine';
 import { processAIDaily, checkNewOpponent } from '../systems/AIEngine';
+import { processHuiDaily } from '../systems/HuiEngine';
+import { processPlayerLoans } from '../systems/LoanSharkEngine';
 import { STORY_BEATS } from '../data/dialogue';
 import { checkAndUnlockBlackMarket } from '../systems/BlackMarketEngine';
 import { GRID_SLOTS } from '../data/map';
@@ -63,6 +65,23 @@ export class MorningScene extends Phaser.Scene {
         if (salaryPaid > 0) {
           notifications.push(`💰 工讀生薪水：-$${salaryPaid}`);
         }
+      }
+
+      // Process hui (mutual aid rotating savings club)
+      if (gameState.hui.isActive) {
+        const huiResult = processHuiDaily();
+        if (huiResult) {
+          notifications.push(huiResult.message);
+          if (huiResult.needsBidding) {
+            notifications.push('📜 今天是互助會開標日！去商店資金周轉頁操作。');
+          }
+        }
+      }
+
+      // Process loan shark lending repayments
+      const loanMessages = processPlayerLoans();
+      if (loanMessages.length > 0) {
+        notifications.push(...loanMessages);
       }
     }
 

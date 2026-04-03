@@ -6,7 +6,6 @@ import { gameState, spendMoney, addMoney } from '../state/GameState';
 import {
   calculateBattleCost,
   applyBattleResult,
-  applySimulationBuff,
 } from '../systems/AutoChessEngine';
 import { sfx } from '../utils/SoundFX';
 import { SAUSAGE_MAP } from '../data/sausages';
@@ -133,7 +132,7 @@ export class BattleScene extends Phaser.Scene {
     this.difficulty = Math.max(1, Math.min(5, gameState.playerSlot));
 
     // Simulation mode adjustments
-    const isSimulation = applySimulationBuff([]) !== undefined;
+    const isSimulation = gameState.gameMode === 'simulation';
     if (isSimulation) {
       this.playerMaxHp = 150;
       this.playerHp = 150;
@@ -295,6 +294,9 @@ export class BattleScene extends Phaser.Scene {
 
     this.weaponBonus = bestSausage ? 1 + (bestSausage.cost / 60) : 1.0;
     this.weaponName = bestSausage?.name || '普通香腸';
+
+    // Apply scouting bonus from activities
+    this.weaponBonus += gameState.battleBonus || 0;
 
     this.setupInputListeners();
     this.showInfoMessage('戰鬥開始！', '#44ff88', 1200);

@@ -3,7 +3,7 @@
 import Phaser from 'phaser';
 import { EventBus } from '../utils/EventBus';
 import { gameState, advanceDay } from '../state/GameState';
-import { calculateDailyReport } from '../systems/EconomyEngine';
+import { calculateDailyReport, applyDadTax } from '../systems/EconomyEngine';
 import { processDaily } from '../systems/LoanEngine';
 import { checkAchievements } from '../systems/AchievementEngine';
 import { sfx } from '../utils/SoundFX';
@@ -43,6 +43,12 @@ export class SummaryScene extends Phaser.Scene {
     // Process end-of-day logic
     const salesLog: SaleRecord[] = gameState.dailySalesLog ?? [];
     const dailyReport = calculateDailyReport(salesLog);
+
+    // Apply dad tax if dad is hired (deducts 10% of revenue directly from money)
+    if (gameState.hiredWorkers.includes('dad')) {
+      applyDadTax(dailyReport.revenue);
+    }
+
     const loanResult = processDaily();
 
     // Check: loan shark game over
