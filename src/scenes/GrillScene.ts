@@ -624,9 +624,11 @@ export class GrillScene extends Phaser.Scene {
 
   private drawGrillRack(width: number, height: number): void {
     const grillY = height * GRILL_Y_FRAC + 34;
-    // Grill only occupies left 70% of width (right is for warming zone)
-    const barStartX = width * 0.04;
-    const barEndX = width * 0.65;
+    // Grill rack centered on screen
+    const maxSlots = gameState.upgrades['grill-expand'] ? 6 : MAX_GRILL_SLOTS;
+    const rackW = 85 * maxSlots + 60;
+    const barStartX = (width - rackW) / 2;
+    const barEndX = barStartX + rackW;
     const barCount = 7;
     const barSpacing = 13;
 
@@ -799,7 +801,7 @@ export class GrillScene extends Phaser.Scene {
 
   private setupWarmingZone(width: number, height: number): void {
     this.wzX = (width - width * 0.5) / 2; // centered, 50% width
-    this.wzY = height * GRILL_Y_FRAC + 90; // BELOW the heat buttons
+    this.wzY = height * GRILL_Y_FRAC + 175; // below heat buttons (+140 + some gap)
     this.wzSlotW = width * 0.5;
 
     // Zone label
@@ -1014,8 +1016,8 @@ export class GrillScene extends Phaser.Scene {
   }
 
   private setupHeatButtons(width: number, height: number): void {
-    // Heat buttons centered below grill
-    const btnY = height * GRILL_Y_FRAC + 45;
+    // Heat buttons centered, below grill rack + fire area (rack ends ~+125)
+    const btnY = height * GRILL_Y_FRAC + 140;
     const levels: { level: HeatLevel; label: string; icon: string }[] = [
       { level: 'low',    label: '小火', icon: '🔥' },
       { level: 'medium', label: '中火', icon: '🔥🔥' },
@@ -1052,8 +1054,8 @@ export class GrillScene extends Phaser.Scene {
   }
 
   private setupSpeedButtons(width: number, height: number): void {
-    // Speed buttons below warming zone, right of center
-    const btnY = height * GRILL_Y_FRAC + 230;
+    // Speed buttons below warming zone
+    const btnY = height * GRILL_Y_FRAC + 330;
     const speeds = [1, 2, 3];
 
     const btnW = 36;
@@ -1300,9 +1302,9 @@ export class GrillScene extends Phaser.Scene {
   private setupEndButton(width: number, height: number): void {
     const btnW = 100;
     const btnH = 30;
-    // Same row as speed buttons, left of center
+    // Same row as speed buttons
     const bx = width / 2 - 60;
-    const by = height * GRILL_Y_FRAC + 230;
+    const by = height * GRILL_Y_FRAC + 330;
 
     this.createButton(bx, by, btnW, btnH, '結束營業', () => {
       this.endGrilling();
