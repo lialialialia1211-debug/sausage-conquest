@@ -56,7 +56,7 @@ export class EveningScene extends Phaser.Scene {
 
     // Auto-apply evening setup: slot is fixed by battle results, no selection needed
     // MapPanel is skipped — auto-set location, deduct rent, carry forward prices
-    this.cameras.main.once('camerafadein', () => {
+    this.cameras.main.once('camerafadeincomplete', () => {
       this.applyEveningAutomatically();
     });
 

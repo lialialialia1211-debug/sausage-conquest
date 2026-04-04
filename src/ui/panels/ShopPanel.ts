@@ -1,6 +1,6 @@
 // ShopPanel — 收攤後商店 HTML panel (pure DOM, no Phaser dependency)
 import { EventBus } from '../../utils/EventBus';
-import { gameState, spendMoney, updateGameState, changeReputation } from '../../state/GameState';
+import { gameState, spendMoney, updateGameState, changeReputation, addMoney } from '../../state/GameState';
 import { CART_UPGRADES, MARKETING_ITEMS } from '../../data/upgrades';
 import { WORKERS } from '../../data/workers';
 import { LOAN_CONFIGS } from '../../data/loans';
@@ -45,6 +45,10 @@ export class ShopPanel {
   private skipBtn: HTMLButtonElement | null = null;
   // Whether any purchase (worker or marketing) was made this session
   private hasPurchasedThisSession = false;
+
+  // Stored once-listener references for cleanup in destroy()
+  private _casinoDoneHandler: (() => void) | null = null;
+  private _blackMarketDoneHandler: (() => void) | null = null;
 
   constructor() {
     this.panel = document.createElement('div');
@@ -851,9 +855,14 @@ export class ShopPanel {
       enterBtn.textContent = '進入賭場';
       enterBtn.addEventListener('click', () => {
         EventBus.emit('show-panel', 'casino');
-        EventBus.once('casino-done', () => {
+        if (this._casinoDoneHandler) {
+          EventBus.off('casino-done', this._casinoDoneHandler);
+        }
+        this._casinoDoneHandler = () => {
+          this._casinoDoneHandler = null;
           EventBus.emit('show-panel', 'shop');
-        });
+        };
+        EventBus.once('casino-done', this._casinoDoneHandler);
       });
       section.appendChild(enterBtn);
     }
@@ -1492,7 +1501,7 @@ export class ShopPanel {
       card.style.opacity = '0.6';
     } else {
       // Give reward
-      updateGameState({ money: gameState.money + mission.reward });
+      addMoney(mission.reward);
       this.refreshMoneyDisplay();
       btn.textContent = `送達！獲得 $${mission.reward}`;
       btn.disabled = true;
@@ -1605,9 +1614,14 @@ export class ShopPanel {
       bmBtn.addEventListener('click', () => {
         EventBus.emit('show-panel', 'black-market');
         // Listen for return from black market
-        EventBus.once('black-market-done', () => {
+        if (this._blackMarketDoneHandler) {
+          EventBus.off('black-market-done', this._blackMarketDoneHandler);
+        }
+        this._blackMarketDoneHandler = () => {
+          this._blackMarketDoneHandler = null;
           EventBus.emit('show-panel', 'shop');
-        });
+        };
+        EventBus.once('black-market-done', this._blackMarketDoneHandler);
       });
       bar.appendChild(bmBtn);
     }
@@ -1638,6 +1652,14 @@ export class ShopPanel {
   }
 
   destroy(): void {
-    // No persistent event listeners to remove (all are inline click handlers)
+    if (this._casinoDoneHandler) {
+      EventBus.off('casino-done', this._casinoDoneHandler);
+      this._casinoDoneHandler = null;
+    }
+    if (this._blackMarketDoneHandler) {
+      EventBus.off('black-market-done', this._blackMarketDoneHandler);
+      this._blackMarketDoneHandler = null;
+    }
+    this.panel.remove();
   }
 }

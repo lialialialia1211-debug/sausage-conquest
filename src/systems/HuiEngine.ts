@@ -72,8 +72,8 @@ export function processHuiDaily(): { message: string; needsBidding: boolean } | 
   // Player + paying NPCs contribute
   hui.pot += hui.dailyFee + npcPaid; // player's fee + npc fees
 
-  // Every 5 days = bidding day
-  const needsBidding = hui.day % 5 === 0;
+  // Every 5 days = bidding day (but not on day 0)
+  const needsBidding = hui.day > 0 && hui.day % 5 === 0;
 
   let message = `互助會第 ${hui.day} 天：繳了 $${hui.dailyFee}，會金累積 $${hui.pot}`;
   if (npcDefaulted) message += `\n${npcDefaulted}`;

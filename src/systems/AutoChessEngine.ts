@@ -21,6 +21,10 @@ import { gameState, updateGameState } from '../state/GameState';
 
 let pieceIdCounter = 0;
 
+export function resetAutoChessEngine(): void {
+  pieceIdCounter = 0;
+}
+
 /** Star-level attack / HP multipliers: base, ★1, ★2 */
 const STAR_MULT: Record<number, number> = { 0: 1, 1: 1.5, 2: 2.5 };
 
@@ -192,7 +196,7 @@ export function calculateBattleCost(): BattleCostInfo {
   const cost = Math.floor(gameState.money * 0.04);
   return {
     playerCost: cost,
-    canAfford:  gameState.money >= cost && cost > 0,
+    canAfford:  gameState.money >= cost,
   };
 }
 

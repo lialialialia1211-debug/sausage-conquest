@@ -136,6 +136,16 @@ export function processDaily(): LoanDailyResult {
         newInventory[id] = Math.floor(qty * 0.5);
       }
       updateGameState({ inventory: newInventory });
+      // Remove one player territory (give it back to 'enemy')
+      const playerSlots = Object.entries(gameState.map)
+        .filter(([_, owner]) => owner === 'player')
+        .map(([id, _]) => Number(id))
+        .sort((a, b) => b - a); // highest tier first
+      if (playerSlots.length > 1) { // keep at least slot 1
+        const lostSlot = playerSlots[0];
+        const newMap = { ...gameState.map, [lostSlot]: 'enemy' };
+        updateGameState({ map: newMap });
+      }
       penalty = `流氓搶走一半庫存、奪走一塊地盤（逾期第 ${newOverdueDays} 天）`;
     } else {
       // Day 15+: GAME OVER

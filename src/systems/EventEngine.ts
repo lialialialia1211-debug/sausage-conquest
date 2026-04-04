@@ -62,7 +62,10 @@ export function applyEventChoice(event: GameEvent, choiceIndex: number): EventCh
     } else {
       const paid = spendMoney(Math.abs(choice.effects.money));
       if (!paid) {
-        return choice;
+        // Can't afford — deduct whatever money remains, then continue with other effects
+        if (gameState.money > 0) {
+          spendMoney(gameState.money);
+        }
       }
     }
   }

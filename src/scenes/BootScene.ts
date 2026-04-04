@@ -4,6 +4,11 @@ import { updateGameState } from '../state/GameState';
 import { GRID_SLOTS } from '../data/map';
 import { PROLOGUE_PAGES } from '../data/dialogue';
 import { sfx } from '../utils/SoundFX';
+import { resetCustomerEngine } from '../systems/CustomerEngine';
+import { resetAutoChessEngine } from '../systems/AutoChessEngine';
+import { resetEventTracking } from '../systems/EventEngine';
+import { resetCasinoEngine } from '../systems/CasinoEngine';
+import { resetAchievements } from '../systems/AchievementEngine';
 
 // Page background tints for each prologue page
 const PAGE_TINTS = [
@@ -198,6 +203,12 @@ export class BootScene extends Phaser.Scene {
     // Helper: start the game with a chosen mode
     const startGame = (mode: string) => {
       sfx.initOnUserGesture();
+      // Reset all module-level state for a fresh game
+      resetCustomerEngine();
+      resetAutoChessEngine();
+      resetEventTracking();
+      resetCasinoEngine();
+      resetAchievements();
       // Initialize map: slot 1 = player, rest = enemy
       const initialMap: Record<number, string> = {};
       for (const slot of GRID_SLOTS) {

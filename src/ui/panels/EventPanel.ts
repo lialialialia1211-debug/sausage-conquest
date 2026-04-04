@@ -220,6 +220,6 @@ export class EventPanel {
   }
 
   destroy(): void {
-    // No persistent listeners to remove
+    this.panel.remove();
   }
 }

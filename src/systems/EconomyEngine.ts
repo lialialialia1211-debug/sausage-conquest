@@ -196,7 +196,7 @@ export function sellSausage(sausageId: string, price: number, quality: number): 
 
   return {
     sausageId,
-    price,
+    price: finalPrice,
     quality,
     customerSatisfaction,
   };

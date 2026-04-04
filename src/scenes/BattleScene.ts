@@ -93,6 +93,9 @@ export class BattleScene extends Phaser.Scene {
   private opponentBaseScale = 1;
   private energyPulseTween: Phaser.Tweens.Tween | null = null;
 
+  // ── Event listener refs ──────────────────────────────────────────────────────
+  private contextMenuHandler: ((e: Event) => void) | null = null;
+
   constructor() {
     super({ key: 'BattleScene' });
   }
@@ -149,7 +152,8 @@ export class BattleScene extends Phaser.Scene {
     this.aiDamage = 8 + (this.difficulty - 1) * 1.75;
 
     // Disable right-click context menu on canvas
-    this.game.canvas.addEventListener('contextmenu', (e: Event) => e.preventDefault());
+    this.contextMenuHandler = (e: Event) => e.preventDefault();
+    this.game.canvas.addEventListener('contextmenu', this.contextMenuHandler);
 
     // Draw scene
     this.drawBackground(width, height);
@@ -701,6 +705,11 @@ export class BattleScene extends Phaser.Scene {
     }).setOrigin(0.5).setDepth(40);
 
     this.time.delayedCall(600, () => {
+      if (this.isDone) {
+        nameText.destroy();
+        descText.destroy();
+        return;
+      }
       // B3: Special can also be dodged
       if (this.isDodging) {
         this.spawnDamageNumber(w / 2, h * 0.6, 'MISS！閃避必殺技！', '#44aaff');
@@ -713,8 +722,8 @@ export class BattleScene extends Phaser.Scene {
         if (this.playerHp <= 0) this.endFight('opponent');
       }
       this.time.delayedCall(1000, () => {
-        nameText.destroy();
-        descText.destroy();
+        if (nameText.active) nameText.destroy();
+        if (descText.active) descText.destroy();
       });
     });
   }
@@ -1400,6 +1409,10 @@ export class BattleScene extends Phaser.Scene {
     this.time.removeAllEvents();
     this.energyPulseTween?.stop();
     this.energyPulseTween = null;
+    if (this.contextMenuHandler) {
+      this.game.canvas.removeEventListener('contextmenu', this.contextMenuHandler);
+      this.contextMenuHandler = null;
+    }
     this.input.off('pointerdown');
     if (this.input.keyboard) {
       this.input.keyboard.off('keydown-SPACE');

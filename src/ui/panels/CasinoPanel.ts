@@ -520,6 +520,6 @@ export class CasinoPanel {
   }
 
   destroy(): void {
-    // All listeners are inline click handlers; nothing to remove explicitly.
+    this.panel.remove();
   }
 }

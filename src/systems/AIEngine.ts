@@ -31,7 +31,7 @@ export function getAIBattleTeam(opponentId: string): string[] {
   const opp = OPPONENT_MAP[opponentId];
   if (!opp) return ['black-pig', 'black-pig', 'black-pig'];
 
-  const pool = ['black-pig', 'flying-fish-roe', 'garlic-bomb', 'cheese', 'squidink', 'mala'];
+  const pool = ['black-pig', 'flying-fish-roe', 'garlic-bomb', 'cheese', 'squidink', 'mala', 'big-taste', 'big-wrap-small', 'great-wall'];
   const team: string[] = [];
   for (let i = 0; i < opp.unitCount; i++) {
     team.push(pool[i % Math.min(pool.length, opp.difficulty + 2)]);
@@ -42,7 +42,7 @@ export function getAIBattleTeam(opponentId: string): string[] {
 // Calculate neighbor effect on player's traffic based on adjacent opponent pricing strategies
 export function calcNeighborEffect(playerGrid: number): number {
   let modifier = 1.0;
-  const adjacent = [playerGrid - 1, playerGrid + 1].filter(i => i >= 0 && i < 10);
+  const adjacent = [playerGrid - 1, playerGrid + 1].filter(i => i >= 1 && i <= 9);
 
   for (const idx of adjacent) {
     const owner = gameState.map[idx];

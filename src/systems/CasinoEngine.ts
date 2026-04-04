@@ -20,6 +20,11 @@ export interface CasinoResult {
 let consecutiveWins = 0;
 let consecutiveLosses = 0;
 
+export function resetCasinoEngine(): void {
+  consecutiveWins = 0;
+  consecutiveLosses = 0;
+}
+
 /**
  * Place a bet at the underground casino.
  * Deducts the bet amount from player money, resolves the game,
@@ -104,7 +109,7 @@ function playDice(bet: CasinoBet): CasinoResult {
  * Slightly favors the "low" outcome (55% chance).
  */
 function playTrafficGuess(bet: CasinoBet): CasinoResult {
-  const actualHigh = Math.random() < 0.45; // slightly favor low
+  const actualHigh = Math.random() < 0.30; // 30% win chance for 3x payout (~-10% EV house edge)
   const playerChose = bet.choice ?? 'high';
   const won = (playerChose === 'high' && actualHigh) || (playerChose === 'low' && !actualHigh);
 

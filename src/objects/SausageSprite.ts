@@ -54,6 +54,10 @@ export class SausageSprite extends Phaser.GameObjects.Container {
   private _cheeseExploded = false;
   // Mala pulse tween
   private _malaPulseTween: Phaser.Tweens.Tween | null = null;
+  // Tracked sparkle text objects for cleanup
+  private sparkleObjects: Phaser.GameObjects.Text[] = [];
+  // Tracked cheese burst graphics for cleanup
+  private cheeseBurstGfx: Phaser.GameObjects.Graphics | null = null;
 
   constructor(scene: Phaser.Scene, x: number, y: number, sausage: GrillingSausage) {
     super(scene, x, y);
@@ -260,6 +264,8 @@ export class SausageSprite extends Phaser.GameObjects.Container {
         { fontSize: '16px' },
       ).setOrigin(0.5).setDepth(200);
 
+      this.sparkleObjects.push(spark);
+
       this.scene.tweens.add({
         targets: spark,
         y: spark.y - 50,
@@ -267,7 +273,11 @@ export class SausageSprite extends Phaser.GameObjects.Container {
         duration: 700,
         delay: i * 80,
         ease: 'Power2',
-        onComplete: () => spark.destroy(),
+        onComplete: () => {
+          const idx = this.sparkleObjects.indexOf(spark);
+          if (idx >= 0) this.sparkleObjects.splice(idx, 1);
+          spark.destroy();
+        },
       });
     }
   }
@@ -487,13 +497,19 @@ export class SausageSprite extends Phaser.GameObjects.Container {
     if (activeDoneness > 90 && !this._cheeseExploded) {
       this._cheeseExploded = true;
 
+      // Destroy any previous burst gfx that may not have completed yet
+      if (this.cheeseBurstGfx) {
+        this.cheeseBurstGfx.destroy();
+        this.cheeseBurstGfx = null;
+      }
+
       // Yellow ring flash: draw once and fade out
-      const burstGfx = this.scene.add.graphics();
+      this.cheeseBurstGfx = this.scene.add.graphics();
       const worldMatrix = this.getWorldTransformMatrix();
-      burstGfx.setPosition(worldMatrix.tx, worldMatrix.ty);
-      burstGfx.setDepth(this.depth + 1);
-      burstGfx.fillStyle(0xffee44, 0.75);
-      burstGfx.fillRoundedRect(
+      this.cheeseBurstGfx.setPosition(worldMatrix.tx, worldMatrix.ty);
+      this.cheeseBurstGfx.setDepth(this.depth + 1);
+      this.cheeseBurstGfx.fillStyle(0xffee44, 0.75);
+      this.cheeseBurstGfx.fillRoundedRect(
         -SAUSAGE_W / 2 - 4,
         -SAUSAGE_H / 2 - 4,
         SAUSAGE_W + 8,
@@ -501,14 +517,18 @@ export class SausageSprite extends Phaser.GameObjects.Container {
         SAUSAGE_H / 2 + 4,
       );
 
+      const burstRef = this.cheeseBurstGfx;
       this.scene.tweens.add({
-        targets: burstGfx,
+        targets: burstRef,
         alpha: 0,
         scaleX: 1.3,
         scaleY: 1.3,
         duration: 400,
         ease: 'Power2',
-        onComplete: () => burstGfx.destroy(),
+        onComplete: () => {
+          burstRef.destroy();
+          if (this.cheeseBurstGfx === burstRef) this.cheeseBurstGfx = null;
+        },
       });
     } else if (activeDoneness <= 80) {
       // Reset burst flag when side cools (i.e. flipped back)
@@ -620,6 +640,14 @@ export class SausageSprite extends Phaser.GameObjects.Container {
       if (s && s.active) s.destroy();
     });
     this.smokeParticles = [];
+    this.sparkleObjects.forEach(s => {
+      if (s && s.active) s.destroy();
+    });
+    this.sparkleObjects = [];
+    if (this.cheeseBurstGfx) {
+      this.cheeseBurstGfx.destroy();
+      this.cheeseBurstGfx = null;
+    }
     super.destroy(fromScene);
   }
 }

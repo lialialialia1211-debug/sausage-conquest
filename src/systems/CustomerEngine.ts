@@ -7,6 +7,10 @@ import { getReturningCustomers, getOrCreateLoyalty, getLoyaltyPatienceMult } fro
 
 let customerIdCounter = 0;
 
+export function resetCustomerEngine(): void {
+  customerIdCounter = 0;
+}
+
 /**
  * Generate a random order for a customer based on the current day.
  * Sausage types unlock progressively; condiments are chosen at random.

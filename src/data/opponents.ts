@@ -27,7 +27,7 @@ export const OPPONENTS: Opponent[] = [
     gridSlot: 2,
     difficulty: 1,
     unitCount: 3,
-    appearDay: 1,
+    appearDay: 1, // tier 2
     pricingStrategy: 'cheap',
     dialogue: {
       beforeBattle: '你也想搶我廁所旁的位子？',
@@ -44,7 +44,7 @@ export const OPPONENTS: Opponent[] = [
     gridSlot: 3,
     difficulty: 1,
     unitCount: 3,
-    appearDay: 1,
+    appearDay: 3, // tier 3
     pricingStrategy: 'cheap',
     dialogue: {
       beforeBattle: '暗巷是我們的地盤，識相的就讓開',
@@ -61,7 +61,7 @@ export const OPPONENTS: Opponent[] = [
     gridSlot: 4,
     difficulty: 2,
     unitCount: 4,
-    appearDay: 1,
+    appearDay: 5, // tier 4
     pricingStrategy: 'balanced',
     dialogue: {
       beforeBattle: '年輕人，烤香腸可不是你想的那麼簡單',
@@ -78,7 +78,7 @@ export const OPPONENTS: Opponent[] = [
     gridSlot: 5,
     difficulty: 2,
     unitCount: 4,
-    appearDay: 1,
+    appearDay: 7, // tier 5
     pricingStrategy: 'balanced',
     dialogue: {
       beforeBattle: '家人們看好了！我要現場教訓這個搶位的！',
@@ -95,7 +95,7 @@ export const OPPONENTS: Opponent[] = [
     gridSlot: 6,
     difficulty: 3,
     unitCount: 5,
-    appearDay: 1,
+    appearDay: 9, // tier 6
     pricingStrategy: 'premium',
     dialogue: {
       beforeBattle: '廟口這個位子可是我用命拚來的！',
@@ -112,7 +112,7 @@ export const OPPONENTS: Opponent[] = [
     gridSlot: 7,
     difficulty: 3,
     unitCount: 4,
-    appearDay: 1,
+    appearDay: 11, // tier 7
     pricingStrategy: 'cheap',
     dialogue: {
       beforeBattle: '我可是商學院第一名畢業的！理論上我不會輸！',
@@ -129,7 +129,7 @@ export const OPPONENTS: Opponent[] = [
     gridSlot: 8,
     difficulty: 4,
     unitCount: 5,
-    appearDay: 1,
+    appearDay: 13, // tier 8
     pricingStrategy: 'premium',
     dialogue: {
       beforeBattle: '你知道我為什麼叫王子嗎？因為國王的位子我還沒搶到',
@@ -146,7 +146,7 @@ export const OPPONENTS: Opponent[] = [
     gridSlot: 9,
     difficulty: 5,
     unitCount: 5,
-    appearDay: 1,
+    appearDay: 15, // tier 9 (final boss)
     pricingStrategy: 'premium',
     dialogue: {
       beforeBattle: '能走到這裡，你確實有兩下子。但夜市之王只有一個',

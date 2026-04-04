@@ -352,4 +352,8 @@ export class EndingPanel {
   getElement(): HTMLElement {
     return this.panel;
   }
+
+  destroy(): void {
+    this.panel.remove();
+  }
 }

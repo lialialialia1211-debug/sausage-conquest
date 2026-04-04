@@ -522,4 +522,8 @@ export class SummaryPanel {
   getElement(): HTMLElement {
     return this.panel;
   }
+
+  destroy(): void {
+    this.panel.remove();
+  }
 }

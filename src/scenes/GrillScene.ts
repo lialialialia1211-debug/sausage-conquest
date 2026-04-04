@@ -83,13 +83,7 @@ export class GrillScene extends Phaser.Scene {
   private customers: Customer[] = [];
   private pendingCustomerQueue: Customer[] = [];
   private customerArrivalTimer = 0;
-  private readonly customerArrivalInterval: number = (() => {
-    // Day 1: 10s, scales down to 5s by day 15+; upgrades/marketing reduce further
-    const dayFactor = Math.min(1, (gameState.day - 1) / 14); // 0 at day1, 1 at day15
-    const hasNeonSign = gameState.upgrades['neon-sign'];
-    const upgradeBonus = hasNeonSign ? 1 : 0;
-    return Math.max(MIN_ARRIVAL_INTERVAL, BASE_ARRIVAL_INTERVAL - dayFactor * 4 - upgradeBonus);
-  })();
+  private customerArrivalInterval = 0;
   private isDone = false;
   private sessionRevenue = 0;
   private paused = true; // Start paused until player clicks "開始營業"
@@ -198,6 +192,12 @@ export class GrillScene extends Phaser.Scene {
     this.paused = true;
     this.sessionRevenue = 0;
     this.sessionTrafficBonus = 0;
+
+    // Compute customer arrival interval for this session
+    const dayFactor = Math.min(1, (gameState.day - 1) / 14);
+    const hasNeonSign = gameState.upgrades['neon-sign'];
+    const upgradeBonus = hasNeonSign ? 1 : 0;
+    this.customerArrivalInterval = Math.max(MIN_ARRIVAL_INTERVAL, BASE_ARRIVAL_INTERVAL - dayFactor * 4 - upgradeBonus);
     this.grillSlots = [];
     this.warmingSlots = [];
     this.heatButtons = [];
@@ -293,7 +293,6 @@ export class GrillScene extends Phaser.Scene {
     this.customerArrivalTimer = this.customerArrivalInterval;
 
     this.cameras.main.fadeIn(400, 0, 0, 0);
-    EventBus.emit('scene-ready', 'GrillScene');
 
     // Keyboard: spacebar flips the hovered grill slot's sausage
     this.input.keyboard!.on('keydown-SPACE', () => {
@@ -722,6 +721,20 @@ export class GrillScene extends Phaser.Scene {
       this.grillSlots.push(slot);
       this.drawEmptySlotPlaceholder(slot);
     }
+  }
+
+  private addOneGrillSlot(): void {
+    const { width, height } = this.scale;
+    const grillY = height * GRILL_Y_FRAC - 20;
+    const slotSpacing = 85;
+    const slotCount = this.grillSlots.length + 1;
+    const totalW = slotSpacing * slotCount;
+    const startX = (width - totalW) / 2 + slotSpacing / 2;
+    const i = this.grillSlots.length; // index of the new slot
+    const x = startX + i * slotSpacing;
+    const slot: GrillSlot = { sprite: null, sausage: null, x, y: grillY, placeholderGfx: null, serveBtn: null, serveHint: null };
+    this.grillSlots.push(slot);
+    this.drawEmptySlotPlaceholder(slot);
   }
 
   private drawEmptySlotPlaceholder(slot: GrillSlot): void {
@@ -1539,6 +1552,7 @@ export class GrillScene extends Phaser.Scene {
 
       // After 1.5s, slow dissolve and THEN open combat panel
       this.time.delayedCall(1500, () => {
+        if (this.isDone || !this.scene.isActive()) return;
         this.tweens.add({
           targets: alert,
           alpha: 0,
@@ -1571,6 +1585,7 @@ export class GrillScene extends Phaser.Scene {
     });
     panelArea.appendChild(this.currentCombatPanel.getElement());
 
+    EventBus.off('combat-done');
     EventBus.once('combat-done', (result?: { undergroundRepDelta?: number; chaosPoints?: number }) => {
       if (this.currentCombatPanel) {
         const el = this.currentCombatPanel.getElement();
@@ -1658,6 +1673,7 @@ export class GrillScene extends Phaser.Scene {
 
           // After shake, slow dissolve, then show panel
           this.time.delayedCall(1200, () => {
+            if (this.isDone || !this.scene.isActive()) return;
             this.tweens.add({
               targets: splash,
               alpha: 0,
@@ -1826,6 +1842,7 @@ export class GrillScene extends Phaser.Scene {
         slot.sprite = null;
         const capturedSlot = slot;
         this.time.delayedCall(600, () => {
+          if (this.isDone || !this.scene.isActive()) return;
           capturedSlot.sausage = null;
           this.drawEmptySlotPlaceholder(capturedSlot);
         });
@@ -1834,9 +1851,7 @@ export class GrillScene extends Phaser.Scene {
     }
 
     if (fx.extraSlot) {
-      const { height } = this.scale;
-      const extraSlotCount = this.grillSlots.length + 1;
-      this.setupGrillSlots(this.scale.width, height, extraSlotCount);
+      this.addOneGrillSlot();
       this.showFeedback('烤架 +1 格！', this.scale.width / 2, this.scale.height * 0.35, '#44ff88');
     }
 
@@ -1999,6 +2014,7 @@ export class GrillScene extends Phaser.Scene {
     (slot as any).__carbonWarnShown = false;
     (slot as any).__burntWarnShown = false;
     (slot as any).__autoFlipped = false;
+    (slot as any).__flipPromptShown = false;
 
     // Reset selection and update inventory display
     this.selectedInventoryType = null;
@@ -2036,6 +2052,7 @@ export class GrillScene extends Phaser.Scene {
       qualityScore: getQualityScore(quality),
       timeInWarming: 0,
       warmingState: 'perfect-warm',
+      isOvernight: false,
     };
 
     emptyWarmSlot.sausage = warmingSausage;
@@ -2058,6 +2075,7 @@ export class GrillScene extends Phaser.Scene {
 
     // Redraw empty placeholder for this grill slot
     this.time.delayedCall(580, () => {
+      if (this.isDone || !this.scene.isActive()) return;
       slot.sausage = null;
       this.drawEmptySlotPlaceholder(slot);
       this.updateStatsDisplay();
@@ -2550,7 +2568,7 @@ export class GrillScene extends Phaser.Scene {
     popup.add(detail);
 
     // Auto-dismiss after 1.5 seconds
-    this.time.delayedCall(1500, () => { if (popup.active) popup.destroy(); });
+    this.time.delayedCall(1500, () => { if (this.isDone || !this.scene.isActive()) return; if (popup.active) popup.destroy(); });
   }
 
   private onCustomerTimeout(customerId: string): void {
@@ -3107,6 +3125,7 @@ export class GrillScene extends Phaser.Scene {
       infoText.destroy();
       btnText.destroy();
       this.paused = false;
+      EventBus.emit('scene-ready', 'GrillScene');
 
       // Start BGM loop
       try {
@@ -3127,6 +3146,7 @@ export class GrillScene extends Phaser.Scene {
   // ── Cleanup ──────────────────────────────────────────────────────────────
 
   shutdown(): void {
+    this.tweens.killAll();
     this.time.removeAllEvents();
 
     // Stop BGM
@@ -3182,6 +3202,9 @@ export class GrillScene extends Phaser.Scene {
 
     // Remove keyboard listeners
     this.input.keyboard?.removeAllListeners();
+
+    this.cameras.main.removeAllListeners();
+    EventBus.off('black-market-done');
   }
 
   private resetFullGameState(): void {

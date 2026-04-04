@@ -96,9 +96,9 @@ export const ACHIEVEMENTS: Achievement[] = [
     id: 'night_king',
     name: '夜市之王',
     emoji: '',
-    description: '佔領 10 格',
+    description: '佔領全部 9 格',
     joke: '你就是傳說',
-    condition: (s) => countPlayerGrids(s) >= 10,
+    condition: (s) => countPlayerGrids(s) >= 9,
     image: 'badge-nightmarket_king.png',
   },
   {
@@ -141,9 +141,9 @@ export const ACHIEVEMENTS: Achievement[] = [
     id: 'all_types',
     name: '品種蒐集家',
     emoji: '',
-    description: '解鎖全部 6 種香腸',
+    description: '解鎖全部 9 種香腸',
     joke: '什麼腸都有',
-    condition: (s) => (s.unlockedSausages?.length ?? 0) >= 6,
+    condition: (s) => (s.unlockedSausages?.length ?? 0) >= 9,
     image: 'badge-variety_collector.png',
   },
 ];

@@ -32,11 +32,11 @@ export const OPPONENT_INFO: Record<string, { emoji: string; name: string }> = {
   uncle:          { emoji: '', name: '阿伯' },
   influencer:     { emoji: '', name: '網紅弟' },
   'toilet-uncle': { emoji: '', name: '廁所阿伯' },
-  'alley-gang':   { emoji: '', name: '暗巷幫' },
+  'alley-gang':   { emoji: '', name: '暗巷兄弟' },
   'fat-sister':   { emoji: '', name: '胖姐' },
   student:        { emoji: '', name: '學生仔' },
   'sausage-prince': { emoji: '', name: '香腸王子' },
-  'sausage-king': { emoji: '', name: '香腸大王' },
+  'sausage-king': { emoji: '', name: '腸哥' },
 };
 
 // Returns the slot matching a given tier

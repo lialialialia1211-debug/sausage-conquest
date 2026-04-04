@@ -313,6 +313,6 @@ export class CombatPanel {
   }
 
   destroy(): void {
-    // No persistent listeners to remove
+    this.panel.remove();
   }
 }

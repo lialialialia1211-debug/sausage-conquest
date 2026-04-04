@@ -1,4 +1,5 @@
 // Delivery mission definitions for 腸征天下
+import { gameState } from '../state/GameState';
 
 export interface DeliveryMission {
   id: string;
@@ -71,10 +72,8 @@ export const DELIVERY_MISSIONS: DeliveryMission[] = [
 ];
 
 export function getAvailableDeliveries(): DeliveryMission[] {
-  const gs = (globalThis as any).__gameState;
-  if (!gs) return DELIVERY_MISSIONS.filter((d) => d.minDay <= 1);
   return DELIVERY_MISSIONS.filter(
-    (d) => d.minDay <= gs.day && d.undergroundRepRequired <= (gs.undergroundRep ?? 0),
+    (d) => d.minDay <= gameState.day && d.undergroundRepRequired <= (gameState.undergroundRep ?? 0),
   );
 }
 
