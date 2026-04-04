@@ -4,22 +4,23 @@ import { applyEventChoice } from '../../systems/EventEngine';
 import type { GameEvent, EventChoice } from '../../data/events';
 
 const EVENT_IMAGES: Record<string, string> = {
-  // Customer-related events all use karen-alert
-  'costco-guy': 'karen-alert.png',
-  'food-critic': 'karen-alert.png',
-  'drunk-uncle': 'karen-alert.png',
-  'protection-fee': 'karen-alert.png',
-  'territory-threat': 'karen-alert.png',
-  'gang-offer': 'karen-alert.png',
-  'inspector-surprise': 'karen-alert.png',
-  'management-fee-weekly': 'karen-alert.png',
-  'influencer-livestream': 'karen-alert.png',
-  'competitor-spy': 'karen-alert.png',
-  'media-crisis-exposed': 'karen-alert.png',
+  'costco-guy': 'event-costco-guy.png',
+  'food-critic': 'event-food-critic.png',
+  'drunk-uncle': 'event-drunk-uncle.png',
+  'instagram-karen': 'customer-karen.png',
+  'kid-tantrum': 'karen-alert.png',
+  'protection-fee': 'event-thugs.png',
+  'territory-threat': 'event-thugs.png',
+  'gang-offer': 'event-thugs.png',
+  'inspector-surprise': 'event-inspector.png',
+  'management-fee-weekly': 'event-thugs.png',
+  'influencer-livestream': 'customer-influencer.png',
+  'competitor-spy': 'customer-influencer.png',
+  'media-crisis-exposed': 'event-inspector.png',
   'employee-strike': 'karen-alert.png',
   'expired-ingredient-gamble': 'karen-alert.png',
-  'underground-delivery': 'karen-alert.png',
-  // Non-customer events keep their own images
+  'underground-delivery': 'event-thugs.png',
+  'celebrity-visit': 'customer-fatcat.png',
   'food-festival': 'event-food-festival.png',
   'rain-bonus': 'event-rain.png',
 };
@@ -76,7 +77,7 @@ export class EventPanel {
     if (eventImage) {
       const img = document.createElement('img');
       img.src = eventImage;
-      img.style.cssText = 'width:100%; max-height:120px; object-fit:contain; border-radius:8px; margin:8px 0; opacity:0.85;';
+      img.style.cssText = 'width:100%; max-height:180px; object-fit:contain; border-radius:8px; margin:8px 0; opacity:0.85;';
       this.panel.appendChild(img);
     }
 

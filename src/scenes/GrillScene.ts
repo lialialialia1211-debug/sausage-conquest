@@ -1525,13 +1525,20 @@ export class GrillScene extends Phaser.Scene {
       '#ff4444',
     );
 
-    // Show karen alert splash FIRST, then open combat panel after it fades
-    if (this.textures.exists('karen-alert')) {
+    // Show personality-specific splash FIRST, then open combat panel after it fades
+    const personalityImageMap: Record<string, string> = {
+      karen: 'customer-karen',
+      enforcer: 'customer-thug',
+      inspector: 'customer-inspector',
+      spy: 'customer-influencer',
+    };
+    const splashKey = personalityImageMap[customer.personality] || 'karen-alert';
+    if (this.textures.exists(splashKey)) {
       const w = this.scale.width;
       const h = this.scale.height;
-      const alert = this.add.image(w / 2, h / 2, 'karen-alert').setDepth(45);
-      const maxW = w * 0.5;
-      const maxH = h * 0.4;
+      const alert = this.add.image(w / 2, h / 2, splashKey).setDepth(45);
+      const maxW = w * 0.7;
+      const maxH = h * 0.55;
       const scale = Math.min(maxW / alert.width, maxH / alert.height);
       alert.setScale(0).setAlpha(0);
 
@@ -1544,13 +1551,13 @@ export class GrillScene extends Phaser.Scene {
         ease: 'Back.Out',
       });
 
-      // After 1.5s, dismiss alert and THEN open combat panel
+      // After 1.5s, slow dissolve and THEN open combat panel
       this.time.delayedCall(1500, () => {
         this.tweens.add({
           targets: alert,
           alpha: 0,
-          scale: scale * 0.8,
-          duration: 200,
+          duration: 1200,
+          ease: 'Power2',
           onComplete: () => {
             alert.destroy();
             this.openCombatPanel(customer);
@@ -1639,17 +1646,17 @@ export class GrillScene extends Phaser.Scene {
     const { width: w, height: h } = this.scale;
 
     const eventImageMap: Record<string, string> = {
-      'nuisance': 'karen-alert',
-      'thug': 'karen-alert',
-      'beggar': 'karen-alert',
-      'authority': 'karen-alert',
+      'nuisance': 'customer-karen',
+      'thug': 'customer-thug',
+      'beggar': 'customer-beggar',
+      'authority': 'customer-inspector',
     };
 
     const splashKey = eventImageMap[event.category];
     if (splashKey && this.textures.exists(splashKey)) {
-      // Show karen-alert with SHAKE + ZOOM animation (no black overlay)
+      // Show character splash with SHAKE + ZOOM animation (no black overlay)
       const splash = this.add.image(w / 2, h / 2, splashKey).setDepth(300);
-      const maxScale = Math.min((w * 0.45) / splash.width, (h * 0.35) / splash.height);
+      const maxScale = Math.min((w * 0.7) / splash.width, (h * 0.55) / splash.height);
       splash.setScale(0).setAlpha(0);
 
       // Zoom in
@@ -1663,13 +1670,13 @@ export class GrillScene extends Phaser.Scene {
           // SHAKE animation
           this.cameras.main.shake(300, 0.015);
 
-          // After shake, shrink and fade out, then show panel
-          this.time.delayedCall(800, () => {
+          // After shake, slow dissolve, then show panel
+          this.time.delayedCall(1200, () => {
             this.tweens.add({
               targets: splash,
               alpha: 0,
-              scale: maxScale * 0.5,
-              duration: 300,
+              duration: 1200,
+              ease: 'Power2',
               onComplete: () => {
                 splash.destroy();
                 this.buildGrillEventPanel(event);

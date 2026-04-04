@@ -115,10 +115,16 @@ export class CombatPanel {
     titleEl.textContent = `${emoji} ${name}`;
     this.panel.appendChild(titleEl);
 
-    // Show karen-alert image for all combat encounters
+    // Show personality-specific image for combat encounters
+    const PERSONALITY_IMAGES: Record<string, string> = {
+      karen: 'customer-karen.png',
+      enforcer: 'customer-thug.png',
+      inspector: 'customer-inspector.png',
+      spy: 'customer-influencer.png',
+    };
     const alertImg = document.createElement('img');
-    alertImg.src = 'karen-alert.png';
-    alertImg.style.cssText = 'width:100%; max-height:100px; object-fit:contain; margin:8px 0;';
+    alertImg.src = PERSONALITY_IMAGES[this.personality] || 'karen-alert.png';
+    alertImg.style.cssText = 'width:100%; max-height:180px; object-fit:contain; margin:8px 0;';
     alertImg.onerror = () => alertImg.style.display = 'none'; // hide if fails
     this.panel.appendChild(alertImg);
 
