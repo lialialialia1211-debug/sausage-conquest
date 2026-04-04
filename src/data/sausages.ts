@@ -4,7 +4,7 @@ export const SAUSAGE_TYPES: SausageType[] = [
   {
     id: 'black-pig',
     name: '原味黑豬',
-    emoji: '🐷',
+    emoji: '',
     image: 'sausage-black-pig.png',
     cost: 12,
     suggestedPrice: 35,
@@ -20,7 +20,7 @@ export const SAUSAGE_TYPES: SausageType[] = [
   {
     id: 'flying-fish-roe',
     name: '飛魚卵腸',
-    emoji: '🐟',
+    emoji: '',
     image: 'sausage-flying-fish-roe.png',
     cost: 20,
     suggestedPrice: 50,
@@ -36,7 +36,7 @@ export const SAUSAGE_TYPES: SausageType[] = [
   {
     id: 'garlic-bomb',
     name: '蒜味轟炸',
-    emoji: '🧄',
+    emoji: '',
     image: 'sausage-garlic-bomb.png',
     cost: 10,
     suggestedPrice: 30,
@@ -52,7 +52,7 @@ export const SAUSAGE_TYPES: SausageType[] = [
   {
     id: 'cheese',
     name: '起司爆漿',
-    emoji: '🧀',
+    emoji: '',
     image: 'sausage-cheese.png',
     cost: 30,
     suggestedPrice: 60,
@@ -63,7 +63,7 @@ export const SAUSAGE_TYPES: SausageType[] = [
   {
     id: 'squidink',
     name: '墨魚香腸',
-    emoji: '🦑',
+    emoji: '',
     image: 'sausage-squidink.png',
     cost: 35,
     suggestedPrice: 65,
@@ -74,7 +74,7 @@ export const SAUSAGE_TYPES: SausageType[] = [
   {
     id: 'mala',
     name: '麻辣螺螄',
-    emoji: '🌶️',
+    emoji: '',
     image: 'sausage-mala.png',
     cost: 28,
     suggestedPrice: 55,
@@ -85,7 +85,7 @@ export const SAUSAGE_TYPES: SausageType[] = [
   {
     id: 'big-taste',
     name: '大嚐莖',
-    emoji: '🍆',
+    emoji: '',
     image: 'sausage-big-taste.png',
     cost: 15,
     suggestedPrice: 40,
@@ -97,13 +97,13 @@ export const SAUSAGE_TYPES: SausageType[] = [
       name: '回味無窮',
       description: '客人臉紅說下次還來，客流+1 粉絲+1',
       triggerText: '客人咬了一口，臉瞬間紅了...「這...下次我還要來！」',
-      customerReaction: '😳',
+      customerReaction: '',
     },
   },
   {
     id: 'big-wrap-small',
     name: '大腸包小腸',
-    emoji: '🌭',
+    emoji: '',
     image: 'sausage-big-wrap-small.png',
     cost: 22,
     suggestedPrice: 50,
@@ -115,13 +115,13 @@ export const SAUSAGE_TYPES: SausageType[] = [
       name: '硬硬的感覺',
       description: '客人覺得不太對勁，耐心下降，小生氣',
       triggerText: '客人嚼了幾口，表情逐漸微妙...「怎麼覺得下面硬硬的？」',
-      customerReaction: '😠',
+      customerReaction: '',
     },
   },
   {
     id: 'great-wall',
     name: '萬里腸城',
-    emoji: '🏯',
+    emoji: '',
     image: 'sausage-great-wall.png',
     cost: 50,
     suggestedPrice: 100,
@@ -133,7 +133,7 @@ export const SAUSAGE_TYPES: SausageType[] = [
       name: '城牆震撼',
       description: '路人瘋狂拍照上傳，聲望+3 全場客人耐心回滿',
       triggerText: '客人舉起那排香腸城牆，整條街的人都掏出手機拍照！「這什麼東西也太扯了吧！」',
-      customerReaction: '🤯',
+      customerReaction: '',
     },
   },
 ];

@@ -26,7 +26,7 @@ function randomNothing(): string {
 
 const PRIZES: SlotPrize[] = [
   {
-    emoji: '🌭',
+    emoji: '',
     label: '再來一根',
     probability: 0.10,
     colorClass: 'prize-gold',
@@ -42,7 +42,7 @@ const PRIZES: SlotPrize[] = [
     },
   },
   {
-    emoji: '💰',
+    emoji: '',
     label: '小金庫',
     probability: 0.15,
     colorClass: 'prize-blue',
@@ -55,7 +55,7 @@ const PRIZES: SlotPrize[] = [
     },
   },
   {
-    emoji: '🎯',
+    emoji: '',
     label: '精準之眼',
     probability: 0.10,
     colorClass: 'prize-purple',
@@ -65,7 +65,7 @@ const PRIZES: SlotPrize[] = [
     },
   },
   {
-    emoji: '🔥',
+    emoji: '',
     label: '火力全開',
     probability: 0.10,
     colorClass: 'prize-red',
@@ -75,7 +75,7 @@ const PRIZES: SlotPrize[] = [
     },
   },
   {
-    emoji: '💩',
+    emoji: '',
     label: '謝謝惠顧',
     probability: 0.55,
     colorClass: 'prize-gray',
@@ -95,7 +95,7 @@ function drawPrize(): DrawnPrize {
     if (rand < cumulative) {
       // Resolve dynamic descriptions before returning
       let desc = prize.effectDesc;
-      if (prize.emoji === '💩') {
+      if (prize.label === '謝謝惠顧') {
         desc = randomNothing();
       }
       return { ...prize, resolvedEffectDesc: desc };
@@ -345,7 +345,7 @@ export class SausageBoxPanel {
     // Title
     const titleEl = document.createElement('div');
     titleEl.className = 'sausage-box-title';
-    titleEl.textContent = '🎰 摸香腸箱 🎰';
+    titleEl.textContent = '摸香腸箱';
     this.panel.appendChild(titleEl);
 
     // Subtitle
@@ -402,7 +402,7 @@ export class SausageBoxPanel {
     // Open button
     this.openBtn = document.createElement('button');
     this.openBtn.className = 'sausage-box-open-btn';
-    this.openBtn.textContent = '🤞 開箱！';
+    this.openBtn.textContent = '開箱！';
     this.openBtn.addEventListener('click', this.onOpen);
     this.panel.appendChild(this.openBtn);
 
@@ -424,7 +424,7 @@ export class SausageBoxPanel {
       if (prize.applyEffect) {
         try { prize.applyEffect(); } catch { /* ignore */ }
         // Resolve 小金庫 description after effect applied
-        if (prize.emoji === '💰') {
+        if (prize.label === '小金庫') {
           const amount = (PRIZES[1] as any).__lastAmount ?? '?';
           prize.resolvedEffectDesc = `獲得 $${amount} 現金！`;
         }
@@ -499,7 +499,7 @@ export class SausageBoxPanel {
     const lines: Array<{ label: string; value: string; color: string }> = [];
 
     // Revenue line — always show
-    lines.push({ label: '💰 收入', value: '+$20', color: '#ffd700' });
+    lines.push({ label: '收入', value: '+$20', color: '#ffd700' });
 
     // Show each drawn prize's resolved effect description
     const colorMap: Record<string, string> = {
@@ -512,13 +512,13 @@ export class SausageBoxPanel {
 
     const seen = new Set<string>();
     for (const prize of this.prizes) {
-      const key = prize.emoji;
+      const key = prize.label;
       if (seen.has(key)) continue;
       seen.add(key);
-      const count = this.prizes.filter(p => p.emoji === key).length;
+      const count = this.prizes.filter(p => p.label === key).length;
       const countPrefix = count > 1 ? `×${count} ` : '';
       lines.push({
-        label: `${prize.emoji} ${prize.label}`,
+        label: prize.label,
         value: `${countPrefix}${prize.resolvedEffectDesc}`,
         color: colorMap[prize.colorClass] ?? '#aaa',
       });

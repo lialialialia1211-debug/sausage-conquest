@@ -22,7 +22,7 @@ export const OPPONENTS: Opponent[] = [
   {
     id: 'toilet-uncle',
     name: '廁所阿伯',
-    emoji: '🚽',
+    emoji: '',
     image: 'opponent-toilet-uncle.png',
     gridSlot: 2,
     difficulty: 1,
@@ -39,7 +39,7 @@ export const OPPONENTS: Opponent[] = [
   {
     id: 'alley-gang',
     name: '暗巷兄弟',
-    emoji: '🔪',
+    emoji: '',
     image: 'opponent-alley-gang.png',
     gridSlot: 3,
     difficulty: 1,
@@ -56,7 +56,7 @@ export const OPPONENTS: Opponent[] = [
   {
     id: 'uncle',
     name: '烤香腸阿伯',
-    emoji: '👴',
+    emoji: '',
     image: 'opponent-uncle.png',
     gridSlot: 4,
     difficulty: 2,
@@ -73,7 +73,7 @@ export const OPPONENTS: Opponent[] = [
   {
     id: 'influencer',
     name: '網紅弟',
-    emoji: '📱',
+    emoji: '',
     image: 'opponent-influencer.png',
     gridSlot: 5,
     difficulty: 2,
@@ -90,7 +90,7 @@ export const OPPONENTS: Opponent[] = [
   {
     id: 'fat-sister',
     name: '胖姐',
-    emoji: '👩‍🍳',
+    emoji: '',
     image: 'opponent-fat-sister.png',
     gridSlot: 6,
     difficulty: 3,
@@ -107,7 +107,7 @@ export const OPPONENTS: Opponent[] = [
   {
     id: 'student',
     name: '大學生創業仔',
-    emoji: '🎓',
+    emoji: '',
     image: 'opponent-student.png',
     gridSlot: 7,
     difficulty: 3,
@@ -124,7 +124,7 @@ export const OPPONENTS: Opponent[] = [
   {
     id: 'sausage-prince',
     name: '香腸王子',
-    emoji: '🤴',
+    emoji: '',
     image: 'opponent-sausage-prince.png',
     gridSlot: 8,
     difficulty: 4,
@@ -141,7 +141,7 @@ export const OPPONENTS: Opponent[] = [
   {
     id: 'sausage-king',
     name: '腸哥',
-    emoji: '👑',
+    emoji: '',
     image: 'opponent-sausage-king.png',
     gridSlot: 9,
     difficulty: 5,

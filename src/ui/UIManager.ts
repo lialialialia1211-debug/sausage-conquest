@@ -107,7 +107,7 @@ export class UIManager {
         return null;
       }
       case 'event': {
-        const el = this.createPlaceholderPanel('📰 突發事件', 'event-done', '繼續 ▶');
+        const el = this.createPlaceholderPanel('突發事件', 'event-done', '繼續 ▶');
         return { instance: { getElement: () => el } };
       }
       case 'shop': {
@@ -171,19 +171,19 @@ export class UIManager {
 
     const titleEl = document.createElement('div');
     titleEl.className = 'panel-title neon-flicker';
-    titleEl.textContent = '📊 今日結算';
+    titleEl.textContent = '今日結算';
 
     const bodyEl = document.createElement('div');
     bodyEl.className = 'panel-body';
 
     const storyText = document.createElement('div');
     storyText.className = 'story-text';
-    storyText.textContent = '今天辛苦了！攤車還在，明天繼續奮鬥 💪';
+    storyText.textContent = '今天辛苦了！攤車還在，明天繼續奮鬥';
 
     const statsBox = document.createElement('div');
     statsBox.style.cssText = 'margin: 12px 0; padding: 12px; border: 1px solid #333; border-radius: 4px; font-size: 14px; color: #aaaacc;';
 
-    const stats = ['🌭 香腸銷售：placeholder', '💰 今日收入：placeholder', '📈 聲望變化：placeholder'];
+    const stats = ['香腸銷售：placeholder', '今日收入：placeholder', '聲望變化：placeholder'];
     stats.forEach(stat => {
       const row = document.createElement('div');
       row.style.marginBottom = '6px';
@@ -199,7 +199,7 @@ export class UIManager {
 
     const btn = document.createElement('button');
     btn.className = 'btn-neon';
-    btn.textContent = '迎接明天 ☀️';
+    btn.textContent = '迎接明天';
     btn.addEventListener('click', () => {
       EventBus.emit('summary-done', {});
     });

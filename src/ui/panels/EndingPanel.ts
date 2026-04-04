@@ -43,41 +43,41 @@ function calculateGrillPR(stats: typeof gameState.stats): { score: number; pr: n
   // Title
   let title: string;
   let titleEmoji: string;
-  if (pr >= 99) { title = '香腸霸主'; titleEmoji = '👑'; }
-  else if (pr >= 90) { title = '大腸今'; titleEmoji = '🌭'; }
-  else if (pr >= 70) { title = '競爭力尚可'; titleEmoji = '📊'; }
-  else if (pr >= 50) { title = '你確定要創業?'; titleEmoji = '🤔'; }
-  else if (pr >= 25) { title = '回家洗洗睡'; titleEmoji = '😴'; }
-  else { title = '廢物東西'; titleEmoji = '💀'; }
+  if (pr >= 99) { title = '香腸霸主'; titleEmoji = ''; }
+  else if (pr >= 90) { title = '大腸今'; titleEmoji = ''; }
+  else if (pr >= 70) { title = '競爭力尚可'; titleEmoji = ''; }
+  else if (pr >= 50) { title = '你確定要創業?'; titleEmoji = ''; }
+  else if (pr >= 25) { title = '回家洗洗睡'; titleEmoji = ''; }
+  else { title = '廢物東西'; titleEmoji = ''; }
 
   return { score, pr, title, titleEmoji };
 }
 
 function getDay20Grade(playerSlot: number): { grade: string; gradeEmoji: string; title: string } {
-  if (playerSlot >= 9) return { grade: 'S', gradeEmoji: '🏆', title: '夜市之王' };
-  if (playerSlot >= 7) return { grade: 'A', gradeEmoji: '🔥', title: '呼聲最高的挑戰者' };
-  if (playerSlot >= 4) return { grade: 'B', gradeEmoji: '📊', title: '中段班老闆' };
-  if (playerSlot >= 2) return { grade: 'C', gradeEmoji: '😅', title: '還在掙扎中' };
-  return { grade: 'F', gradeEmoji: '💀', title: '原地踏步二十天' };
+  if (playerSlot >= 9) return { grade: 'S', gradeEmoji: '', title: '夜市之王' };
+  if (playerSlot >= 7) return { grade: 'A', gradeEmoji: '', title: '呼聲最高的挑戰者' };
+  if (playerSlot >= 4) return { grade: 'B', gradeEmoji: '', title: '中段班老闆' };
+  if (playerSlot >= 2) return { grade: 'C', gradeEmoji: '', title: '還在掙扎中' };
+  return { grade: 'F', gradeEmoji: '', title: '原地踏步二十天' };
 }
 
 function buildEndingConfig(type: EndingType): EndingConfig {
   switch (type) {
     case 'bankrupt':
       return {
-        emoji: '💀',
+        emoji: '',
         title: '破產',
         dramatic: '你的攤車被法拍了。不過別擔心，隔壁大腸包小腸哥說可以收你當學徒。',
       };
     case 'loan-shark':
       return {
-        emoji: '🦈',
+        emoji: '',
         title: '地下錢莊 GAME OVER',
         dramatic: '你消失在夜市裡，有人說你去當漁工了...',
       };
     case 'territory-win': {
       return {
-        emoji: '👑',
+        emoji: '',
         title: '稱霸夜市！',
         dramatic: '你從夜市最角落的停車場一路殺到正中央，成為真正的夜市之王！',
       };
@@ -156,7 +156,7 @@ export class EndingPanel {
     const items = [
       { label: '存活天數', value: `${data.dayssurvived ?? gameState.day} 天` },
       { label: '累計營收', value: `$${data.totalRevenue}` },
-      { label: '📍 最終位置', value: `第 ${finalSlot} 層 — ${finalSlotData.emoji} ${finalSlotData.name}` },
+      { label: '最終位置', value: `第 ${finalSlot} 層 — ${finalSlotData.name}` },
       { label: '烤制香腸', value: `${gameState.stats['totalSausagesSold'] ?? 0} 根` },
       { label: '戰鬥紀錄', value: `${gameState.stats['battlesWon'] ?? 0} 勝 ${gameState.stats['battlesLost'] ?? 0} 敗` },
     ];
@@ -182,7 +182,7 @@ export class EndingPanel {
   }
 
   private buildPRSection(): HTMLElement {
-    const { score, pr, title, titleEmoji } = calculateGrillPR(gameState.stats);
+    const { score, pr, title } = calculateGrillPR(gameState.stats);
 
     const totalSold = gameState.stats['totalSausagesSold'] || 0;
     const totalPerfect = gameState.stats['totalPerfect'] || 0;
@@ -212,7 +212,7 @@ export class EndingPanel {
     // Header
     const header = document.createElement('h3');
     header.style.cssText = 'margin: 0 0 12px 0; text-align: center; font-size: 16px; color: #fff;';
-    header.textContent = '🏆 烤香腸熟練度報告';
+    header.textContent = '烤香腸熟練度報告';
     section.appendChild(header);
 
     // Stats breakdown
@@ -221,10 +221,10 @@ export class EndingPanel {
     statsDiv.style.cssText = 'display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: #ccc; margin-bottom: 12px;';
 
     const statRows = [
-      `✅ 完美出品：${totalPerfect} 根`,
-      `🟡 普通：${totalOk} 根`,
-      `🔴 燒焦：${totalBurnt} 根`,
-      `⬛ 碳化：${totalCarbonized} 根`,
+      `完美出品：${totalPerfect} 根`,
+      `普通：${totalOk} 根`,
+      `燒焦：${totalBurnt} 根`,
+      `碳化：${totalCarbonized} 根`,
     ];
     statRows.forEach(text => {
       const row = document.createElement('div');
@@ -251,14 +251,14 @@ export class EndingPanel {
     const prTitle = document.createElement('div');
     prTitle.className = 'pr-title';
     prTitle.style.cssText = `font-size: 24px; text-align: center; font-weight: bold; color: ${prColor};`;
-    prTitle.textContent = `${titleEmoji} ${title}`;
+    prTitle.textContent = title;
     section.appendChild(prTitle);
 
     // Simulation mode badge
     if (gameState.gameMode === 'simulation') {
       const simBadge = document.createElement('div');
       simBadge.style.cssText = 'color: #00cc88; font-size: 12px; text-align: center; margin-top: 8px;';
-      simBadge.textContent = '🧪 模擬模式下達成';
+      simBadge.textContent = '模擬模式下達成';
       section.appendChild(simBadge);
     }
 

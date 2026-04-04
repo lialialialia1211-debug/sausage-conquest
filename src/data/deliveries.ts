@@ -16,7 +16,7 @@ export const DELIVERY_MISSIONS: DeliveryMission[] = [
   {
     id: 'late-night-party',
     clientName: '深夜派對',
-    clientEmoji: '🎉',
+    clientEmoji: '',
     description: '有人辦通宵派對，需要 10 根香腸送到指定地址',
     requiredSausages: 10,
     reward: 200,
@@ -27,7 +27,7 @@ export const DELIVERY_MISSIONS: DeliveryMission[] = [
   {
     id: 'yakuza-dinner',
     clientName: '神秘晚宴',
-    clientEmoji: '🕴️',
+    clientEmoji: '',
     description: '一桌穿西裝的人要 20 根最好的香腸，不要問為什麼',
     requiredSausages: 20,
     reward: 500,
@@ -38,7 +38,7 @@ export const DELIVERY_MISSIONS: DeliveryMission[] = [
   {
     id: 'school-event',
     clientName: '學校園遊會',
-    clientEmoji: '🏫',
+    clientEmoji: '',
     description: '附近國小園遊會需要 30 根香腸，限時供應',
     requiredSausages: 30,
     reward: 400,
@@ -49,7 +49,7 @@ export const DELIVERY_MISSIONS: DeliveryMission[] = [
   {
     id: 'underground-fight',
     clientName: '地下擂台賽',
-    clientEmoji: '🥊',
+    clientEmoji: '',
     description: '地下格鬥場需要 15 根香腸當獎品，酬勞優渥',
     requiredSausages: 15,
     reward: 600,
@@ -60,7 +60,7 @@ export const DELIVERY_MISSIONS: DeliveryMission[] = [
   {
     id: 'tv-show',
     clientName: '美食節目',
-    clientEmoji: '📺',
+    clientEmoji: '',
     description: '電視台要拍美食特輯，需要 25 根品質最好的',
     requiredSausages: 25,
     reward: 800,

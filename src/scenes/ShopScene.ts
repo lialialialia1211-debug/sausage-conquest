@@ -28,7 +28,7 @@ export class ShopScene extends Phaser.Scene {
       this.add.image(width / 2, height / 2, 'bg-shop').setDisplaySize(width, height).setAlpha(0.2);
     }
 
-    this.add.text(cx, cy, '🏪', { fontSize: '80px' }).setOrigin(0.5).setAlpha(0.15);
+    this.add.text(cx, cy, '', { fontSize: '80px' }).setOrigin(0.5).setAlpha(0.15);
 
     this.add.text(cx, cy + 70, `升級商店`, {
       fontSize: '18px',

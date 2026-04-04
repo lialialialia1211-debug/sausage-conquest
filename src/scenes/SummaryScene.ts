@@ -28,7 +28,7 @@ export class SummaryScene extends Phaser.Scene {
     bg.fillGradientStyle(0x050510, 0x050510, 0x0a0a1a, 0x0a0a1a, 1);
     bg.fillRect(0, 0, width, height);
 
-    this.add.text(cx, cy, '📊', {
+    this.add.text(cx, cy, '', {
       fontSize: '80px',
     }).setOrigin(0.5).setAlpha(0.12);
 
@@ -132,7 +132,7 @@ export class SummaryScene extends Phaser.Scene {
     const { width } = this.scale;
     achievements.forEach((ach, i) => {
       const y = 40 + i * 50;
-      const text = this.add.text(width + 10, y, `${ach.emoji} ${ach.name} — ${ach.joke}`, {
+      const text = this.add.text(width + 10, y, `${ach.name} — ${ach.joke}`, {
         fontSize: '14px',
         fontFamily: 'Microsoft JhengHei, PingFang TC, sans-serif',
         color: '#ffcc00',

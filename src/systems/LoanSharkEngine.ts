@@ -6,11 +6,11 @@ export type { PlayerLoan };
 
 // NPC borrowers who might come asking for money
 const POTENTIAL_BORROWERS = [
-  { name: '賣臭豆腐的老張', emoji: '🫕', reliability: 0.8, maxAmount: 500 },
-  { name: '炸雞排小妹', emoji: '🍗', reliability: 0.6, maxAmount: 800 },
-  { name: '彈珠台阿伯', emoji: '🎯', reliability: 0.4, maxAmount: 1000 },
-  { name: '套圈圈大叔', emoji: '⭕', reliability: 0.5, maxAmount: 600 },
-  { name: '賣珍奶的小陳', emoji: '🧋', reliability: 0.75, maxAmount: 400 },
+  { name: '賣臭豆腐的老張', emoji: '', reliability: 0.8, maxAmount: 500 },
+  { name: '炸雞排小妹', emoji: '', reliability: 0.6, maxAmount: 800 },
+  { name: '彈珠台阿伯', emoji: '', reliability: 0.4, maxAmount: 1000 },
+  { name: '套圈圈大叔', emoji: '', reliability: 0.5, maxAmount: 600 },
+  { name: '賣珍奶的小陳', emoji: '', reliability: 0.75, maxAmount: 400 },
 ] as const;
 
 export function isLoanSharkUnlocked(): boolean {
@@ -152,13 +152,13 @@ export function sendDogToCollect(loanId: string): string {
     changeUndergroundRep(5);
     addChaos(2, '派旺財討債成功');
     updateGameState({ playerLoans: loans });
-    return `🐕 旺財衝進${loan.borrowerEmoji}${loan.borrowerName}的攤位狂吠！\n對方嚇到當場掏出 $${loan.totalOwed} 還你。\n地下聲望 +5`;
+    return `旺財衝進${loan.borrowerName}的攤位狂吠！\n對方嚇到當場掏出 $${loan.totalOwed} 還你。\n地下聲望 +5`;
   } else {
     loan.status = 'repaid'; // resolved but no money recovered
     changeUndergroundRep(3);
     addChaos(3, '派旺財討債但人跑了');
     updateGameState({ playerLoans: loans });
-    return `🐕 旺財追了三條街...但${loan.borrowerEmoji}${loan.borrowerName}翻牆跑了。\n這筆債只能當學費了。\n地下聲望 +3`;
+    return `旺財追了三條街...但${loan.borrowerName}翻牆跑了。\n這筆債只能當學費了。\n地下聲望 +3`;
   }
 }
 

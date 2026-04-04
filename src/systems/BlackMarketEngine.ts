@@ -7,7 +7,7 @@ export const BLACK_MARKET_ITEMS: BlackMarketItem[] = [
   {
     id: 'mystery-meat',
     name: '神秘肉（來路不明）',
-    emoji: '🥩',
+    emoji: '',
     cost: 8,
     qualityBonus: 0,
     catchChance: 0.25,
@@ -16,7 +16,7 @@ export const BLACK_MARKET_ITEMS: BlackMarketItem[] = [
   {
     id: 'super-spice',
     name: '違禁香料（讓人上癮）',
-    emoji: '🌶️',
+    emoji: '',
     cost: 50,
     qualityBonus: 0.3,
     catchChance: 0.4,
@@ -25,7 +25,7 @@ export const BLACK_MARKET_ITEMS: BlackMarketItem[] = [
   {
     id: 'expired-luxury',
     name: '過期高檔食材',
-    emoji: '🧀',
+    emoji: '',
     cost: 20,
     qualityBonus: 0.15,
     catchChance: 0.2,
@@ -34,7 +34,7 @@ export const BLACK_MARKET_ITEMS: BlackMarketItem[] = [
   {
     id: 'rival-recipe',
     name: '競業偷來的配方',
-    emoji: '📜',
+    emoji: '',
     cost: 150,
     qualityBonus: 0.5,
     catchChance: 0.1,

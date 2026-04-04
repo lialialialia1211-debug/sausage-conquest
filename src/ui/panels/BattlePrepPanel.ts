@@ -64,7 +64,6 @@ export class BattlePrepPanel {
     const opponentSlot = data.playerSlot + 1;
     const slotData = GRID_SLOTS.find(s => s.tier === opponentSlot);
     const oppInfo = slotData ? OPPONENT_INFO[slotData.opponentId] : null;
-    const oppEmoji = oppInfo?.emoji ?? '❓';
     const oppName = oppInfo?.name ?? '神秘對手';
     const difficulty = slotData?.opponentDifficulty ?? 1;
     const costInfo = calculateBattleCost();
@@ -82,10 +81,6 @@ export class BattlePrepPanel {
     oppBox.className = 'battle-opponent-info';
     oppBox.style.cssText = 'display:flex;align-items:center;gap:10px;margin-bottom:8px;';
 
-    const emojiEl = document.createElement('span');
-    emojiEl.style.fontSize = '32px';
-    emojiEl.textContent = oppEmoji;
-
     const detailEl = document.createElement('div');
     detailEl.innerHTML = `
       <div style="font-weight:bold;color:#ff4455;">${oppName}</div>
@@ -94,7 +89,6 @@ export class BattlePrepPanel {
       </div>
     `;
 
-    oppBox.appendChild(emojiEl);
     oppBox.appendChild(detailEl);
     panel.appendChild(oppBox);
 
@@ -136,11 +130,7 @@ export class BattlePrepPanel {
         row.style.cssText =
           'display:flex;align-items:center;gap:8px;padding:4px 6px;border:1px solid #331144;border-radius:5px;background:#0a0015;';
 
-        const pieceEmoji = document.createElement('span');
-        pieceEmoji.style.fontSize = '20px';
-        pieceEmoji.textContent = pt.emoji;
-
-        const info = document.createElement('div');
+          const info = document.createElement('div');
         info.style.cssText = 'flex:1;font-size:12px;';
         info.innerHTML = `
           <span style="color:#eee;">${pt.name}</span>
@@ -154,7 +144,6 @@ export class BattlePrepPanel {
         buyBtn.textContent = '買';
         buyBtn.addEventListener('click', () => this.buyPiece(pt.sausageId, buyBtn));
 
-        row.appendChild(pieceEmoji);
         row.appendChild(info);
         row.appendChild(buyBtn);
         shopList.appendChild(row);
@@ -306,7 +295,6 @@ export class BattlePrepPanel {
       const typeLabel = PIECE_TYPE_LABEL[piece.type] ?? piece.type;
 
       row.innerHTML = `
-        <span style="font-size:18px;">${piece.emoji}</span>
         <span style="color:#ffcc66;">${stars}</span>
         <span style="color:#eee;">${piece.name}</span>
         <span style="color:#886699;font-size:11px;">[${typeLabel}]</span>

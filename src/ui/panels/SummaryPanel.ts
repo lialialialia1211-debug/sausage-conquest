@@ -129,7 +129,7 @@ export class SummaryPanel {
       chaosLog.className = 'chaos-log';
 
       const chaosTitle = document.createElement('h3');
-      chaosTitle.textContent = '🌀 今日騷操作紀錄';
+      chaosTitle.textContent = '今日騷操作紀錄';
       chaosLog.appendChild(chaosTitle);
 
       gameState.dailyChaosActions.forEach(action => {
@@ -154,17 +154,17 @@ export class SummaryPanel {
     dualRep.className = 'dual-rep';
 
     const officialRepEl = document.createElement('div');
-    officialRepEl.textContent = `⭐ 官方聲望：${gameState.reputation}/100`;
+    officialRepEl.textContent = `官方聲望：${gameState.reputation}/100`;
     dualRep.appendChild(officialRepEl);
 
     const undergroundRepEl = document.createElement('div');
-    undergroundRepEl.textContent = `💀 地下聲望：${gameState.undergroundRep}/100`;
+    undergroundRepEl.textContent = `地下聲望：${gameState.undergroundRep}/100`;
     dualRep.appendChild(undergroundRepEl);
 
     if (gameState.reputation > 70 && gameState.undergroundRep > 70 && gameState.reputationCrisisDay < 0) {
       const warningEl = document.createElement('div');
       warningEl.style.color = '#ff4444';
-      warningEl.textContent = '⚠️ 警告：記者正在追查你的雙面人生...';
+      warningEl.textContent = '警告：記者正在追查你的雙面人生...';
       dualRep.appendChild(warningEl);
     }
 
@@ -231,7 +231,7 @@ export class SummaryPanel {
     // Section title
     const title = document.createElement('div');
     title.className = 'summary-section-title';
-    title.textContent = '🌟 今日服務評分';
+    title.textContent = '今日服務評分';
     section.appendChild(title);
 
     // Average score row
@@ -277,7 +277,7 @@ export class SummaryPanel {
     subTitle.style.fontSize = '11px';
     subTitle.style.color = '#aaaaaa';
     subTitle.style.marginBottom = '4px';
-    subTitle.textContent = '📊 各項平均';
+    subTitle.textContent = '各項平均';
     section.appendChild(subTitle);
 
     // Sub-scores grid (2x2)
@@ -290,16 +290,16 @@ export class SummaryPanel {
     grid.style.paddingLeft = '8px';
 
     const subScores = [
-      { icon: '🔥', label: '烤功', value: avgGrill },
+      { icon: '', label: '烤功', value: avgGrill },
       { icon: '🌶️', label: '配料', value: avgCondiment },
-      { icon: '♨️', label: '保溫', value: avgWarming },
-      { icon: '⏱', label: '等待', value: avgWait },
+      { icon: '', label: '保溫', value: avgWarming },
+      { icon: '', label: '等待', value: avgWait },
     ];
 
     subScores.forEach(item => {
       const cell = document.createElement('div');
       cell.style.color = '#cccccc';
-      cell.textContent = `${item.icon} ${item.label}：${item.value}`;
+      cell.textContent = item.icon ? `${item.icon} ${item.label}：${item.value}` : `${item.label}：${item.value}`;
       grid.appendChild(cell);
     });
 
@@ -310,7 +310,7 @@ export class SummaryPanel {
     distTitle.style.fontSize = '11px';
     distTitle.style.color = '#aaaaaa';
     distTitle.style.marginBottom = '4px';
-    distTitle.textContent = '⭐ 評分分布';
+    distTitle.textContent = '評分分布';
     section.appendChild(distTitle);
 
     // Star distribution rows
@@ -358,7 +358,7 @@ export class SummaryPanel {
 
     const title = document.createElement('div');
     title.className = 'summary-section-title';
-    title.textContent = '📍 攤位位置';
+    title.textContent = '攤位位置';
     el.appendChild(title);
 
     const tileNum = String(slot + 1).padStart(2, '0');
@@ -375,7 +375,7 @@ export class SummaryPanel {
     const locationValue = document.createElement('span');
     locationValue.className = 'summary-rev-value';
     locationValue.style.color = '#aabbff';
-    locationValue.textContent = `${slotData.emoji} ${slotData.name}`;
+    locationValue.textContent = slotData.name;
     locationRow.appendChild(locationLabel);
     locationRow.appendChild(locationValue);
     el.appendChild(locationRow);
@@ -384,7 +384,7 @@ export class SummaryPanel {
     trafficRow.className = 'summary-revenue-row';
     const trafficLabel = document.createElement('span');
     trafficLabel.className = 'summary-rev-label';
-    trafficLabel.textContent = '👥 人流加成';
+    trafficLabel.textContent = '人流加成';
     const trafficValue = document.createElement('span');
     trafficValue.className = 'summary-rev-value';
     trafficValue.style.color = '#39ff14';
@@ -396,7 +396,7 @@ export class SummaryPanel {
     if (day % 2 === 0) {
       const battleHint = document.createElement('div');
       battleHint.style.cssText = 'margin-top: 4px; color: #ff8844; font-size: 12px; text-align: center;';
-      battleHint.textContent = '⚔️ 明天可發起換位血戰！';
+      battleHint.textContent = '明天可發起換位血戰！';
       el.appendChild(battleHint);
     }
 
@@ -461,7 +461,7 @@ export class SummaryPanel {
     statsRow.className = 'summary-grill-row';
 
     const items = [
-      { label: '完美', count: stats.perfect, emoji: '✨' },
+      { label: '完美', count: stats.perfect, emoji: '' },
       { label: '普通', count: stats.ok, emoji: '' },
       { label: '半熟', count: stats['half-cooked'] ?? 0, emoji: '' },
       { label: '微焦', count: stats['slightly-burnt'] ?? 0, emoji: '' },

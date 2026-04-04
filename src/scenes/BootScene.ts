@@ -216,7 +216,7 @@ export class BootScene extends Phaser.Scene {
       cardWidth, cardHeight, 0x1a1a3e, 0.9,
     ).setStrokeStyle(2, 0xff6600).setInteractive({ useHandCursor: true }).setAlpha(0);
 
-    const normalEmoji = this.add.text(leftX + cardWidth / 2, cardY + 30, '🔥', {
+    const normalEmoji = this.add.text(leftX + cardWidth / 2, cardY + 30, '', {
       fontSize: '40px',
     }).setOrigin(0.5).setAlpha(0);
 
@@ -244,7 +244,7 @@ export class BootScene extends Phaser.Scene {
       cardWidth, cardHeight, 0x1a1a3e, 0.9,
     ).setStrokeStyle(2, 0x00cc88).setInteractive({ useHandCursor: true }).setAlpha(0);
 
-    const simEmoji = this.add.text(rightX + cardWidth / 2, cardY + 30, '🧪', {
+    const simEmoji = this.add.text(rightX + cardWidth / 2, cardY + 30, '', {
       fontSize: '40px',
     }).setOrigin(0.5).setAlpha(0);
 

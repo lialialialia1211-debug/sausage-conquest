@@ -36,7 +36,7 @@ export class MorningPanel {
     // Title
     const titleEl = document.createElement('div');
     titleEl.className = 'panel-title neon-flicker';
-    titleEl.textContent = '🌅 早上 — 進貨備料';
+    titleEl.textContent = '早上 — 進貨備料';
     this.panel.appendChild(titleEl);
 
     // Stats / suggestion section
@@ -99,7 +99,7 @@ export class MorningPanel {
     // Rent reserve warning
     this.rentWarning = document.createElement('div');
     this.rentWarning.className = 'rent-warning';
-    this.rentWarning.textContent = `⚠️ 至少保留 $${MIN_RENT_RESERVE} 租金，否則傍晚無法擺攤！`;
+    this.rentWarning.textContent = `至少保留 $${MIN_RENT_RESERVE} 租金，否則傍晚無法擺攤！`;
     this.rentWarning.style.display = 'none';
     this.rentWarning.style.color = 'var(--neon-red, #ff4444)';
     this.rentWarning.style.fontSize = '13px';

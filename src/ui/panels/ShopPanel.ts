@@ -103,7 +103,7 @@ export class ShopPanel {
       { key: 'workers', label: '工讀生' },
       { key: 'marketing', label: '行銷道具' },
       { key: 'loans', label: '資金周轉' },
-      { key: 'achievements', label: '🏆 成就' },
+      { key: 'achievements', label: '成就' },
     ];
 
     for (const tab of tabs) {
@@ -318,13 +318,13 @@ export class ShopPanel {
     buffEl.className = 'shop-item-buff';
     buffEl.style.color = 'var(--color-success, #4caf50)';
     buffEl.style.fontSize = '0.82em';
-    buffEl.textContent = `✅ ${worker.buff}`;
+    buffEl.textContent = worker.buff;
 
     const debuffEl = document.createElement('div');
     debuffEl.className = 'shop-item-debuff';
     debuffEl.style.color = 'var(--color-warning, #ff9800)';
     debuffEl.style.fontSize = '0.82em';
-    debuffEl.textContent = `⚠️ ${worker.debuff}`;
+    debuffEl.textContent = worker.debuff;
 
     const salaryEl = document.createElement('div');
     salaryEl.className = 'shop-item-salary';
@@ -404,10 +404,10 @@ export class ShopPanel {
 
   private getWorkerFeedback(workerId: string): string {
     const feedbackMap: Record<string, string> = {
-      adi: '👦 阿迪仔上班了！烤架 +1 格，但他會滑手機...',
-      mei: '💅 學生妹來了！她會自動幫你出餐',
-      wangcai: '🐕 旺財趴在攤位旁邊了！奧客小心',
-      dad: '👴 老爸放下遙控器來幫忙了！保溫箱衰退減半',
+      adi: '阿迪仔上班了！烤架 +1 格，但他會滑手機...',
+      mei: '學生妹來了！她會自動幫你出餐',
+      wangcai: '旺財趴在攤位旁邊了！奧客小心',
+      dad: '老爸放下遙控器來幫忙了！保溫箱衰退減半',
     };
     return feedbackMap[workerId] ?? '員工上班了！';
   }
@@ -722,7 +722,7 @@ export class ShopPanel {
 
     const titleEl = document.createElement('div');
     titleEl.className = 'loan-section-title';
-    titleEl.textContent = '📜 互助會（標會）';
+    titleEl.textContent = '互助會（標會）';
     section.appendChild(titleEl);
 
     const hui = gameState.hui;
@@ -829,7 +829,7 @@ export class ShopPanel {
 
     const titleEl = document.createElement('div');
     titleEl.className = 'loan-section-title';
-    titleEl.textContent = '🎰 地下賭場';
+    titleEl.textContent = '地下賭場';
     section.appendChild(titleEl);
 
     const isUnlocked = gameState.day >= 3;
@@ -838,7 +838,7 @@ export class ShopPanel {
       const lockEl = document.createElement('div');
       lockEl.className = 'loan-ineligible';
       lockEl.style.opacity = '0.5';
-      lockEl.textContent = '🔒 第 3 天後解鎖';
+      lockEl.textContent = '第 3 天後解鎖';
       section.appendChild(lockEl);
     } else {
       const descEl = document.createElement('div');
@@ -870,14 +870,14 @@ export class ShopPanel {
 
     const titleEl = document.createElement('div');
     titleEl.className = 'loan-section-title';
-    titleEl.textContent = '💰 放高利貸';
+    titleEl.textContent = '放高利貸';
     section.appendChild(titleEl);
 
     if (!isLoanSharkUnlocked()) {
       const lockEl = document.createElement('div');
       lockEl.className = 'loan-ineligible';
       lockEl.style.opacity = '0.5';
-      lockEl.textContent = `🔒 地下聲望不足（需要 60，目前 ${gameState.undergroundRep}）`;
+      lockEl.textContent = `地下聲望不足（需要 60，目前 ${gameState.undergroundRep}）`;
       section.appendChild(lockEl);
       return section;
     }
@@ -888,7 +888,7 @@ export class ShopPanel {
       const requestEl = document.createElement('div');
       requestEl.className = 'loan-terms';
       requestEl.style.color = '#ffcc00';
-      requestEl.textContent = `${b.emoji} ${b.name} 想借 $${b.requestAmount}`;
+      requestEl.textContent = `${b.name} 想借 $${b.requestAmount}`;
       section.appendChild(requestEl);
 
       // Interest rate slider
@@ -935,7 +935,7 @@ export class ShopPanel {
           return;
         }
         this.pendingBorrower = null;
-        alert(`已借出 $${b.requestAmount} 給 ${b.emoji}${b.name}，5 天後收回 $${loan.totalOwed}`);
+        alert(`已借出 $${b.requestAmount} 給 ${b.name}，5 天後收回 $${loan.totalOwed}`);
         this.refreshLoansTab();
         this.refreshMoneyDisplay();
       });
@@ -1017,7 +1017,7 @@ export class ShopPanel {
       const dogBtn = document.createElement('button');
       dogBtn.className = 'btn-neon';
       dogBtn.style.fontSize = '0.8em';
-      dogBtn.textContent = '🐕 派旺財討債';
+      dogBtn.textContent = '派旺財討債';
       dogBtn.addEventListener('click', () => {
         const msg = sendDogToCollect(loan.id);
         alert(msg);
@@ -1028,7 +1028,7 @@ export class ShopPanel {
       const seizeBtn = document.createElement('button');
       seizeBtn.className = 'btn-neon';
       seizeBtn.style.cssText = 'font-size:0.8em; border-color:#ff9800; color:#ff9800;';
-      seizeBtn.textContent = '🏪 收攤位';
+      seizeBtn.textContent = '收攤位';
       seizeBtn.addEventListener('click', () => {
         const msg = seizeBorrowerStall(loan.id);
         alert(msg);
@@ -1364,7 +1364,7 @@ export class ShopPanel {
 
     const titleEl = document.createElement('div');
     titleEl.className = 'loan-section-title';
-    titleEl.textContent = '🚴 外送任務';
+    titleEl.textContent = '外送任務';
     section.appendChild(titleEl);
 
     const totalSausages = getTotalInventorySausages(gameState.inventory);
@@ -1397,7 +1397,7 @@ export class ShopPanel {
 
   private buildDeliveryCard(mission: DeliveryMission, totalSausages: number): HTMLElement {
     const canAccept = totalSausages >= mission.requiredSausages;
-    const riskStars = '⭐'.repeat(mission.riskLevel) + '☆'.repeat(3 - mission.riskLevel);
+    const riskStars = '★'.repeat(mission.riskLevel) + '☆'.repeat(3 - mission.riskLevel);
 
     const card = document.createElement('div');
     card.className = 'shop-item-card';
@@ -1454,7 +1454,7 @@ export class ShopPanel {
       acceptBtn.disabled = true;
       acceptBtn.style.cssText = 'opacity:0.4; cursor:not-allowed; border-color:var(--text-dim); color:var(--text-dim); text-shadow:none; box-shadow:none;';
     } else {
-      acceptBtn.textContent = '接單出發 🚴';
+      acceptBtn.textContent = '接單出發';
       acceptBtn.addEventListener('click', () => this.onAcceptDelivery(mission, card, acceptBtn));
     }
     card.appendChild(acceptBtn);
@@ -1486,7 +1486,7 @@ export class ShopPanel {
     if (caught) {
       // Deduct underground rep
       updateGameState({ undergroundRep: Math.max(0, (gameState.undergroundRep ?? 0) - 5) });
-      btn.textContent = '😱 被逮到！地下聲望 -5，貨已沒收';
+      btn.textContent = '被逮到！地下聲望 -5，貨已沒收';
       btn.disabled = true;
       btn.style.cssText = 'opacity:0.7; cursor:not-allowed; border-color:#ff4444; color:#ff4444;';
       card.style.opacity = '0.6';
@@ -1494,7 +1494,7 @@ export class ShopPanel {
       // Give reward
       updateGameState({ money: gameState.money + mission.reward });
       this.refreshMoneyDisplay();
-      btn.textContent = `✅ 送達！獲得 $${mission.reward}`;
+      btn.textContent = `送達！獲得 $${mission.reward}`;
       btn.disabled = true;
       btn.style.cssText = 'opacity:0.8; cursor:not-allowed; border-color:#4caf50; color:#4caf50;';
       card.style.opacity = '0.6';
@@ -1509,7 +1509,7 @@ export class ShopPanel {
 
     const header = document.createElement('h3');
     header.style.cssText = 'text-align:center; color:#ffcc00; margin-bottom:12px; font-size:1.1rem; letter-spacing:1px;';
-    header.textContent = '🏆 成就殿堂';
+    header.textContent = '成就殿堂';
     container.appendChild(header);
 
     const allAchievements = getAllAchievements();
@@ -1531,7 +1531,7 @@ export class ShopPanel {
 
       const emojiEl = document.createElement('span');
       emojiEl.style.cssText = 'font-size:1.5rem; line-height:1; flex-shrink:0; margin-top:2px;';
-      emojiEl.textContent = achievement.unlocked ? achievement.emoji : '🔒';
+      emojiEl.textContent = '';
       if (achievement.unlocked && achievement.image) {
         const img = document.createElement('img');
         img.src = achievement.image;
@@ -1601,7 +1601,7 @@ export class ShopPanel {
       bmBtn.className = 'btn-neon';
       bmBtn.style.background = 'rgba(139, 0, 0, 0.3)';
       bmBtn.style.borderColor = '#8b0000';
-      bmBtn.textContent = '💀 進入黑市';
+      bmBtn.textContent = '進入黑市';
       bmBtn.addEventListener('click', () => {
         EventBus.emit('show-panel', 'black-market');
         // Listen for return from black market

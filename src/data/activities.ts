@@ -31,7 +31,7 @@ export const AWAY_ACTIVITIES: AwayActivity[] = [
   {
     id: 'recruit-customers',
     name: '招攬客人',
-    emoji: '📢',
+    emoji: '',
     description: '站在路口大喊「好吃的烤香腸喔！」吸引路人過來',
     duration: 15,
     minDay: 1,
@@ -56,7 +56,7 @@ export const AWAY_ACTIVITIES: AwayActivity[] = [
   {
     id: 'scout-competitor',
     name: '考察對手攤位',
-    emoji: '🔍',
+    emoji: '',
     description: '偷偷走到對手攤位觀察他們的價格、烤法和生意狀況',
     duration: 20,
     minDay: 1,
@@ -81,7 +81,7 @@ export const AWAY_ACTIVITIES: AwayActivity[] = [
   {
     id: 'sabotage-rival',
     name: '搗亂對手攤位',
-    emoji: '💣',
+    emoji: '',
     description: '趁對手不注意，偷偷搞一些小破壞... 道德感正在叫你停手',
     duration: 25,
     minDay: 3,
@@ -111,7 +111,7 @@ export const AWAY_ACTIVITIES: AwayActivity[] = [
   {
     id: 'patrol-market',
     name: '巡邏夜市',
-    emoji: '🚶',
+    emoji: '',
     description: '在夜市裡四處晃晃，看看有什麼有趣的事情發生',
     duration: 15,
     minDay: 1,
@@ -146,7 +146,7 @@ export const AWAY_ACTIVITIES: AwayActivity[] = [
   {
     id: 'black-market-visit',
     name: '去黑市找貨',
-    emoji: '💀',
+    emoji: '',
     description: '趁工讀生顧攤，你溜進暗巷找黑市供應商',
     duration: 20,
     minDay: 5,
@@ -162,7 +162,7 @@ export const AWAY_ACTIVITIES: AwayActivity[] = [
   {
     id: 'street-performance',
     name: '街頭表演',
-    emoji: '🎪',
+    emoji: '',
     description: '在攤位前面耍烤夾雜技，用翻香腸的技術來吸引圍觀人群',
     duration: 20,
     minDay: 2,
@@ -192,7 +192,7 @@ export const AWAY_ACTIVITIES: AwayActivity[] = [
   {
     id: 'beg-supplies',
     name: '跟隔壁攤借食材',
-    emoji: '🙏',
+    emoji: '',
     description: '厚著臉皮去隔壁攤借一點食材，反正鄰居嘛',
     duration: 10,
     minDay: 1,

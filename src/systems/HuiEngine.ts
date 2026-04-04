@@ -2,10 +2,10 @@ import type { HuiMember } from '../types';
 import { gameState, updateGameState, spendMoney, addMoney, changeReputation, changeUndergroundRep, addChaos } from '../state/GameState';
 
 const NPC_MEMBERS: Omit<HuiMember, 'hasCollected' | 'isPlayer'>[] = [
-  { id: 'hui-auntie', name: '賣滷味的阿姨', emoji: '👩‍🍳', reliability: 0.95 },
-  { id: 'hui-uncle', name: '烤玉米阿伯', emoji: '👨‍🌾', reliability: 0.85 },
-  { id: 'hui-young', name: '賣雞排的小哥', emoji: '🧑‍🍳', reliability: 0.7 },
-  { id: 'hui-granny', name: '賣藥燉排骨的阿嬤', emoji: '👵', reliability: 0.98 },
+  { id: 'hui-auntie', name: '賣滷味的阿姨', emoji: '', reliability: 0.95 },
+  { id: 'hui-uncle', name: '烤玉米阿伯', emoji: '', reliability: 0.85 },
+  { id: 'hui-young', name: '賣雞排的小哥', emoji: '', reliability: 0.7 },
+  { id: 'hui-granny', name: '賣藥燉排骨的阿嬤', emoji: '', reliability: 0.98 },
 ];
 
 /**
@@ -15,7 +15,7 @@ export function joinHui(): boolean {
   if (gameState.hui.isActive) return false; // already in one
 
   const members: HuiMember[] = [
-    { id: 'player', name: '你', emoji: '🫵', reliability: 1, hasCollected: false, isPlayer: true },
+    { id: 'player', name: '你', emoji: '', reliability: 1, hasCollected: false, isPlayer: true },
     ...NPC_MEMBERS.map(m => ({ ...m, hasCollected: false, isPlayer: false })),
   ];
 

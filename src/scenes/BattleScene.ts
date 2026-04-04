@@ -20,11 +20,11 @@ const OPP_CENTER_Y_FRAC = 0.38;
 
 /** Opponent emoji data per difficulty */
 const DIFFICULTY_OPPONENTS: Record<number, { emoji: string; name: string }> = {
-  1: { emoji: '🧑‍🍳', name: '路邊攤阿婆' },
-  2: { emoji: '👨‍🍳', name: '夜市老闆' },
-  3: { emoji: '🧙', name: '香腸巫師' },
-  4: { emoji: '👹', name: '烤爐魔王' },
-  5: { emoji: '🔥', name: '傳說香腸王' },
+  1: { emoji: '', name: '路邊攤阿婆' },
+  2: { emoji: '', name: '夜市老闆' },
+  3: { emoji: '', name: '香腸巫師' },
+  4: { emoji: '', name: '烤爐魔王' },
+  5: { emoji: '', name: '傳說香腸王' },
 };
 
 // ── Helper types ───────────────────────────────────────────────────────────────
@@ -190,9 +190,9 @@ export class BattleScene extends Phaser.Scene {
 
     const panel = this.add.container(width / 2, height / 2).setDepth(21);
 
-    const oppInfo = DIFFICULTY_OPPONENTS[this.difficulty] ?? { emoji: '👹', name: '神秘對手' };
+    const oppInfo = DIFFICULTY_OPPONENTS[this.difficulty] ?? { emoji: '', name: '神秘對手' };
     const infoLines = [
-      `挑戰者：${oppInfo.emoji} ${oppInfo.name}`,
+      `挑戰者：${oppInfo.name}`,
       `對手體力：${this.opponentMaxHp}`,
       costInfo.canAfford
         ? `入場費：$${costInfo.playerCost}（你有 $${gameState.money}）`
@@ -344,7 +344,7 @@ export class BattleScene extends Phaser.Scene {
       attackObj = this.add.image(width / 2, height * 0.85, 'tongs').setDepth(40);
       attackObj.setScale(0.15).setAngle(-45);
     } else {
-      attackObj = this.add.text(width / 2, height * 0.85, '🌭', {
+      attackObj = this.add.text(width / 2, height * 0.85, '>', {
         fontSize: '48px',
         fontFamily: FONT,
       }).setOrigin(0.5).setDepth(40).setAngle(-45).setScale(1.5);
@@ -361,7 +361,7 @@ export class BattleScene extends Phaser.Scene {
       onComplete: () => {
         if (hit) {
           // Impact burst at hit point
-          const burst = this.add.text(pointer.x, pointer.y, '💥', {
+          const burst = this.add.text(pointer.x, pointer.y, '*', {
             fontSize: '60px',
             fontFamily: FONT,
           }).setOrigin(0.5).setDepth(41);
@@ -431,7 +431,7 @@ export class BattleScene extends Phaser.Scene {
     const { width, height } = this.scale;
 
     // Heavy thrust: big sausage from bottom center, straight toward opponent
-    const bigSausage = this.add.text(width / 2, height * 0.85, '🌭', {
+    const bigSausage = this.add.text(width / 2, height * 0.85, '>>', {
       fontSize: '64px',
       fontFamily: FONT,
     }).setOrigin(0.5).setDepth(40).setScale(1.8);
@@ -508,7 +508,7 @@ export class BattleScene extends Phaser.Scene {
     });
 
     // Bigger charcoal (80px) falls from top
-    const charcoal = this.add.text(width / 2, -60, '🪨', {
+    const charcoal = this.add.text(width / 2, -60, 'O', {
       fontSize: '80px',
       fontFamily: FONT,
     }).setOrigin(0.5).setDepth(35);
@@ -525,7 +525,7 @@ export class BattleScene extends Phaser.Scene {
         const fire = this.add.text(
           width / 2 + ox,
           this.opponentEmoji.y + oy,
-          '🔥',
+          '*',
           { fontSize: '32px', fontFamily: FONT },
         ).setOrigin(0.5).setDepth(36);
 
@@ -616,7 +616,7 @@ export class BattleScene extends Phaser.Scene {
     });
 
     // Fist emoji flies toward camera (grows + fades)
-    const fist = this.add.text(this.opponentEmoji.x, this.opponentEmoji.y + 40, '👊', {
+    const fist = this.add.text(this.opponentEmoji.x, this.opponentEmoji.y + 40, '>>', {
       fontSize: '44px',
       fontFamily: FONT,
     }).setOrigin(0.5).setDepth(37).setScale(0.5);
@@ -674,18 +674,18 @@ export class BattleScene extends Phaser.Scene {
     const h = this.scale.height;
 
     const specials = [
-      { name: '馬桶刷旋風', emoji: '🧹', damage: 20, text: '對手掏出馬桶刷瘋狂旋轉！' },
-      { name: '直播閃光', emoji: '📱', damage: 15, text: '對手開閃光燈直播！你被閃瞎 2 秒！' },
-      { name: '臭豆腐毒氣', emoji: '💨', damage: 18, text: '對手丟出臭豆腐！毒氣彌漫！' },
-      { name: '黃金香腸', emoji: '✨', damage: 25, text: '對手掏出傳說中的黃金香腸！' },
-      { name: '鐵板燒技', emoji: '🔥', damage: 30, text: '對手使出鐵板燒終極奧義！' },
+      { name: '馬桶刷旋風', emoji: '', damage: 20, text: '對手掏出馬桶刷瘋狂旋轉！' },
+      { name: '直播閃光', emoji: '', damage: 15, text: '對手開閃光燈直播！你被閃瞎 2 秒！' },
+      { name: '臭豆腐毒氣', emoji: '', damage: 18, text: '對手丟出臭豆腐！毒氣彌漫！' },
+      { name: '黃金香腸', emoji: '', damage: 25, text: '對手掏出傳說中的黃金香腸！' },
+      { name: '鐵板燒技', emoji: '', damage: 30, text: '對手使出鐵板燒終極奧義！' },
     ];
 
     const special = specials[Math.min(this.difficulty - 1, specials.length - 1)];
 
     this.flashFullScreen(0xff0000, 0.4, 200);
 
-    const nameText = this.add.text(w / 2, h * 0.3, `⚡ ${special.name}`, {
+    const nameText = this.add.text(w / 2, h * 0.3, special.name, {
       fontSize: '24px',
       fontFamily: FONT,
       color: '#ff4444',
@@ -700,35 +700,22 @@ export class BattleScene extends Phaser.Scene {
       color: '#ffcc00',
     }).setOrigin(0.5).setDepth(40);
 
-    const emojiText = this.add.text(w / 2, h * 0.15, special.emoji, {
-      fontSize: '80px',
-      fontFamily: FONT,
-    }).setOrigin(0.5).setDepth(40);
-
-    this.tweens.add({
-      targets: emojiText,
-      y: h * 0.7,
-      scale: { from: 1, to: 2.5 },
-      duration: 600,
-      ease: 'Power2',
-      onComplete: () => {
-        // B3: Special can also be dodged
-        if (this.isDodging) {
-          this.spawnDamageNumber(w / 2, h * 0.6, 'MISS！閃避必殺技！', '#44aaff');
-        } else {
-          this.playerHp = Math.max(0, this.playerHp - special.damage);
-          this.cameras.main.shake(300, 0.03);
-          this.flashFullScreen(0xff0000, 0.3, 150);
-          sfx.playPlayerHit();
-          this.spawnDamageNumber(w / 2, h * 0.6, `-${special.damage}`, '#ff4444');
-          if (this.playerHp <= 0) this.endFight('opponent');
-        }
-        emojiText.destroy();
-        this.time.delayedCall(1000, () => {
-          nameText.destroy();
-          descText.destroy();
-        });
-      },
+    this.time.delayedCall(600, () => {
+      // B3: Special can also be dodged
+      if (this.isDodging) {
+        this.spawnDamageNumber(w / 2, h * 0.6, 'MISS！閃避必殺技！', '#44aaff');
+      } else {
+        this.playerHp = Math.max(0, this.playerHp - special.damage);
+        this.cameras.main.shake(300, 0.03);
+        this.flashFullScreen(0xff0000, 0.3, 150);
+        sfx.playPlayerHit();
+        this.spawnDamageNumber(w / 2, h * 0.6, `-${special.damage}`, '#ff4444');
+        if (this.playerHp <= 0) this.endFight('opponent');
+      }
+      this.time.delayedCall(1000, () => {
+        nameText.destroy();
+        descText.destroy();
+      });
     });
   }
 
@@ -1039,7 +1026,7 @@ export class BattleScene extends Phaser.Scene {
       stripeG.fillRect(stallX + i * (stallW / 5), stallY, stallW / 5, 10);
     }
 
-    const oppInfo = DIFFICULTY_OPPONENTS[this.difficulty] ?? { emoji: '👹', name: '神秘攤位' };
+    const oppInfo = DIFFICULTY_OPPONENTS[this.difficulty] ?? { emoji: '', name: '神秘攤位' };
     this.add.text(width / 2, stallY + stallH / 2, oppInfo.name, {
       fontSize: '16px',
       fontFamily: FONT,
@@ -1052,13 +1039,13 @@ export class BattleScene extends Phaser.Scene {
   // ── Opponent emoji ─────────────────────────────────────────────────────────────
 
   private spawnOpponentEmoji(width: number, height: number): void {
-    const oppInfo = DIFFICULTY_OPPONENTS[this.difficulty] ?? { emoji: '👹', name: '神秘對手' };
+    const oppInfo = DIFFICULTY_OPPONENTS[this.difficulty] ?? { emoji: '', name: '神秘對手' };
     const fontSize = 80;
 
     this.opponentEmoji = this.add.text(
       width * OPP_CENTER_X_FRAC,
       height * OPP_CENTER_Y_FRAC,
-      oppInfo.emoji,
+      oppInfo.name,
       {
         fontSize: `${fontSize}px`,
         fontFamily: FONT,

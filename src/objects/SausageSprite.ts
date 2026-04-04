@@ -85,8 +85,8 @@ export class SausageSprite extends Phaser.GameObjects.Container {
 
     // Emoji label
     const sausageType = SAUSAGE_MAP[sausage.sausageTypeId];
-    const emoji = sausageType?.emoji ?? '🌭';
-    this.labelText = scene.add.text(0, LABEL_Y, emoji, {
+    const sausageLabel = sausageType?.name ?? '';
+    this.labelText = scene.add.text(0, LABEL_Y, sausageLabel, {
       fontSize: '16px',
       align: 'center',
     }).setOrigin(0.5);
@@ -251,12 +251,12 @@ export class SausageSprite extends Phaser.GameObjects.Container {
   }
 
   private spawnSparkles(): void {
-    const sparkleEmojis = ['✨', '⭐', '💫'];
+    const sparkleChars = ['*', '+', '*'];
     for (let i = 0; i < 5; i++) {
       const spark = this.scene.add.text(
         this.x + Phaser.Math.Between(-35, 35),
         this.y + Phaser.Math.Between(-25, 10),
-        sparkleEmojis[i % sparkleEmojis.length],
+        sparkleChars[i % sparkleChars.length],
         { fontSize: '16px' },
       ).setOrigin(0.5).setDepth(200);
 
@@ -277,7 +277,7 @@ export class SausageSprite extends Phaser.GameObjects.Container {
       const smoke = this.scene.add.text(
         this.x + Phaser.Math.Between(-22, 22),
         this.y,
-        '💨',
+        '~',
         { fontSize: '20px' } as Phaser.Types.GameObjects.Text.TextStyle,
       ).setOrigin(0.5).setAlpha(0.8).setDepth(150);
 

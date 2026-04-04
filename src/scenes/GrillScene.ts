@@ -26,7 +26,7 @@ import { SAUSAGE_TYPES } from '../data/sausages';
 import { sfx } from '../utils/SoundFX';
 import { rollGrillEvent } from '../data/grill-events';
 import { CombatPanel } from '../ui/panels/CombatPanel';
-import { getPersonalityEmoji } from '../systems/CustomerEngine';
+// getPersonalityEmoji removed — emoji display removed from combat feedback
 import { useBlackMarketItem, BLACK_MARKET_ITEMS } from '../systems/BlackMarketEngine';
 import { changeUndergroundRep, addChaos, spendMoney } from '../state/GameState';
 import { canPlayerLeave, tickWorkerAI } from '../systems/WorkerGrillAI';
@@ -251,7 +251,7 @@ export class GrillScene extends Phaser.Scene {
 
     // Simulation mode HUD label
     if (gameState.gameMode === 'simulation') {
-      this.add.text(10, 30, '🧪 模擬模式', {
+      this.add.text(10, 30, '模擬模式', {
         fontSize: '13px',
         color: '#00cc88',
         backgroundColor: '#0a1a0f',
@@ -264,7 +264,7 @@ export class GrillScene extends Phaser.Scene {
       this.leaveButton = this.add.text(
         this.scale.width - 10,
         this.scale.height - 40,
-        '🚶 離開攤位',
+        '離開攤位',
         { fontSize: '16px', color: '#44aaff', backgroundColor: '#1a1a2e', padding: { x: 10, y: 6 } }
       ).setOrigin(1, 1).setInteractive({ useHandCursor: true }).setDepth(11);
 
@@ -275,7 +275,7 @@ export class GrillScene extends Phaser.Scene {
 
     // Bodyguard indicator
     if (gameState.hasBodyguard) {
-      this.add.text(10, 10, '🥊 保鑣在場', {
+      this.add.text(10, 10, '保鑣在場', {
         fontSize: '14px',
         fontFamily: FONT,
         color: '#44ff44',
@@ -308,7 +308,7 @@ export class GrillScene extends Phaser.Scene {
     if (gameState.hiredWorkers?.includes('wangcai')) {
       const wangcaiBtn = this.add.text(
         this.scale.width - 10, this.scale.height - 120,
-        '🐕 摸旺財',
+        '摸旺財',
         { fontSize: '14px', color: '#ffaa00', backgroundColor: '#1a1a1a', padding: { x: 8, y: 5 } }
       ).setOrigin(1, 1).setInteractive({ useHandCursor: true }).setDepth(10);
 
@@ -325,22 +325,22 @@ export class GrillScene extends Phaser.Scene {
         if (roll < 0.3) {
           const found = 10 + Math.floor(Math.random() * 30);
           addMoney(found);
-          this.showFeedback(`🐕 旺財叼回了 $${found}！`, wangcaiBtn.x - 80, wangcaiBtn.y - 30, '#ffcc00');
+          this.showFeedback(`旺財叼回了 $${found}！`, wangcaiBtn.x - 80, wangcaiBtn.y - 30, '#ffcc00');
         } else if (roll < 0.5) {
           const waiting = this.customerQueue.getWaitingCustomers();
           const badOne = waiting.find(c => c.personality === 'karen' || c.personality === 'enforcer');
           if (badOne) {
             this.customerQueue.serveCustomer(badOne.id, false);
             this.customers = this.customers.filter(c => c.id !== badOne.id);
-            this.showFeedback('🐕 旺財把奧客嚇跑了！', wangcaiBtn.x - 80, wangcaiBtn.y - 30, '#44ff44');
+            this.showFeedback('旺財把奧客嚇跑了！', wangcaiBtn.x - 80, wangcaiBtn.y - 30, '#44ff44');
           } else {
-            this.showFeedback('🐕 旺財搖搖尾巴，很開心', wangcaiBtn.x - 80, wangcaiBtn.y - 30, '#ffaa00');
+            this.showFeedback('旺財搖搖尾巴，很開心', wangcaiBtn.x - 80, wangcaiBtn.y - 30, '#ffaa00');
           }
         } else if (roll < 0.7) {
           this.customerQueue.multiplyAllPatience(1.1);
-          this.showFeedback('🐕 旺財賣萌！客人都被療癒了', wangcaiBtn.x - 80, wangcaiBtn.y - 30, '#ff88cc');
+          this.showFeedback('旺財賣萌！客人都被療癒了', wangcaiBtn.x - 80, wangcaiBtn.y - 30, '#ff88cc');
         } else {
-          this.showFeedback('🐕 汪！（搖尾巴）', wangcaiBtn.x - 80, wangcaiBtn.y - 30, '#ffaa00');
+          this.showFeedback('汪！（搖尾巴）', wangcaiBtn.x - 80, wangcaiBtn.y - 30, '#ffaa00');
         }
       });
 
@@ -386,7 +386,7 @@ export class GrillScene extends Phaser.Scene {
         if (c) {
           // Worker: wangcai → 10% chance to scare away each arriving customer
           if (gameState.hiredWorkers.includes('wangcai') && Math.random() < 0.1) {
-            this.showFeedback('🐕 旺財對客人亂吠！客人嚇跑了', this.scale.width / 2, this.scale.height * 0.1, '#ffaa44');
+            this.showFeedback('旺財對客人亂吠！客人嚇跑了', this.scale.width / 2, this.scale.height * 0.1, '#ffaa44');
             continue;
           }
           this.customers.push(c);
@@ -400,7 +400,7 @@ export class GrillScene extends Phaser.Scene {
 
           // Personality-based triggers
           if (c.personality === 'influencer') {
-            this.showFeedback('📱 網紅正在直播你的攤位！', this.scale.width / 2, this.scale.height * 0.1, '#44aaff');
+            this.showFeedback('網紅正在直播你的攤位！', this.scale.width / 2, this.scale.height * 0.1, '#44aaff');
           } else if (
             ['karen', 'enforcer', 'inspector', 'spy'].includes(c.personality) &&
             !this.combatCustomersHandled.has(c.id)
@@ -457,7 +457,7 @@ export class GrillScene extends Phaser.Scene {
           (slot as any).__autoFlipped = true;
           (slot as any).__flipPromptShown = true;
           this.doFlipSlot(slot);
-          this.showFeedback('🤖 自動翻面', slot.x, slot.y - 40, '#44ccff');
+          this.showFeedback('自動翻面', slot.x, slot.y - 40, '#44ccff');
         }
         // Reset auto-flip flag when the new side becomes active
         if (heatedSide < 70) {
@@ -502,7 +502,7 @@ export class GrillScene extends Phaser.Scene {
       const bannerText = (this as any).__awayBannerText as Phaser.GameObjects.Text | null;
       if (bannerText) {
         bannerText.setText(
-          `${this.currentActivity.emoji} ${this.currentActivity.name}中... (${Math.ceil(this.awayActivityTimer)}秒)`
+          `${this.currentActivity.name}中... (${Math.ceil(this.awayActivityTimer)}秒)`
         );
       }
 
@@ -565,7 +565,7 @@ export class GrillScene extends Phaser.Scene {
         const nextCustomer = this.customerQueue?.getNextCustomer();
         if (filledSlot && nextCustomer && filledSlot.sausage) {
           this.directServeFromWarming(filledSlot);
-          this.showFeedback('💅 小妹幫你出餐了', filledSlot.x, filledSlot.y - 40, '#ff88cc');
+          this.showFeedback('小妹幫你出餐了', filledSlot.x, filledSlot.y - 40, '#ff88cc');
         }
       }
     }
@@ -688,10 +688,7 @@ export class GrillScene extends Phaser.Scene {
     const { width, height } = this.scale;
     const fireBaseY = height * GRILL_Y_FRAC + 34 + 7 * 13; // bottom of rack
     const spawnX = width * 0.04 + Math.random() * (width * 0.61);
-    const fireEmojis = ['🔥', '🔥', '🔥', '✨'];
-    const emoji = fireEmojis[Math.floor(Math.random() * fireEmojis.length)];
-
-    const particle = this.add.text(spawnX, fireBaseY, emoji, {
+    const particle = this.add.text(spawnX, fireBaseY, '*', {
       fontSize: '14px',
     }).setOrigin(0.5).setAlpha(0.7).setDepth(1);
 
@@ -917,9 +914,6 @@ export class GrillScene extends Phaser.Scene {
     if (!slot.sausage || !slot.infoText || !slot.stateText) return;
 
     const ws = slot.sausage;
-    const sausageInfo = SAUSAGE_MAP[ws.sausageTypeId];
-    const emoji = sausageInfo?.emoji ?? '🌭';
-
     // Warming state label and color
     let warmingLabel = '';
     let warmingColor = '#888888';
@@ -938,8 +932,8 @@ export class GrillScene extends Phaser.Scene {
     const qualityLabel = this.getQualityLabel(ws.grillQuality);
     const overnightTag = ws.isOvernight ? '[隔夜] ' : '';
 
-    // Primary text: emoji + quality + warming state
-    slot.infoText.setText(`${emoji} ${overnightTag}${qualityLabel} | ${warmingLabel}`);
+    // Primary text: quality + warming state
+    slot.infoText.setText(`${overnightTag}${qualityLabel} | ${warmingLabel}`);
     slot.infoText.setColor(warmingColor);
 
     // State text: time remaining or cold
@@ -1003,7 +997,7 @@ export class GrillScene extends Phaser.Scene {
     // Dismiss button — remove first customer in queue at cost of -1 reputation
     const dismissBtn = this.add.text(
       width - 10, queueY - 10,
-      '🚫 趕走第一位',
+      '趕走第一位',
       { fontSize: '12px', color: '#ff6666', backgroundColor: '#1a1a1a', padding: { x: 6, y: 3 } }
     ).setOrigin(1, 1).setInteractive({ useHandCursor: true }).setDepth(10);
 
@@ -1013,7 +1007,7 @@ export class GrillScene extends Phaser.Scene {
       this.customerQueue.serveCustomer(next.id, false);
       this.customers = this.customers.filter(c => c.id !== next.id);
       changeReputation(-1);
-      this.showFeedback('🚫 趕走了客人 聲望-1', this.scale.width / 2, queueY - 30, '#ff6666');
+      this.showFeedback('趕走了客人 聲望-1', this.scale.width / 2, queueY - 30, '#ff6666');
     });
   }
 
@@ -1021,9 +1015,9 @@ export class GrillScene extends Phaser.Scene {
     // Heat buttons centered at fixed percentage — 55% of screen height
     const btnY = height * 0.55;
     const levels: { level: HeatLevel; label: string; icon: string }[] = [
-      { level: 'low',    label: '小火', icon: '🔥' },
-      { level: 'medium', label: '中火', icon: '🔥🔥' },
-      { level: 'high',   label: '大火', icon: '🔥🔥🔥' },
+      { level: 'low',    label: '小火', icon: '' },
+      { level: 'medium', label: '中火', icon: '' },
+      { level: 'high',   label: '大火', icon: '' },
     ];
 
     const btnW = 48;
@@ -1034,7 +1028,7 @@ export class GrillScene extends Phaser.Scene {
 
     levels.forEach((item, i) => {
       const bx = startX + i * (btnW + gap) + btnW / 2;
-      const btn = this.createButton(bx, btnY, btnW, btnH, `${item.icon} ${item.label}`, () => {
+      const btn = this.createButton(bx, btnY, btnW, btnH, item.label, () => {
         this.heatLevel = item.level;
         this.updateHeatButtonStyles();
         // Update fire glow intensity
@@ -1263,7 +1257,7 @@ export class GrillScene extends Phaser.Scene {
     }).setDepth(10);
 
     // ── Top right: day / status ──────────────────────────────────────────
-    this.add.text(width - 14, 14, `🔥營業中 Day ${gameState.day}`, {
+    this.add.text(width - 14, 14, `營業中 Day ${gameState.day}`, {
       fontSize: '15px',
       fontFamily: FONT,
       color: COLOR_ORANGE,
@@ -1274,7 +1268,7 @@ export class GrillScene extends Phaser.Scene {
       .filter(([id]) => gameState.unlockedSausages.includes(id))
       .map(([id, price]) => {
         const info = SAUSAGE_MAP[id];
-        return info ? `${info.emoji}${info.name} $${price}` : '';
+        return info ? `${info.name} $${price}` : '';
       })
       .filter(Boolean);
 
@@ -1300,7 +1294,7 @@ export class GrillScene extends Phaser.Scene {
       padding: { x: 8, y: 4 },
     }).setOrigin(1, 0).setDepth(15);
 
-    this.revenueText = this.add.text(width / 2, statsY, '💰 $0', {
+    this.revenueText = this.add.text(width / 2, statsY, '$0', {
       fontSize: '14px',
       fontFamily: FONT,
       color: COLOR_ORANGE,
@@ -1486,7 +1480,7 @@ export class GrillScene extends Phaser.Scene {
                 : { ...target.sausage, topDoneness: Math.min(100, target.sausage.topDoneness + 20) };
               target.sausage = boosted;
               target.sprite!.updateData(boosted);
-              this.showFeedback('📱 阿迪在滑手機...', target.x, target.y - 40, '#aaaaff');
+              this.showFeedback('阿迪在滑手機...', target.x, target.y - 40, '#aaaaff');
             }
           }
         }
@@ -1504,7 +1498,7 @@ export class GrillScene extends Phaser.Scene {
             const target = occupied[0]; // steal oldest
             target.sausage = null;
             this.clearWarmingSlotDisplay(target);
-            this.showFeedback('💅 小妹偷吃了一根香腸...', this.scale.width * 0.70 + this.wzSlotW / 2, target.y, '#ff88cc');
+            this.showFeedback('小妹偷吃了一根香腸...', this.scale.width * 0.70 + this.wzSlotW / 2, target.y, '#ff88cc');
           }
         }
       }
@@ -1516,27 +1510,19 @@ export class GrillScene extends Phaser.Scene {
   private triggerCombat(customer: Customer): void {
     this.paused = true;
 
-    // Show pre-combat notification using personality emoji
-    const emoji = getPersonalityEmoji(customer.personality);
+    // Show pre-combat notification
     this.showFeedback(
-      `${emoji} 麻煩來了！`,
+      '麻煩來了！',
       this.scale.width / 2,
       this.scale.height * 0.25,
       '#ff4444',
     );
 
-    // Show personality-specific splash FIRST, then open combat panel after it fades
-    const personalityImageMap: Record<string, string> = {
-      karen: 'customer-karen',
-      enforcer: 'customer-thug',
-      inspector: 'customer-inspector',
-      spy: 'customer-influencer',
-    };
-    const splashKey = personalityImageMap[customer.personality] || 'karen-alert';
-    if (this.textures.exists(splashKey)) {
+    // Show splash FIRST, then open combat panel after it fades
+    if (this.textures.exists('karen-alert')) {
       const w = this.scale.width;
       const h = this.scale.height;
-      const alert = this.add.image(w / 2, h / 2, splashKey).setDepth(45);
+      const alert = this.add.image(w / 2, h / 2, 'karen-alert').setDepth(45);
       const maxW = w * 0.7;
       const maxH = h * 0.55;
       const scale = Math.min(maxW / alert.width, maxH / alert.height);
@@ -1598,7 +1584,7 @@ export class GrillScene extends Phaser.Scene {
         changeUndergroundRep(result.undergroundRepDelta);
       }
       if (result?.chaosPoints !== undefined && result.chaosPoints > 0) {
-        addChaos(result.chaosPoints, `戰鬥後果（${getPersonalityEmoji(customer.personality)}）`);
+        addChaos(result.chaosPoints, `戰鬥後果`);
       }
       this.paused = false;
     });
@@ -1628,7 +1614,7 @@ export class GrillScene extends Phaser.Scene {
       (event.category === 'nuisance' || event.category === 'thug') &&
       Math.random() < 0.5
     ) {
-      this.showFeedback('🐕 旺財衝出去把他們嚇跑了！', this.scale.width / 2, this.scale.height * 0.35, '#ffcc44');
+      this.showFeedback('旺財衝出去把他們嚇跑了！', this.scale.width / 2, this.scale.height * 0.35, '#ffcc44');
       this.triggeredEventIds.push(event.id);
       this.grillEventTriggered++;
       return;
@@ -1646,10 +1632,10 @@ export class GrillScene extends Phaser.Scene {
     const { width: w, height: h } = this.scale;
 
     const eventImageMap: Record<string, string> = {
-      'nuisance': 'customer-karen',
-      'thug': 'customer-thug',
-      'beggar': 'customer-beggar',
-      'authority': 'customer-inspector',
+      'nuisance': 'karen-alert',
+      'thug': 'karen-alert',
+      'beggar': 'karen-alert',
+      'authority': 'karen-alert',
     };
 
     const splashKey = eventImageMap[event.category];
@@ -1722,8 +1708,8 @@ export class GrillScene extends Phaser.Scene {
 
     const cx = panelX + panelW / 2;
 
-    // Event emoji + name
-    const headerTxt = this.add.text(cx, panelY + 22, `${event.emoji} ${event.name}`, {
+    // Event name
+    const headerTxt = this.add.text(cx, panelY + 22, event.name, {
       fontSize: '22px',
       fontFamily: FONT,
       color: '#ffcc44',
@@ -1754,7 +1740,7 @@ export class GrillScene extends Phaser.Scene {
       btnGfx.strokeRoundedRect(panelX + 20, by, panelW - 40, btnH, 5);
       container.add(btnGfx);
 
-      const btnTxt = this.add.text(cx, by + btnH / 2, `${choice.emoji} ${choice.text}`, {
+      const btnTxt = this.add.text(cx, by + btnH / 2, choice.text, {
         fontSize: '14px',
         fontFamily: FONT,
         color: COLOR_ORANGE,
@@ -2128,7 +2114,7 @@ export class GrillScene extends Phaser.Scene {
       const result = useBlackMarketItem(bmItem.id);
       if (result.used) {
         bmBonus += result.qualityBonus;
-        this.showFeedback(`💀 使用${bmItem.name}`, warmSlot.x, warmSlot.y - 70, '#ff4444');
+        this.showFeedback(`使用${bmItem.name}`, warmSlot.x, warmSlot.y - 70, '#ff4444');
         break; // use one per serve
       }
     }
@@ -2138,7 +2124,7 @@ export class GrillScene extends Phaser.Scene {
     // If customer is VIP (fatcat), double the effective price
     if (nextCustomer.isVIP) {
       effectivePrice = basePrice * 2;
-      this.showFeedback('🤑 冤大頭付了雙倍！', warmSlot.x, warmSlot.y - 60, '#ffcc00');
+      this.showFeedback('冤大頭付了雙倍！', warmSlot.x, warmSlot.y - 60, '#ffcc00');
     }
 
     const price = effectivePrice;
@@ -2300,7 +2286,7 @@ export class GrillScene extends Phaser.Scene {
     this.condimentOverlay.add(bg);
 
     // Title — centered vertically on screen
-    const title = this.add.text(w / 2, h * 0.28, '🌭 加料台', {
+    const title = this.add.text(w / 2, h * 0.28, '加料台', {
       fontSize: '22px', color: '#ffcc00', fontStyle: 'bold', fontFamily: FONT
     }).setOrigin(0.5);
     this.condimentOverlay.add(title);
@@ -2312,7 +2298,7 @@ export class GrillScene extends Phaser.Scene {
       .map((id: string) => { const c = CONDIMENTS.find(c => c.id === id); return c ? `${c.emoji} ${c.name}` : id; })
       .join(' → ');
 
-    const orderLabel = this.add.text(w / 2, h * 0.33, `📋 客人要：${orderSausageName}`, {
+    const orderLabel = this.add.text(w / 2, h * 0.33, `客人要：${orderSausageName}`, {
       fontSize: '14px', color: '#44aaff', fontFamily: FONT
     }).setOrigin(0.5);
     this.condimentOverlay.add(orderLabel);
@@ -2333,7 +2319,7 @@ export class GrillScene extends Phaser.Scene {
     // Loyalty badge display
     if (customer.loyaltyBadge && customer.loyaltyBadge !== 'none') {
       const badgeInfo = getBadgeInfo(customer.loyaltyBadge);
-      const badgeText = this.add.text(w / 2, h * 0.375, `${badgeInfo.emoji} ${badgeInfo.name}`, {
+      const badgeText = this.add.text(w / 2, h * 0.375, badgeInfo.name, {
         fontSize: '12px', color: '#ffcc00', fontFamily: FONT
       }).setOrigin(0.5);
       this.condimentOverlay.add(badgeText);
@@ -2415,7 +2401,7 @@ export class GrillScene extends Phaser.Scene {
     });
 
     // Quick serve button — prominent, yellow, same size as serve button
-    const quickBtn = this.add.text(w / 2 + 80, btnRowY, '⚡ 快速出餐（不加料）', {
+    const quickBtn = this.add.text(w / 2 + 80, btnRowY, '快速出餐（不加料）', {
       fontSize: '18px', color: '#ffcc00', backgroundColor: '#2a2a1a',
       padding: { x: 16, y: 10 }, fontFamily: FONT
     }).setOrigin(0.5).setInteractive({ useHandCursor: true });
@@ -2664,7 +2650,7 @@ export class GrillScene extends Phaser.Scene {
 
   private updateTimerDisplay(): void {
     const secs = Math.ceil(this.timeLeft);
-    this.timerText.setText(`⏱ ${secs}s`);
+    this.timerText.setText(`${secs}s`);
 
     if (secs <= 10) {
       this.timerText.setColor('#ff3300');
@@ -2691,9 +2677,9 @@ export class GrillScene extends Phaser.Scene {
     const halfCooked = this.grillStats['half-cooked'];
     const slightlyBurnt = this.grillStats['slightly-burnt'];
     this.statsText.setText(
-      `✅${perfect} 🟡${ok} 🟠${slightlyBurnt} 🔴${burnt} ⬛${carbonized} 🩶${halfCooked}`
+      `完美${perfect} 普通${ok} 微焦${slightlyBurnt} 焦${burnt} 碳化${carbonized} 半熟${halfCooked}`
     );
-    this.revenueText.setText(`💰 $${this.sessionRevenue}`);
+    this.revenueText.setText(`$${this.sessionRevenue}`);
   }
 
   private bounceRevenue(): void {
@@ -2749,7 +2735,7 @@ export class GrillScene extends Phaser.Scene {
     this.awayOverlay.add(bg);
 
     // Title
-    const title = this.add.text(w / 2, 60, '🚶 離開攤位做什麼？', {
+    const title = this.add.text(w / 2, 60, '離開攤位做什麼？', {
       fontSize: '22px', color: '#44aaff', fontStyle: 'bold', fontFamily: FONT
     }).setOrigin(0.5);
     this.awayOverlay.add(title);
@@ -2784,7 +2770,7 @@ export class GrillScene extends Phaser.Scene {
         .setStrokeStyle(1, 0x44aaff)
         .setInteractive({ useHandCursor: true });
 
-      const nameText = this.add.text(x + cardW / 2, y + 18, `${activity.emoji} ${activity.name}`, {
+      const nameText = this.add.text(x + cardW / 2, y + 18, activity.name, {
         fontSize: '15px', color: '#ffffff', fontStyle: 'bold', fontFamily: FONT
       }).setOrigin(0.5);
 
@@ -2793,7 +2779,7 @@ export class GrillScene extends Phaser.Scene {
         fontSize: '11px', color: '#aaaaaa', fontFamily: FONT
       }).setOrigin(0.5);
 
-      const durText = this.add.text(x + cardW / 2, y + 62, `⏱ ${activity.duration}秒`, {
+      const durText = this.add.text(x + cardW / 2, y + 62, `${activity.duration}秒`, {
         fontSize: '12px', color: '#ffcc00', fontFamily: FONT
       }).setOrigin(0.5);
 
@@ -2808,7 +2794,7 @@ export class GrillScene extends Phaser.Scene {
     const cancelBtn = this.add.text(
       w / 2,
       startY + Math.ceil(available.length / cols) * (cardH + gap) + 20,
-      '❌ 算了，繼續烤',
+      '算了，繼續烤',
       {
         fontSize: '14px', color: '#ff6666', backgroundColor: '#2a1a1a',
         padding: { x: 12, y: 6 }, fontFamily: FONT
@@ -2842,12 +2828,12 @@ export class GrillScene extends Phaser.Scene {
     const banner = this.add.rectangle(w / 2, 25, w - 20, 40, 0x1a1a3e, 0.9)
       .setStrokeStyle(1, 0x44aaff);
     const bannerText = this.add.text(w / 2, 25,
-      `${activity.emoji} ${activity.name}中... (${Math.ceil(this.awayActivityTimer)}秒)`, {
+      `${activity.name}中... (${Math.ceil(this.awayActivityTimer)}秒)`, {
       fontSize: '14px', color: '#44aaff', fontFamily: FONT
     }).setOrigin(0.5);
 
     // "Return early" button
-    const returnBtn = this.add.text(w - 20, 25, '🏃 提早回來', {
+    const returnBtn = this.add.text(w - 20, 25, '提早回來', {
       fontSize: '12px', color: '#ffcc00', backgroundColor: '#2a2a1a',
       padding: { x: 6, y: 3 }, fontFamily: FONT
     }).setOrigin(1, 0.5).setInteractive({ useHandCursor: true });
@@ -2898,7 +2884,7 @@ export class GrillScene extends Phaser.Scene {
     const bg = this.add.rectangle(w / 2, h / 2, w, h, 0x000000, 0.8).setInteractive();
     this.awayOverlay.add(bg);
 
-    const titleText = this.add.text(w / 2, h / 2 - 80, `${activity.emoji} ${activity.name}`, {
+    const titleText = this.add.text(w / 2, h / 2 - 80, activity.name, {
       fontSize: '20px', color: '#44aaff', fontStyle: 'bold', fontFamily: FONT
     }).setOrigin(0.5);
     this.awayOverlay.add(titleText);
@@ -2910,12 +2896,12 @@ export class GrillScene extends Phaser.Scene {
 
     // Effects summary
     const effects: string[] = [];
-    if (outcome.effects.money) effects.push(`💰 ${outcome.effects.money > 0 ? '+' : ''}$${outcome.effects.money}`);
-    if (outcome.effects.reputation) effects.push(`⭐ ${outcome.effects.reputation > 0 ? '+' : ''}${outcome.effects.reputation}`);
-    if (outcome.effects.undergroundRep) effects.push(`💀 ${outcome.effects.undergroundRep > 0 ? '+' : ''}${outcome.effects.undergroundRep}`);
-    if (outcome.effects.trafficBonus) effects.push(`📢 客流 +${Math.round(outcome.effects.trafficBonus * 100)}%`);
-    if (outcome.effects.chaosPoints) effects.push(`🌀 混沌 +${outcome.effects.chaosPoints}`);
-    if (outcome.effects.battleBonus) effects.push(`⚔️ 戰鬥加成 +${Math.round(outcome.effects.battleBonus * 100)}%`);
+    if (outcome.effects.money) effects.push(`${outcome.effects.money > 0 ? '+' : ''}$${outcome.effects.money}`);
+    if (outcome.effects.reputation) effects.push(`聲望 ${outcome.effects.reputation > 0 ? '+' : ''}${outcome.effects.reputation}`);
+    if (outcome.effects.undergroundRep) effects.push(`地下聲望 ${outcome.effects.undergroundRep > 0 ? '+' : ''}${outcome.effects.undergroundRep}`);
+    if (outcome.effects.trafficBonus) effects.push(`客流 +${Math.round(outcome.effects.trafficBonus * 100)}%`);
+    if (outcome.effects.chaosPoints) effects.push(`混沌 +${outcome.effects.chaosPoints}`);
+    if (outcome.effects.battleBonus) effects.push(`戰鬥加成 +${Math.round(outcome.effects.battleBonus * 100)}%`);
 
     if (effects.length > 0) {
       const effectsText = this.add.text(w / 2, h / 2 + 20, effects.join('  '), {
@@ -3031,7 +3017,7 @@ export class GrillScene extends Phaser.Scene {
       .filter(([, qty]) => qty > 0)
       .map(([id, qty]) => {
         const info = SAUSAGE_MAP[id];
-        return info ? `${info.emoji} ${info.name} x${qty}` : `${id} x${qty}`;
+        return info ? `${info.name} x${qty}` : `${id} x${qty}`;
       })
       .join('   ');
 
@@ -3042,7 +3028,7 @@ export class GrillScene extends Phaser.Scene {
       '',
       `今日庫存：${inventorySummary || '（空）'}`,
       `營業時間：90 秒`,
-      `📍 第 ${gameState.playerSlot} 層 — ${playerSlotData.emoji} ${playerSlotData.name}（人流 ×${playerSlotData.trafficMultiplier}）`,
+      `第 ${gameState.playerSlot} 層 — ${playerSlotData.name}（人流 ×${playerSlotData.trafficMultiplier}）`,
       '',
     ];
 

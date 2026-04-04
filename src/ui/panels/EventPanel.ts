@@ -69,7 +69,7 @@ export class EventPanel {
     // Title
     const titleEl = document.createElement('div');
     titleEl.className = 'panel-title neon-flicker';
-    titleEl.textContent = `${event.emoji} ${event.name}`;
+    titleEl.textContent = event.name;
     this.panel.appendChild(titleEl);
 
     // Event illustration (if available for this event ID)
@@ -101,13 +101,8 @@ export class EventPanel {
       const btn = document.createElement('button');
       btn.className = 'btn-neon event-choice-btn';
 
-      const emojiSpan = document.createElement('span');
-      emojiSpan.className = 'choice-emoji';
-      emojiSpan.textContent = choice.emoji;
+      const textNode = document.createTextNode(choice.text);
 
-      const textNode = document.createTextNode(` ${choice.text}`);
-
-      btn.appendChild(emojiSpan);
       btn.appendChild(textNode);
 
       btn.addEventListener('click', () => {
@@ -126,7 +121,7 @@ export class EventPanel {
     // Title stays
     const titleEl = document.createElement('div');
     titleEl.className = 'panel-title neon-flicker';
-    titleEl.textContent = `${event.emoji} ${event.name}`;
+    titleEl.textContent = event.name;
     this.panel.appendChild(titleEl);
 
     // Result text
@@ -154,7 +149,7 @@ export class EventPanel {
 
       if (effects.money !== undefined) {
         effectsEl.appendChild(this.buildEffectRow(
-          '💰 金錢',
+          '金錢',
           effects.money > 0 ? `+$${effects.money}` : `-$${Math.abs(effects.money)}`,
           effects.money >= 0 ? 'positive' : 'negative'
         ));
@@ -162,7 +157,7 @@ export class EventPanel {
 
       if (effects.reputation !== undefined) {
         effectsEl.appendChild(this.buildEffectRow(
-          '⭐ 聲望',
+          '聲望',
           effects.reputation > 0 ? `+${effects.reputation}` : `${effects.reputation}`,
           effects.reputation >= 0 ? 'positive' : 'negative'
         ));
@@ -171,14 +166,14 @@ export class EventPanel {
       if (effects.trafficBonus !== undefined) {
         const pct = Math.round(effects.trafficBonus * 100);
         effectsEl.appendChild(this.buildEffectRow(
-          '👥 今日人流',
+          '今日人流',
           `+${pct}%`,
           'positive'
         ));
       }
 
       if (effects.skipDay === true) {
-        effectsEl.appendChild(this.buildEffectRow('📅 今日', '跳過', 'negative'));
+        effectsEl.appendChild(this.buildEffectRow('今日', '跳過', 'negative'));
       }
     }
 

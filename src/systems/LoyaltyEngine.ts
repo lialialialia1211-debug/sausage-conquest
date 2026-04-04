@@ -13,7 +13,7 @@ const NAME_POOL = [
   '大雄', '靜香', '胖虎', '小夫',
 ];
 
-const EMOJI_POOL = ['👨', '👩', '🧑', '👴', '👵', '👦', '👧', '🧔', '👱', '👲', '🧓', '👳'];
+const EMOJI_POOL = [''];  // emoji removed
 
 /**
  * Get or create a loyalty record for a customer.
@@ -113,9 +113,9 @@ export function getReturningCustomers(maxCount: number): string[] {
 export function getBadgeInfo(badge: LoyaltyBadge): { emoji: string; name: string; tipMult: number } {
   const map: Record<LoyaltyBadge, { emoji: string; name: string; tipMult: number }> = {
     'none': { emoji: '', name: '', tipMult: 1.0 },
-    'bronze': { emoji: '🥉', name: '銅牌常客', tipMult: 1.3 },
-    'silver': { emoji: '🥈', name: '銀牌常客', tipMult: 1.6 },
-    'gold': { emoji: '🥇', name: '金牌常客', tipMult: 2.0 },
+    'bronze': { emoji: '', name: '銅牌常客', tipMult: 1.3 },
+    'silver': { emoji: '', name: '銀牌常客', tipMult: 1.6 },
+    'gold': { emoji: '', name: '金牌常客', tipMult: 2.0 },
   };
   return map[badge];
 }

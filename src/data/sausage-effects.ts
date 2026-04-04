@@ -20,8 +20,8 @@ export type { SausageSpecialEffect };
 
 export const SAUSAGE_EFFECTS: Record<string, SpecialEffectResult> = {
   'big-taste': {
-    feedbackText: '🍆😳 客人臉紅了...「下次我還要來！」',
-    customerEmoji: '😳💕',
+    feedbackText: '客人臉紅了...「下次我還要來！」',
+    customerEmoji: '',
     patienceBoostNext: 1,
     patienceBoostAmount: 1.3,
     reputationDelta: 1,
@@ -29,14 +29,14 @@ export const SAUSAGE_EFFECTS: Record<string, SpecialEffectResult> = {
     // +1 fan handled via loyalty (record extra star)
   },
   'big-wrap-small': {
-    feedbackText: '🌭😠 客人嚼了幾口...「下面怎麼硬硬的？」',
-    customerEmoji: '😠❓',
+    feedbackText: '客人嚼了幾口...「下面怎麼硬硬的？」',
+    customerEmoji: '',
     patiencePenaltyAll: 0.85,
     reputationDelta: -1,
   },
   'great-wall': {
-    feedbackText: '🏯📸 整條街的人都在拍照！「這太扯了吧！」',
-    customerEmoji: '🤯📸',
+    feedbackText: '整條街的人都在拍照！「這太扯了吧！」',
+    customerEmoji: '',
     patienceResetAll: true,
     reputationDelta: 3,
     // +2 customer traffic handled in GrillScene

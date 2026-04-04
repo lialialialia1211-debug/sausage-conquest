@@ -17,13 +17,13 @@ export class StatusBar {
     this.element = document.createElement('div');
     this.element.id = 'status-bar';
 
-    this.moneyEl = this.createItem('💰', formatMoney(gameState.money), 'hud-money.png');
-    this.dayEl = this.createItem('📅', `Day ${gameState.day}`, 'hud-day.png');
-    this.repEl = this.createItem('⭐', `${gameState.reputation}`);
-    this.undergroundRepEl = this.createItem('💀', `${gameState.undergroundRep}`);
-    this.chaosEl = this.createItem('🌀', `${gameState.chaosCount}`);
+    this.moneyEl = this.createItem('$', formatMoney(gameState.money), 'hud-money.png');
+    this.dayEl = this.createItem('D', `Day ${gameState.day}`, 'hud-day.png');
+    this.repEl = this.createItem('聲', `${gameState.reputation}`);
+    this.undergroundRepEl = this.createItem('地', `${gameState.undergroundRep}`);
+    this.chaosEl = this.createItem('混', `${gameState.chaosCount}`);
     this.chaosEl.style.display = gameState.chaosCount > 0 ? '' : 'none';
-    this.bodyguardEl = this.createItem('🥊', `保鑣剩 ${gameState.bodyguardDaysLeft} 天`);
+    this.bodyguardEl = this.createItem('護', `保鑣剩 ${gameState.bodyguardDaysLeft} 天`);
     this.bodyguardEl.style.display = gameState.hasBodyguard ? '' : 'none';
 
     // Mute toggle button
@@ -31,11 +31,11 @@ export class StatusBar {
     muteBtn.className = 'status-item';
     muteBtn.style.cursor = 'pointer';
     muteBtn.style.userSelect = 'none';
-    muteBtn.textContent = '🔊';
+    muteBtn.textContent = '音效';
     muteBtn.title = '靜音切換';
     muteBtn.addEventListener('click', () => {
       const muted = sfx.toggleMute();
-      muteBtn.textContent = muted ? '🔇' : '🔊';
+      muteBtn.textContent = muted ? '靜音' : '音效';
     });
 
     this.element.appendChild(this.moneyEl);

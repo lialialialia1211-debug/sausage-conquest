@@ -31,7 +31,7 @@ export class BlackMarketPanel {
     const badge = document.createElement('div');
     badge.className = 'event-category-badge';
     badge.dataset.category = 'underground';
-    badge.textContent = '💀 黑市供應商';
+    badge.textContent = '黑市供應商';
     this.el.appendChild(badge);
 
     // Title
@@ -136,13 +136,13 @@ export class BlackMarketPanel {
     this.el.appendChild(this.feedbackEl);
 
     // Money display — always read fresh gameState
-    this.moneyEl.textContent = `💰 持有: $${gameState.money}`;
+    this.moneyEl.textContent = `持有: $${gameState.money}`;
     this.el.appendChild(this.moneyEl);
 
     // Close button
     const closeBtn = document.createElement('button');
     closeBtn.className = 'event-choice-btn';
-    closeBtn.textContent = '🚪 離開黑市';
+    closeBtn.textContent = '離開黑市';
     closeBtn.style.width = '100%';
     closeBtn.style.marginTop = '8px';
     closeBtn.addEventListener('click', () => {

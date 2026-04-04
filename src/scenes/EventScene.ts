@@ -26,7 +26,7 @@ export class EventScene extends Phaser.Scene {
     bg.fillRect(0, 0, width, height);
 
     // Subtle atmosphere icon
-    this.add.text(width / 2, height / 2, '📰', { fontSize: '80px' })
+    this.add.text(width / 2, height / 2, '', { fontSize: '80px' })
       .setOrigin(0.5)
       .setAlpha(0.08);
 
@@ -86,45 +86,14 @@ export class EventScene extends Phaser.Scene {
     });
   }
 
-  private showEventSplash(event: GameEvent, onComplete: () => void): void {
+  private showEventSplash(_event: GameEvent, onComplete: () => void): void {
     const { width: w, height: h } = this.scale;
 
-    // Map event IDs to Phaser texture keys (preloaded in BootScene)
-    const EVENT_SPLASH_MAP: Record<string, string> = {
-      // Customer events
-      'costco-guy': 'customer-fatcat',
-      'food-critic': 'customer-inspector',
-      'drunk-uncle': 'customer-beggar',
-      'instagram-karen': 'customer-karen',
-      'kid-tantrum': 'customer-karen',
-      // Gangster events
-      'protection-fee': 'customer-thug',
-      'territory-threat': 'customer-thug',
-      'gang-offer': 'customer-thug',
-      // Underground events
-      'management-fee-weekly': 'customer-thug',
-      'inspector-surprise': 'customer-inspector',
-      'competitor-spy': 'customer-influencer',
-      'underground-delivery': 'customer-thug',
-      // Social events
-      'influencer-livestream': 'customer-influencer',
-      'media-crisis-exposed': 'customer-inspector',
-      'employee-strike': 'customer-karen',
-      // Chaos
-      'expired-ingredient-gamble': 'customer-fatcat',
-      // Positive
-      'celebrity-visit': 'customer-fatcat',
-      'food-festival': 'customer-normal-male',
-      'rain-bonus': 'customer-normal-female',
-    };
-
-    const splashKey = EVENT_SPLASH_MAP[event.id];
-    if (splashKey && this.textures.exists(splashKey)) {
-      const splash = this.add.image(w / 2, h / 2, splashKey).setDepth(300);
+    if (this.textures.exists('karen-alert')) {
+      const splash = this.add.image(w / 2, h / 2, 'karen-alert').setDepth(300);
       const maxScale = Math.min((w * 0.7) / splash.width, (h * 0.55) / splash.height);
       splash.setScale(0).setAlpha(0);
 
-      // Zoom in
       this.tweens.add({
         targets: splash,
         scale: { from: 0, to: maxScale },
@@ -132,10 +101,7 @@ export class EventScene extends Phaser.Scene {
         duration: 300,
         ease: 'Back.Out',
         onComplete: () => {
-          // Camera shake
           this.cameras.main.shake(300, 0.012);
-
-          // Hold for 1.2 seconds, then slowly fade out
           this.time.delayedCall(1200, () => {
             this.tweens.add({
               targets: splash,
@@ -151,7 +117,6 @@ export class EventScene extends Phaser.Scene {
         },
       });
     } else {
-      // No splash image available, show panel directly
       onComplete();
     }
   }

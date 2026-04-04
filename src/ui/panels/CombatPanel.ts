@@ -4,12 +4,6 @@ import type { CombatAction, CustomerPersonality } from '../../types';
 import { resolveCombat, applyCombatOutcome, PERSONALITY_NAMES } from '../../systems/CombatEngine';
 import { gameState } from '../../state/GameState';
 
-const PERSONALITY_EMOJIS: Partial<Record<CustomerPersonality, string>> = {
-  karen: '🤬',
-  enforcer: '🔪',
-  inspector: '📋',
-  spy: '🕵️',
-};
 
 const PERSONALITY_DESCRIPTIONS: Partial<Record<CustomerPersonality, string>> = {
   karen: '一個大嬸衝過來拍你攤位：「你這是什麼黑心攤販！」',
@@ -30,14 +24,14 @@ interface ActionConfig {
 const ACTION_CONFIGS: ActionConfig[] = [
   {
     action: 'push',
-    emoji: '👊',
+    emoji: '',
     name: '輕推',
     desc: '把他推開',
     isAvailable: () => true,
   },
   {
     action: 'splash',
-    emoji: '🫗',
+    emoji: '',
     name: '潑食材',
     desc: '一碗醬料招呼',
     costLabel: '$15',
@@ -45,14 +39,14 @@ const ACTION_CONFIGS: ActionConfig[] = [
   },
   {
     action: 'pan',
-    emoji: '🍳',
+    emoji: '',
     name: '用鍋打',
     desc: '一鍋蓋過去',
     isAvailable: () => true,
   },
   {
     action: 'bodyguard',
-    emoji: '🥊',
+    emoji: '',
     name: '請保鑣',
     desc: '花錢找兄弟罩',
     costLabel: '$300',
@@ -60,7 +54,7 @@ const ACTION_CONFIGS: ActionConfig[] = [
   },
   {
     action: 'fake_slip',
-    emoji: '🫠',
+    emoji: '',
     name: '假裝滑倒',
     desc: '用油製造意外',
     costLabel: '$20',
@@ -68,7 +62,7 @@ const ACTION_CONFIGS: ActionConfig[] = [
   },
   {
     action: 'bribe',
-    emoji: '💰',
+    emoji: '',
     name: '塞錢',
     desc: '用錢解決問題',
     costLabel: '$100-200',
@@ -103,27 +97,19 @@ export class CombatPanel {
     // Category badge
     const badge = document.createElement('div');
     badge.className = 'event-category-badge';
-    badge.textContent = '⚡ 衝突發生';
+    badge.textContent = '衝突發生';
     badge.dataset['category'] = 'combat';
     this.panel.appendChild(badge);
 
     // Title
-    const emoji = PERSONALITY_EMOJIS[this.personality] ?? '😤';
     const name = PERSONALITY_NAMES[this.personality];
     const titleEl = document.createElement('div');
     titleEl.className = 'panel-title neon-flicker';
-    titleEl.textContent = `${emoji} ${name}`;
+    titleEl.textContent = name;
     this.panel.appendChild(titleEl);
 
-    // Show personality-specific image for combat encounters
-    const PERSONALITY_IMAGES: Record<string, string> = {
-      karen: 'customer-karen.png',
-      enforcer: 'customer-thug.png',
-      inspector: 'customer-inspector.png',
-      spy: 'customer-influencer.png',
-    };
     const alertImg = document.createElement('img');
-    alertImg.src = PERSONALITY_IMAGES[this.personality] || 'karen-alert.png';
+    alertImg.src = 'karen-alert.png';
     alertImg.style.cssText = 'width:100%; max-height:180px; object-fit:contain; margin:8px 0;';
     alertImg.onerror = () => alertImg.style.display = 'none'; // hide if fails
     this.panel.appendChild(alertImg);
@@ -141,7 +127,7 @@ export class CombatPanel {
       witnessEl.className = 'story-text';
       witnessEl.style.color = '#f5c842';
       witnessEl.style.marginBottom = '6px';
-      witnessEl.textContent = `⚠️ 注意：有 ${this.witnessCount} 個路人在圍觀`;
+      witnessEl.textContent = `注意：有 ${this.witnessCount} 個路人在圍觀`;
       this.panel.appendChild(witnessEl);
     }
 
@@ -151,7 +137,7 @@ export class CombatPanel {
       guardEl.className = 'story-text';
       guardEl.style.color = '#4caf50';
       guardEl.style.marginBottom = '6px';
-      guardEl.textContent = '🥊 你的保鑣就在身邊';
+      guardEl.textContent = '你的保鑣就在身邊';
       this.panel.appendChild(guardEl);
     }
 
@@ -205,7 +191,7 @@ export class CombatPanel {
     const ignoreBtn = document.createElement('button');
     ignoreBtn.className = 'btn-neon ignore-btn';
     ignoreBtn.style.width = '100%';
-    ignoreBtn.textContent = '🙄 無視，繼續烤';
+    ignoreBtn.textContent = '無視，繼續烤';
     ignoreBtn.addEventListener('click', () => {
       EventBus.emit('combat-done', {});
     });
@@ -218,11 +204,10 @@ export class CombatPanel {
     this.clearPanel();
 
     // Title stays
-    const emoji = PERSONALITY_EMOJIS[this.personality] ?? '😤';
     const name = PERSONALITY_NAMES[this.personality];
     const titleEl = document.createElement('div');
     titleEl.className = 'panel-title neon-flicker';
-    titleEl.textContent = `${emoji} ${name}`;
+    titleEl.textContent = name;
     this.panel.appendChild(titleEl);
 
     // Result text
@@ -249,7 +234,7 @@ export class CombatPanel {
 
       if (outcome.moneyDelta !== 0) {
         effectsEl.appendChild(this.buildEffectRow(
-          '💰 金錢',
+          '金錢',
           outcome.moneyDelta > 0 ? `+$${outcome.moneyDelta}` : `-$${Math.abs(outcome.moneyDelta)}`,
           outcome.moneyDelta >= 0 ? 'positive' : 'negative'
         ));
@@ -257,7 +242,7 @@ export class CombatPanel {
 
       if (outcome.repDelta !== 0) {
         effectsEl.appendChild(this.buildEffectRow(
-          '⭐ 聲望',
+          '聲望',
           outcome.repDelta > 0 ? `+${outcome.repDelta}` : `${outcome.repDelta}`,
           outcome.repDelta >= 0 ? 'positive' : 'negative'
         ));
@@ -265,7 +250,7 @@ export class CombatPanel {
 
       if (outcome.undergroundRepDelta !== 0) {
         effectsEl.appendChild(this.buildEffectRow(
-          '🌑 地下聲望',
+          '地下聲望',
           outcome.undergroundRepDelta > 0 ? `+${outcome.undergroundRepDelta}` : `${outcome.undergroundRepDelta}`,
           outcome.undergroundRepDelta >= 0 ? 'positive' : 'negative'
         ));
@@ -273,7 +258,7 @@ export class CombatPanel {
 
       if (outcome.chaosPoints > 0) {
         effectsEl.appendChild(this.buildEffectRow(
-          '🔥 混亂值',
+          '混亂值',
           `+${outcome.chaosPoints}`,
           'negative'
         ));
@@ -282,7 +267,7 @@ export class CombatPanel {
       if (outcome.witnessEffect > 0) {
         const witnessRounded = Math.round(outcome.witnessEffect * 10) / 10;
         effectsEl.appendChild(this.buildEffectRow(
-          '👀 圍觀效應',
+          '圍觀效應',
           `${witnessRounded}`,
           'neutral'
         ));

@@ -9,13 +9,13 @@ const CUSTOMER_SLOT_W = 140;
 const PATIENCE_BAR_H = 7;
 const PATIENCE_BAR_W = 100;
 
-// Emoji based on patience fraction
+// Patience indicator based on fraction
 function getCustomerEmoji(frac: number): string {
-  if (frac > 0.8) return '😋';
-  if (frac > 0.6) return '😊';
-  if (frac > 0.4) return '😐';
-  if (frac > 0.2) return '😤';
-  return '🤬';
+  if (frac > 0.8) return '◎';
+  if (frac > 0.6) return '○';
+  if (frac > 0.4) return '△';
+  if (frac > 0.2) return '▽';
+  return '✕';
 }
 
 interface CustomerDisplay {
@@ -95,9 +95,8 @@ export class CustomerQueue extends Phaser.GameObjects.Container {
 
     if (customer.order) {
       const sausageInfo = SAUSAGE_MAP[customer.order.sausageType];
-      const sausageEmoji = sausageInfo?.emoji ?? '🌭';
       // Only show what sausage type they want, no condiments
-      const bubbleText = sausageEmoji;
+      const bubbleText = sausageInfo?.name ?? '香腸';
 
       orderBubble = this.scene.add.text(0, -60, bubbleText, {
         fontSize: '20px',
@@ -106,9 +105,9 @@ export class CustomerQueue extends Phaser.GameObjects.Container {
     }
 
     if (customer.loyaltyBadge && customer.loyaltyBadge !== 'none') {
-      const badgeEmoji = customer.loyaltyBadge === 'gold' ? '🥇'
-        : customer.loyaltyBadge === 'silver' ? '🥈' : '🥉';
-      badgeBubble = this.scene.add.text(CUSTOMER_SLOT_W / 2 - 10, -50, badgeEmoji, {
+      const badgeLabel = customer.loyaltyBadge === 'gold' ? '金'
+        : customer.loyaltyBadge === 'silver' ? '銀' : '銅';
+      badgeBubble = this.scene.add.text(CUSTOMER_SLOT_W / 2 - 10, -50, badgeLabel, {
         fontSize: '16px',
       }).setOrigin(0.5);
     }
@@ -236,7 +235,7 @@ export class CustomerQueue extends Phaser.GameObjects.Container {
     if (!display) return;
 
     display.state = 'served';
-    display.emojiText.setText(perfect ? '😍' : '🙂');
+    display.emojiText.setText(perfect ? '◎+' : '○');
 
     if (perfect) {
       this.spawnHeart(display.container.x, display.container.y);
@@ -302,7 +301,7 @@ export class CustomerQueue extends Phaser.GameObjects.Container {
 
   private playLeaveAnimation(display: CustomerDisplay, dismissedByServe: boolean): void {
     if (!dismissedByServe) {
-      display.emojiText.setText('😤');
+      display.emojiText.setText('✕');
     }
 
     this.scene.tweens.add({
@@ -324,7 +323,7 @@ export class CustomerQueue extends Phaser.GameObjects.Container {
     const heart = this.scene.add.text(
       this.x + cx,
       this.y + cy - 10,
-      '❤️',
+      '+',
       { fontSize: '18px' },
     ).setOrigin(0.5).setDepth(200);
 

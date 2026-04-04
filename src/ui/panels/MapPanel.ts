@@ -126,7 +126,7 @@ export class MapPanel {
     if (ownership.isOpponent && ownership.opponentId) {
       const info = OPPONENT_INFO[ownership.opponentId];
       if (info) {
-        occupantEl.textContent = `${info.emoji} ${info.name}`;
+        occupantEl.textContent = info.name;
       } else {
         occupantEl.textContent = '已佔領';
       }
@@ -179,7 +179,7 @@ export class MapPanel {
       // Add lock icon overlay
       const lockEl = document.createElement('div');
       lockEl.className = 'slot-lock-icon';
-      lockEl.textContent = '🔒';
+      lockEl.textContent = '[鎖]';
       lockEl.style.cssText = 'position:absolute;top:4px;right:6px;font-size:14px;pointer-events:none;';
       card.style.position = 'relative';
       card.appendChild(lockEl);
@@ -225,7 +225,7 @@ export class MapPanel {
         card.style.position = 'relative';
         const lockEl = document.createElement('div');
         lockEl.className = 'slot-lock-icon';
-        lockEl.textContent = '🔒';
+        lockEl.textContent = '[鎖]';
         lockEl.style.cssText = 'position:absolute;top:4px;right:6px;font-size:14px;pointer-events:none;';
         card.appendChild(lockEl);
       } else if (canAfford && existingLock) {
@@ -337,7 +337,7 @@ export class MapPanel {
 
       const labelEl = document.createElement('div');
       labelEl.className = 'price-label';
-      labelEl.textContent = `${sausage.emoji} ${sausage.name}`;
+      labelEl.textContent = sausage.name;
 
       const sliderWrapper = document.createElement('div');
       sliderWrapper.className = 'price-slider-wrapper';

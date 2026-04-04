@@ -210,17 +210,8 @@ export function generateCustomers(gridFootTraffic: number, marketingBonus: numbe
  * Returns a display emoji for a given customer personality.
  * Useful for UI layers that need a quick visual indicator.
  */
-export function getPersonalityEmoji(personality: CustomerPersonality): string {
-  const map: Record<CustomerPersonality, string> = {
-    normal: '😊',
-    karen: '🤬',
-    enforcer: '🔪',
-    inspector: '📋',
-    fatcat: '🤑',
-    spy: '🕵️',
-    influencer: '📱',
-  };
-  return map[personality] || '😊';
+export function getPersonalityEmoji(_personality: CustomerPersonality): string {
+  return '';
 }
 
 /**

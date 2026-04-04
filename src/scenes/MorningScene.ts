@@ -63,7 +63,7 @@ export class MorningScene extends Phaser.Scene {
       if (gameState.hiredWorkers.length > 0) {
         const salaryPaid = payWorkerSalaries();
         if (salaryPaid > 0) {
-          notifications.push(`💰 工讀生薪水：-$${salaryPaid}`);
+          notifications.push(`工讀生薪水：-$${salaryPaid}`);
         }
       }
 
@@ -73,7 +73,7 @@ export class MorningScene extends Phaser.Scene {
         if (huiResult) {
           notifications.push(huiResult.message);
           if (huiResult.needsBidding) {
-            notifications.push('📜 今天是互助會開標日！去商店資金周轉頁操作。');
+            notifications.push('今天是互助會開標日！去商店資金周轉頁操作。');
           }
         }
       }
@@ -91,7 +91,7 @@ export class MorningScene extends Phaser.Scene {
       updateGameState({
         activeOpponents: [...gameState.activeOpponents, newOpponent.id],
       });
-      notifications.push(`${newOpponent.emoji} ${newOpponent.name} 進駐了第 ${newOpponent.gridSlot} 格！\n「${newOpponent.dialogue.greeting}」`);
+      notifications.push(`${newOpponent.name} 進駐了第 ${newOpponent.gridSlot} 格！\n「${newOpponent.dialogue.greeting}」`);
     }
 
     // Story beat every 5 days
@@ -102,8 +102,8 @@ export class MorningScene extends Phaser.Scene {
 
     // Show current slot position at top of notifications
     const currentSlot = GRID_SLOTS.find(s => s.tier === gameState.playerSlot) || GRID_SLOTS[0];
-    const currentSlotName = `${currentSlot.emoji} ${currentSlot.name}`;
-    notifications.unshift(`📍 目前位置：第 ${gameState.playerSlot} 層 — ${currentSlotName}`);
+    const currentSlotName = currentSlot.name;
+    notifications.unshift(`目前位置：第 ${gameState.playerSlot} 層 — ${currentSlotName}`);
 
     // Check slot-based sausage unlocks
     for (const [requiredSlot, id, name] of SLOT_UNLOCKS) {
@@ -111,7 +111,7 @@ export class MorningScene extends Phaser.Scene {
         updateGameState({
           unlockedSausages: [...gameState.unlockedSausages, id],
         });
-        notifications.push(`📍 第 ${requiredSlot} 層解鎖：${name}！`);
+        notifications.push(`第 ${requiredSlot} 層解鎖：${name}！`);
       }
     }
 
@@ -119,7 +119,7 @@ export class MorningScene extends Phaser.Scene {
     if (gameState.day >= 5 && gameState.undergroundRep >= 10 && !gameState.blackMarketUnlocked) {
       const unlocked = checkAndUnlockBlackMarket();
       if (unlocked) {
-        notifications.push('💀 新管道解鎖：黑市供應商現在可以聯絡了。');
+        notifications.push('新管道解鎖：黑市供應商現在可以聯絡了。');
       }
     }
 
@@ -132,7 +132,7 @@ export class MorningScene extends Phaser.Scene {
     glow.fillGradientStyle(0x221100, 0x221100, 0x0a0a1a, 0x0a0a1a, 0.6);
     glow.fillRect(0, 0, width, height * 0.4);
 
-    this.add.text(cx, cy - 20, '🌅', {
+    this.add.text(cx, cy - 20, '', {
       fontSize: '80px',
     }).setOrigin(0.5).setAlpha(0.12);
 

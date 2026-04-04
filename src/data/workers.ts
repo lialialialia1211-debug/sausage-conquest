@@ -4,7 +4,7 @@ export const WORKERS: Worker[] = [
   {
     id: 'adi',
     name: '高中阿迪仔',
-    emoji: '👦',
+    emoji: '',
     image: 'worker-adi.png',
     description: '翹課來打工的高中生，手腳快但三不五時就在滑手機',
     cost: 500,
@@ -16,7 +16,7 @@ export const WORKERS: Worker[] = [
   {
     id: 'mei',
     name: '中輟學生妹',
-    emoji: '💅',
+    emoji: '',
     image: 'worker-mei.png',
     description: '染著一頭粉紅色頭髮，客人都被她吸引過來',
     cost: 800,
@@ -28,7 +28,7 @@ export const WORKERS: Worker[] = [
   {
     id: 'wangcai',
     name: '巷口的旺財',
-    emoji: '🐕',
+    emoji: '',
     image: 'worker-wangcai.png',
     description: '忠心耿耿的流浪狗，在攤位旁邊趴著就是最好的保鏢',
     cost: 300,
@@ -40,7 +40,7 @@ export const WORKERS: Worker[] = [
   {
     id: 'dad',
     name: '在家看電視的老爸',
-    emoji: '👴',
+    emoji: '',
     image: 'worker-dad.png',
     description: '本來在家看政論節目，被你拖來幫忙顧保溫箱',
     cost: 1200,
