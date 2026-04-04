@@ -4,6 +4,10 @@ import { gameState, updateGameState, spendMoney, addMoney, changeReputation, cha
 // Re-export for convenience of UI layer
 export type { PlayerLoan };
 
+// Daily borrower cache: persists within the same game day, reset by processPlayerLoans
+let _dailyBorrowerDay = -1;
+let _dailyBorrower: { name: string; emoji: string; reliability: number; requestAmount: number } | null = null;
+
 // NPC borrowers who might come asking for money
 const POTENTIAL_BORROWERS = [
   { name: '賣臭豆腐的老張', emoji: '', reliability: 0.8, maxAmount: 500 },
@@ -24,12 +28,32 @@ export function isLoanSharkUnlocked(): boolean {
  */
 export function getRandomBorrower(): { name: string; emoji: string; reliability: number; requestAmount: number } | null {
   if (!isLoanSharkUnlocked()) return null;
+
+  // Return cached result if already rolled for today
+  if (_dailyBorrowerDay === gameState.day) {
+    return _dailyBorrower;
+  }
+
+  // Roll once for the day
+  _dailyBorrowerDay = gameState.day;
   // 40% chance someone comes asking each day
-  if (Math.random() > 0.4) return null;
+  if (Math.random() > 0.4) {
+    _dailyBorrower = null;
+    return null;
+  }
 
   const b = POTENTIAL_BORROWERS[Math.floor(Math.random() * POTENTIAL_BORROWERS.length)];
   const requestAmount = Math.round(b.maxAmount * (0.5 + Math.random() * 0.5));
-  return { name: b.name, emoji: b.emoji, reliability: b.reliability, requestAmount };
+  _dailyBorrower = { name: b.name, emoji: b.emoji, reliability: b.reliability, requestAmount };
+  return _dailyBorrower;
+}
+
+/**
+ * Clear the daily borrower cache (call after a loan is made or rejected).
+ */
+export function clearDailyBorrower(): void {
+  _dailyBorrower = null;
+  _dailyBorrowerDay = -1;
 }
 
 /**
@@ -71,6 +95,10 @@ export function lendMoney(
  * Returns messages describing what happened to each due loan.
  */
 export function processPlayerLoans(): string[] {
+  // Reset daily borrower so a new roll happens on the new day
+  _dailyBorrower = null;
+  _dailyBorrowerDay = -1;
+
   const loans = [...(gameState.playerLoans ?? [])];
   const messages: string[] = [];
 

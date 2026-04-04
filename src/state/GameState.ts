@@ -132,7 +132,7 @@ export function advanceDay(): void {
 }
 
 export function addMoney(amount: number): void {
-  updateGameState({ money: gameState.money + amount });
+  updateGameState({ money: Math.max(0, gameState.money + amount) });
 }
 
 export function spendMoney(amount: number): boolean {

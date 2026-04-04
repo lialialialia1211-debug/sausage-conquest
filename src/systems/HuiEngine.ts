@@ -50,6 +50,8 @@ export function processHuiDaily(): { message: string; needsBidding: boolean } | 
   // Player pays daily fee
   if (!spendMoney(hui.dailyFee)) {
     // Can't afford — forced to leave the hui, lose all paid-in money
+    hui.isActive = false;
+    updateGameState({ hui });
     return {
       message: `繳不出會費 $${hui.dailyFee}！你被踢出互助會，已繳的 $${hui.totalPaidIn} 全部泡湯了。`,
       needsBidding: false,

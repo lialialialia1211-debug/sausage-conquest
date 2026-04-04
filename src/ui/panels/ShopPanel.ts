@@ -15,6 +15,7 @@ import {
   seizeBorrowerStall,
   forgiveLoan,
   sendDogToCollect,
+  clearDailyBorrower,
 } from '../../systems/LoanSharkEngine';
 import type { PlayerLoan } from '../../systems/LoanSharkEngine';
 import { getAllAchievements } from '../../systems/AchievementEngine';
@@ -46,9 +47,6 @@ export class ShopPanel {
   // Whether any purchase (worker or marketing) was made this session
   private hasPurchasedThisSession = false;
 
-  // Stored once-listener references for cleanup in destroy()
-  private _casinoDoneHandler: (() => void) | null = null;
-  private _blackMarketDoneHandler: (() => void) | null = null;
 
   constructor() {
     this.panel = document.createElement('div');
@@ -854,15 +852,10 @@ export class ShopPanel {
       enterBtn.className = 'btn-neon loan-borrow-btn';
       enterBtn.textContent = '進入賭場';
       enterBtn.addEventListener('click', () => {
-        EventBus.emit('show-panel', 'casino');
-        if (this._casinoDoneHandler) {
-          EventBus.off('casino-done', this._casinoDoneHandler);
-        }
-        this._casinoDoneHandler = () => {
-          this._casinoDoneHandler = null;
+        EventBus.once('casino-done', () => {
           EventBus.emit('show-panel', 'shop');
-        };
-        EventBus.once('casino-done', this._casinoDoneHandler);
+        });
+        EventBus.emit('show-panel', 'casino');
       });
       section.appendChild(enterBtn);
     }
@@ -886,7 +879,7 @@ export class ShopPanel {
       const lockEl = document.createElement('div');
       lockEl.className = 'loan-ineligible';
       lockEl.style.opacity = '0.5';
-      lockEl.textContent = `地下聲望不足（需要 60，目前 ${gameState.undergroundRep}）`;
+      lockEl.textContent = `地下聲望不足（需要 30，目前 ${gameState.undergroundRep}）`;
       section.appendChild(lockEl);
       return section;
     }
@@ -944,6 +937,7 @@ export class ShopPanel {
           return;
         }
         this.pendingBorrower = null;
+        clearDailyBorrower();
         alert(`已借出 $${b.requestAmount} 給 ${b.name}，5 天後收回 $${loan.totalOwed}`);
         this.refreshLoansTab();
         this.refreshMoneyDisplay();
@@ -955,6 +949,7 @@ export class ShopPanel {
       refuseBtn.textContent = '拒絕';
       refuseBtn.addEventListener('click', () => {
         this.pendingBorrower = null;
+        clearDailyBorrower();
         this.refreshLoansTab();
       });
 
@@ -1612,16 +1607,10 @@ export class ShopPanel {
       bmBtn.style.borderColor = '#8b0000';
       bmBtn.textContent = '進入黑市';
       bmBtn.addEventListener('click', () => {
-        EventBus.emit('show-panel', 'black-market');
-        // Listen for return from black market
-        if (this._blackMarketDoneHandler) {
-          EventBus.off('black-market-done', this._blackMarketDoneHandler);
-        }
-        this._blackMarketDoneHandler = () => {
-          this._blackMarketDoneHandler = null;
+        EventBus.once('black-market-done', () => {
           EventBus.emit('show-panel', 'shop');
-        };
-        EventBus.once('black-market-done', this._blackMarketDoneHandler);
+        });
+        EventBus.emit('show-panel', 'black-market');
       });
       bar.appendChild(bmBtn);
     }
@@ -1652,14 +1641,6 @@ export class ShopPanel {
   }
 
   destroy(): void {
-    if (this._casinoDoneHandler) {
-      EventBus.off('casino-done', this._casinoDoneHandler);
-      this._casinoDoneHandler = null;
-    }
-    if (this._blackMarketDoneHandler) {
-      EventBus.off('black-market-done', this._blackMarketDoneHandler);
-      this._blackMarketDoneHandler = null;
-    }
     this.panel.remove();
   }
 }
