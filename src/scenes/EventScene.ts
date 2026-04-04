@@ -8,6 +8,7 @@ import type { GameEvent } from '../data/events';
 // EventScene: drives one or more random events per day via HTML overlay panels
 export class EventScene extends Phaser.Scene {
   private readyForNext = false;
+  private isProcessingEvent = false;
   private eventQueue: GameEvent[] = [];
   private currentEventPanel: EventPanel | null = null;
   private panelArea: HTMLElement | null = null;
@@ -60,8 +61,10 @@ export class EventScene extends Phaser.Scene {
       return;
     }
 
-    // Remove any stale listener before re-binding to prevent accumulation
+    // Bind listener immediately — before splash — so no signal is lost during animation
     EventBus.off('event-done', this.onEventDone, this);
+    EventBus.on('event-done', this.onEventDone, this);
+    this.isProcessingEvent = false;
 
     // Clear all children from panel-area defensively, then remove tracked panel
     if (this.panelArea) {
@@ -81,16 +84,40 @@ export class EventScene extends Phaser.Scene {
         this.panelArea.appendChild(el);
       }
 
-      // Listen for this event's completion
-      EventBus.once('event-done', this.onEventDone, this);
+      // Panel is now visible — begin accepting event-done signals
+      this.isProcessingEvent = true;
     });
   }
 
-  private showEventSplash(_event: GameEvent, onComplete: () => void): void {
+  private showEventSplash(event: GameEvent, onComplete: () => void): void {
     const { width: w, height: h } = this.scale;
 
-    if (this.textures.exists('karen-alert')) {
-      const splash = this.add.image(w / 2, h / 2, 'karen-alert').setDepth(300);
+    const EVENT_SPLASH_MAP: Record<string, string> = {
+      'costco-guy': 'event-costco-guy',
+      'food-critic': 'event-food-critic',
+      'drunk-uncle': 'event-drunk-uncle',
+      'instagram-karen': 'karen-alert',
+      'kid-tantrum': 'karen-alert',
+      'protection-fee': 'event-thugs',
+      'territory-threat': 'event-thugs',
+      'gang-offer': 'event-thugs',
+      'inspector-surprise': 'event-inspector',
+      'management-fee-weekly': 'event-thugs',
+      'influencer-livestream': 'customer-influencer',
+      'competitor-spy': 'event-inspector',
+      'media-crisis-exposed': 'event-inspector',
+      'employee-strike': 'event-inspector',
+      'expired-ingredient-gamble': 'karen-alert',
+      'underground-delivery': 'event-thugs',
+      'celebrity-visit': 'customer-fatcat',
+      'food-festival': 'event-food-festival',
+      'rain-bonus': 'event-rain',
+    };
+
+    const splashKey = EVENT_SPLASH_MAP[event.id] ?? 'karen-alert';
+
+    if (this.textures.exists(splashKey)) {
+      const splash = this.add.image(w / 2, h / 2, splashKey).setDepth(300);
       const maxScale = Math.min((w * 0.7) / splash.width, (h * 0.55) / splash.height);
       splash.setScale(0).setAlpha(0);
 
@@ -122,6 +149,10 @@ export class EventScene extends Phaser.Scene {
   }
 
   private onEventDone = (): void => {
+    // Guard: ignore signals that arrive before the panel is ready
+    if (!this.isProcessingEvent) return;
+    this.isProcessingEvent = false;
+
     if (this.eventQueue.length > 0) {
       this.showNextEvent();
     } else {
@@ -143,7 +174,9 @@ export class EventScene extends Phaser.Scene {
   private finishAllEvents(): void {
     if (this.readyForNext) return;
     this.readyForNext = true;
+    this.isProcessingEvent = false;
 
+    EventBus.off('event-done', this.onEventDone, this);
     this.removePanelFromDOM();
 
     this.cameras.main.fadeOut(400, 0, 0, 0);
@@ -158,6 +191,7 @@ export class EventScene extends Phaser.Scene {
   }
 
   shutdown(): void {
+    this.isProcessingEvent = false;
     EventBus.off('event-done', this.onEventDone, this);
     this.removePanelFromDOM();
   }

@@ -51,6 +51,15 @@ export class BootScene extends Phaser.Scene {
     this.load.image('queue-bg', 'queue-bg.png');
     this.load.image('karen-alert', 'karen-alert.png');
     this.load.image('dialogue-box', 'dialogue-box.png');
+
+    // ── Event splash images ──
+    this.load.image('event-costco-guy', 'event-costco-guy.png');
+    this.load.image('event-drunk-uncle', 'event-drunk-uncle.png');
+    this.load.image('event-food-critic', 'event-food-critic.png');
+    this.load.image('event-food-festival', 'event-food-festival.png');
+    this.load.image('event-inspector', 'event-inspector.png');
+    this.load.image('event-rain', 'event-rain.png');
+    this.load.image('event-thugs', 'event-thugs.png');
     this.load.image('card-frame', 'card-frame.png');
     this.load.image('nightmarket-map', 'nightmarket-map.png');
 
