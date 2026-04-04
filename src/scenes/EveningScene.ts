@@ -60,8 +60,8 @@ export class EveningScene extends Phaser.Scene {
       this.applyEveningAutomatically();
     });
 
-    // Fallback: if fade-in event never fires, apply after short delay
-    this.time.delayedCall(600, () => {
+    // Fallback: if fade-in event never fires, apply after a long delay to avoid racing
+    this.time.delayedCall(2000, () => {
       if (!this.readyForNext) {
         this.applyEveningAutomatically();
       }

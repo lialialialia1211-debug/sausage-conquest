@@ -1261,7 +1261,7 @@ export class GrillScene extends Phaser.Scene {
 
   private setupHUD(width: number, _height: number): void {
     // ── Top left: timer ──────────────────────────────────────────────────
-    this.timerText = this.add.text(16, 55, '⏱ 90s', {
+    this.timerText = this.add.text(16, 55, '90s', {
       fontSize: '18px',
       fontFamily: FONT,
       color: '#ffcc44',

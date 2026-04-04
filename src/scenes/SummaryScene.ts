@@ -69,9 +69,9 @@ export class SummaryScene extends Phaser.Scene {
       return;
     }
 
-    // Check: Day 30 reached
+    // Check: Day 20 reached
     if (gameState.day >= MAX_DAYS) {
-      this.triggerEnding('day30');
+      this.triggerEnding('day20');
       return;
     }
 

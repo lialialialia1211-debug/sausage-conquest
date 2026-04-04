@@ -216,9 +216,9 @@ export class MapPanel {
         rentEl.style.color = canAfford ? '' : '#ff4444';
       }
 
-      // Update lock icon presence
-      const existingLock = card.querySelector('.slot-lock-icon');
-      if (!canAfford && !existingLock) {
+      // Update lock icon presence — remove all existing locks first to prevent accumulation
+      card.querySelectorAll('.slot-lock-icon').forEach(el => el.remove());
+      if (!canAfford) {
         card.style.opacity = '0.4';
         card.style.pointerEvents = 'none';
         card.classList.add('grid-slot--disabled');
@@ -228,11 +228,10 @@ export class MapPanel {
         lockEl.textContent = '[鎖]';
         lockEl.style.cssText = 'position:absolute;top:4px;right:6px;font-size:14px;pointer-events:none;';
         card.appendChild(lockEl);
-      } else if (canAfford && existingLock) {
+      } else {
         card.style.opacity = '';
         card.style.pointerEvents = '';
         card.classList.remove('grid-slot--disabled');
-        existingLock.remove();
         if (rentEl) rentEl.style.color = '';
       }
     }

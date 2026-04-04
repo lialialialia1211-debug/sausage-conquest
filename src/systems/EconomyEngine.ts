@@ -173,16 +173,10 @@ export function applyDadTax(revenue: number): number {
  * Returns a SaleRecord. Returns null if out of stock.
  */
 export function sellSausage(sausageId: string, price: number, quality: number): SaleRecord | null {
-  const currentQty = gameState.inventory[sausageId] ?? 0;
-  if (currentQty <= 0) return null;
-
-  // Deduct from inventory
-  updateGameState({
-    inventory: {
-      ...gameState.inventory,
-      [sausageId]: currentQty - 1,
-    },
-  });
+  // Inventory was already deducted when the sausage was placed on the grill.
+  // Selling from the warming zone should NOT deduct again.
+  // We still check that there is at least 0 (non-negative) to keep the guard sane,
+  // but we skip the additional deduction.
 
   const seatBonus = gameState.upgrades['seating'] ? 1.2 : 1.0;
   const finalPrice = price * seatBonus;
@@ -191,7 +185,9 @@ export function sellSausage(sausageId: string, price: number, quality: number): 
   const sausage = SAUSAGE_MAP[sausageId];
   const expectedPrice = sausage?.suggestedPrice ?? price;
   // Customer satisfaction: quality weight 60%, price fairness 40%
-  const priceFairness = Math.min(1, Math.max(0, 1 - (price - expectedPrice) / expectedPrice));
+  const priceFairness = expectedPrice > 0
+    ? Math.min(1, Math.max(0, 1 - (price - expectedPrice) / expectedPrice))
+    : 1;
   const customerSatisfaction = Math.min(1, quality * 0.6 + priceFairness * 0.4);
 
   return {

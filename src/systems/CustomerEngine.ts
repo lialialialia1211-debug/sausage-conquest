@@ -15,12 +15,22 @@ export function resetCustomerEngine(): void {
  * Generate a random order for a customer based on the current day.
  * Sausage types unlock progressively; condiments are chosen at random.
  */
-function generateOrder(day: number, personality?: string): CustomerOrder {
-  // Get unlocked sausage types based on day
-  const unlocked: string[] = ['black-pig', 'flying-fish-roe', 'garlic-bomb'];
-  if (day >= 5) unlocked.push('cheese');
-  if (day >= 8) unlocked.push('squidink');
-  if (day >= 12) unlocked.push('mala');
+function generateOrder(_day: number, personality?: string): CustomerOrder {
+  // Get unlocked sausage types based on playerSlot — mirrors MorningScene SLOT_UNLOCKS:
+  //   slot 1: big-taste, slot 2: big-wrap-small, slot 3: cheese,
+  //   slot 5: squidink, slot 6: great-wall, slot 7: mala
+  // Only include sausages the player has actually unlocked in gameState.
+  const slot = gameState.playerSlot || 1;
+  const allCandidates: string[] = ['black-pig', 'flying-fish-roe', 'garlic-bomb', 'big-taste'];
+  if (slot >= 2) allCandidates.push('big-wrap-small');
+  if (slot >= 3) allCandidates.push('cheese');
+  if (slot >= 5) allCandidates.push('squidink');
+  if (slot >= 6) allCandidates.push('great-wall');
+  if (slot >= 7) allCandidates.push('mala');
+  // Intersect with what the player actually has unlocked so customers never order unavailable types
+  const unlocked = allCandidates.filter(id => gameState.unlockedSausages.includes(id));
+  // Always guarantee at least the base sausages to avoid empty list
+  if (unlocked.length === 0) unlocked.push('black-pig');
 
   let sausageType: string;
 

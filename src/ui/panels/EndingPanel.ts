@@ -6,7 +6,7 @@ import { INITIAL_SAUSAGES } from '../../data/sausages';
 import { resetAchievements } from '../../systems/AchievementEngine';
 import { resetEventTracking } from '../../systems/EventEngine';
 
-export type EndingType = 'bankrupt' | 'loan-shark' | 'territory-win' | 'day30';
+export type EndingType = 'bankrupt' | 'loan-shark' | 'territory-win' | 'day20';
 
 export interface EndingData {
   type: EndingType;
@@ -82,7 +82,7 @@ function buildEndingConfig(type: EndingType): EndingConfig {
         dramatic: '你從夜市最角落的停車場一路殺到正中央，成為真正的夜市之王！',
       };
     }
-    case 'day30': {
+    case 'day20': {
       const slot = gameState.playerSlot || 1;
       const { grade, gradeEmoji, title } = getDay20Grade(slot);
       return {
