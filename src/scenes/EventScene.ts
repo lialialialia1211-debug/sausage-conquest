@@ -19,6 +19,7 @@ export class EventScene extends Phaser.Scene {
 
   create(): void {
     this.readyForNext = false;
+    this.events.on('shutdown', this.shutdown, this);
     const { width, height } = this.scale;
 
     // Dark tinted background
@@ -194,5 +195,10 @@ export class EventScene extends Phaser.Scene {
     this.isProcessingEvent = false;
     EventBus.off('event-done', this.onEventDone, this);
     this.removePanelFromDOM();
+    if (this.panelArea) {
+      while (this.panelArea.firstChild) {
+        this.panelArea.removeChild(this.panelArea.firstChild);
+      }
+    }
   }
 }

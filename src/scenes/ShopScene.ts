@@ -16,6 +16,7 @@ export class ShopScene extends Phaser.Scene {
 
   create(): void {
     this.readyForNext = false;
+    this.events.on('shutdown', this.shutdown, this);
     const { width, height } = this.scale;
     const cx = width / 2;
     const cy = height / 2;

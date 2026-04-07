@@ -220,6 +220,11 @@ export class EventPanel {
   }
 
   destroy(): void {
-    this.panel.remove();
+    if (this.panel.parentElement) {
+      this.panel.parentElement.removeChild(this.panel);
+    }
+    while (this.panel.firstChild) {
+      this.panel.removeChild(this.panel.firstChild);
+    }
   }
 }

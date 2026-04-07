@@ -72,6 +72,10 @@ export class UIManager {
       this.currentPanel = null;
     }
     this.currentPanelInstance = null;
+    // Safety: clear any orphaned panels not tracked by UIManager
+    while (this.panelArea.firstChild) {
+      this.panelArea.removeChild(this.panelArea.firstChild);
+    }
   };
 
   private createPanelByName(name: string, data?: unknown): { instance: PanelInstance } | null {

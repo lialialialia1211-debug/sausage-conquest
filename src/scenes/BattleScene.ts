@@ -109,6 +109,7 @@ export class BattleScene extends Phaser.Scene {
   // ── create ───────────────────────────────────────────────────────────────────
 
   create(): void {
+    this.events.on('shutdown', this.shutdown, this);
     const { width, height } = this.scale;
 
     // Reset state

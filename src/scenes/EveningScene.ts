@@ -16,6 +16,7 @@ export class EveningScene extends Phaser.Scene {
 
   create(): void {
     this.readyForNext = false;
+    this.events.on('shutdown', this.shutdown, this);
     this.twinkleDots = [];
     this.lightTweens = [];
 

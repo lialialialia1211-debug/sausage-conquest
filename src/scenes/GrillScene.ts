@@ -174,6 +174,7 @@ export class GrillScene extends Phaser.Scene {
   }
 
   create(): void {
+    this.events.on('shutdown', this.shutdown, this);
     const { width, height } = this.scale;
 
     // Copy inventory snapshot (actual deduction happens in sellSausage)
