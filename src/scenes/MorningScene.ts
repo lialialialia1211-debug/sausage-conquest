@@ -228,10 +228,28 @@ export class MorningScene extends Phaser.Scene {
     this.readyForNext = true;
 
     EventBus.emit('hide-panel');
-    this.cameras.main.fadeOut(400, 0, 0, 0);
-    this.cameras.main.once('camerafadeoutcomplete', () => {
+    let morningTransitioned = false;
+    const doMorningTransition = () => {
+      if (morningTransitioned) return;
+      morningTransitioned = true;
       this.scene.start('EveningScene');
-    });
+    };
+    try {
+      const { width: fw, height: fh } = this.scale;
+      const fadeRect = this.add.rectangle(fw / 2, fh / 2, fw, fh, 0x000000, 0).setDepth(9999);
+      this.tweens.add({
+        targets: fadeRect,
+        alpha: { from: 0, to: 1 },
+        duration: 400,
+        onComplete: doMorningTransition,
+      });
+      this.time.delayedCall(1000, () => {
+        if (!this.scene.isActive()) return;
+        doMorningTransition();
+      });
+    } catch (e) {
+      doMorningTransition();
+    }
   };
 
   shutdown(): void {

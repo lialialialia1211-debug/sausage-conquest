@@ -50,10 +50,28 @@ export class ShopScene extends Phaser.Scene {
     this.readyForNext = true;
 
     EventBus.emit('hide-panel');
-    this.cameras.main.fadeOut(400, 0, 0, 0);
-    this.cameras.main.once('camerafadeoutcomplete', () => {
+    let shopTransitioned = false;
+    const doShopTransition = () => {
+      if (shopTransitioned) return;
+      shopTransitioned = true;
       this.scene.start('MorningScene');
-    });
+    };
+    try {
+      const { width: fw, height: fh } = this.scale;
+      const fadeRect = this.add.rectangle(fw / 2, fh / 2, fw, fh, 0x000000, 0).setDepth(9999);
+      this.tweens.add({
+        targets: fadeRect,
+        alpha: { from: 0, to: 1 },
+        duration: 400,
+        onComplete: doShopTransition,
+      });
+      this.time.delayedCall(1000, () => {
+        if (!this.scene.isActive()) return;
+        doShopTransition();
+      });
+    } catch (e) {
+      doShopTransition();
+    }
   };
 
   shutdown(): void {

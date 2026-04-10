@@ -146,7 +146,7 @@ export class BlackMarketPanel {
     closeBtn.style.width = '100%';
     closeBtn.style.marginTop = '8px';
     closeBtn.addEventListener('click', () => {
-      EventBus.emit('show-panel', 'shop');
+      EventBus.emit('black-market-done');
     });
     this.el.appendChild(closeBtn);
   }

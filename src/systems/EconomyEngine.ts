@@ -140,18 +140,23 @@ export function payWorkerSalaries(): number {
     return sum + (worker?.dailySalary ?? 0);
   }, 0);
 
-  if (totalSalary > 0) {
-    spendMoney(totalSalary);
-    const updatedStats = {
-      ...gameState.stats,
-      totalExpenses: (gameState.stats['totalExpenses'] ?? 0) + totalSalary,
-    };
-    updateGameState({
-      stats: updatedStats,
-      dailyExpenses: (gameState.dailyExpenses ?? 0) + totalSalary,
-      workerSalaryPaid: true,
-    });
+  if (totalSalary <= 0) return 0;
+
+  const paid = spendMoney(totalSalary);
+  if (!paid) {
+    // 付不起，不標記已付款、不累加費用
+    return 0;
   }
+
+  const updatedStats = {
+    ...gameState.stats,
+    totalExpenses: (gameState.stats['totalExpenses'] ?? 0) + totalSalary,
+  };
+  updateGameState({
+    stats: updatedStats,
+    dailyExpenses: (gameState.dailyExpenses ?? 0) + totalSalary,
+    workerSalaryPaid: true,
+  });
 
   return totalSalary;
 }
@@ -179,7 +184,7 @@ export function sellSausage(sausageId: string, price: number, quality: number): 
   // but we skip the additional deduction.
 
   const seatBonus = gameState.upgrades['seating'] ? 1.2 : 1.0;
-  const finalPrice = price * seatBonus;
+  const finalPrice = Math.round(price * seatBonus);
   addMoney(finalPrice);
 
   const sausage = SAUSAGE_MAP[sausageId];

@@ -225,10 +225,28 @@ export class BootScene extends Phaser.Scene {
         initialMap[slot.id] = slot.tier === 1 ? 'player' : (slot.opponentId || 'enemy');
       }
       updateGameState({ map: initialMap, playerSlot: 1, gameMode: mode });
-      this.cameras.main.fadeOut(500, 0, 0, 0);
-      this.cameras.main.once('camerafadeoutcomplete', () => {
+      let bootTransitioned = false;
+      const doBootTransition = () => {
+        if (bootTransitioned) return;
+        bootTransitioned = true;
         this.scene.start('MorningScene');
-      });
+      };
+      try {
+        const { width: fw, height: fh } = this.scale;
+        const fadeRect = this.add.rectangle(fw / 2, fh / 2, fw, fh, 0x000000, 0).setDepth(9999);
+        this.tweens.add({
+          targets: fadeRect,
+          alpha: { from: 0, to: 1 },
+          duration: 500,
+          onComplete: doBootTransition,
+        });
+        this.time.delayedCall(1200, () => {
+          if (!this.scene.isActive()) return;
+          doBootTransition();
+        });
+      } catch (e) {
+        doBootTransition();
+      }
     };
 
     // Normal mode card

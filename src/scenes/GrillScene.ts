@@ -2981,6 +2981,9 @@ export class GrillScene extends Phaser.Scene {
     if (this.isDone) return;
     this.isDone = true;
 
+    // Sync inventory snapshot back to global state so spoilage/next-day logic sees correct counts
+    updateGameState({ inventory: { ...this.inventoryCopy } });
+
     try {
       // Stop BGM
       if (this.bgm) {
@@ -3258,10 +3261,9 @@ export class GrillScene extends Phaser.Scene {
     }
     (this as any).__awayBannerText = null;
 
-    // Remove keyboard listeners
-    this.input.keyboard?.removeAllListeners();
-
-    this.cameras.main.removeAllListeners();
+    // Remove keyboard listeners (defensive: cameras/input may be torn down by Phaser already)
+    try { this.input?.keyboard?.removeAllListeners?.(); } catch (_e) { /* ignore */ }
+    try { this.cameras?.main?.removeAllListeners?.(); } catch (_e) { /* ignore */ }
     EventBus.off('black-market-done');
   }
 

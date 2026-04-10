@@ -6,8 +6,8 @@ import { SAUSAGE_TYPES } from '../../data/sausages';
 import { GRID_SLOTS } from '../../data/map';
 import type { SausageType } from '../../types';
 
-// Minimum rent reserve — the cheapest available slot (parking lot, slot 4) costs $200
-const MIN_RENT_RESERVE = 200;
+// Fallback minimum rent reserve (covers tier-1 which is free)
+const MIN_RENT_RESERVE_FLOOR = 200;
 
 export interface SpoilageInfo {
   spoilage: Record<string, number>;
@@ -99,7 +99,7 @@ export class MorningPanel {
     // Rent reserve warning
     this.rentWarning = document.createElement('div');
     this.rentWarning.className = 'rent-warning';
-    this.rentWarning.textContent = `至少保留 $${MIN_RENT_RESERVE} 租金，否則傍晚無法擺攤！`;
+    this.rentWarning.textContent = `至少保留 $${MIN_RENT_RESERVE_FLOOR} 租金，否則傍晚無法擺攤！`;
     this.rentWarning.style.display = 'none';
     this.rentWarning.style.color = 'var(--neon-red, #ff4444)';
     this.rentWarning.style.fontSize = '13px';
@@ -120,6 +120,12 @@ export class MorningPanel {
 
     // Set initial button state
     this.updateSummary();
+  }
+
+  private getRentReserve(): number {
+    const slotId = gameState.selectedSlot >= 0 ? gameState.selectedSlot : gameState.playerSlot;
+    const slot = GRID_SLOTS.find(s => s.id === slotId);
+    return Math.max(MIN_RENT_RESERVE_FLOOR, slot?.rent ?? 0);
   }
 
   private buildSausageCard(sausage: SausageType, spoilageInfo?: SpoilageInfo): HTMLElement {
@@ -228,7 +234,7 @@ export class MorningPanel {
     const calcMaxAffordable = (): number => {
       const otherSpend = this.calcTotalCost() - this.quantities[sausage.id] * sausage.cost;
       const remaining = gameState.money - otherSpend;
-      const spendable = Math.max(0, remaining - MIN_RENT_RESERVE);
+      const spendable = Math.max(0, remaining - this.getRentReserve());
       return Math.min(MAX_QUANTITY, Math.floor(spendable / sausage.cost));
     };
 
@@ -289,16 +295,18 @@ export class MorningPanel {
   }
 
   private setQuantity(sausage: SausageType, qty: number, input: HTMLInputElement, subtotalEl: HTMLElement): void {
-    // Clamp: can't go below 0, can't exceed 99, can't exceed what we can afford while keeping MIN_RENT_RESERVE
+    // Clamp: can't go below 0, can't exceed 99, can't exceed what we can afford while keeping rent reserve
     const MAX_QUANTITY = 99;
+    const reserve = this.getRentReserve();
     const otherSpend = this.calcTotalCost() - this.quantities[sausage.id] * sausage.cost;
     const remaining = gameState.money - otherSpend;
-    const spendable = Math.max(0, remaining - MIN_RENT_RESERVE);
+    const spendable = Math.max(0, remaining - reserve);
     const maxAffordable = Math.min(MAX_QUANTITY, Math.floor(spendable / sausage.cost));
     const clamped = Math.max(0, Math.min(qty, maxAffordable));
 
     // Show warning if user tried to exceed the rent-reserved limit
     const wouldExceed = qty > maxAffordable && remaining > 0;
+    this.rentWarning.textContent = `至少保留 $${reserve} 租金，否則傍晚無法擺攤！`;
     this.rentWarning.style.display = wouldExceed ? 'block' : 'none';
 
     this.quantities[sausage.id] = clamped;
@@ -323,7 +331,8 @@ export class MorningPanel {
     this.summaryRemain.textContent = `$${remaining}`;
 
     // Color the remaining amount red if below rent reserve
-    this.summaryRemain.style.color = remaining < MIN_RENT_RESERVE ? 'var(--neon-red, #ff4444)' : '';
+    const reserve = this.getRentReserve();
+    this.summaryRemain.style.color = remaining < reserve ? 'var(--neon-red, #ff4444)' : '';
 
     // Enable confirm if player has new purchases OR existing inventory
     const hasNewPurchases = Object.values(this.quantities).some(q => q > 0);

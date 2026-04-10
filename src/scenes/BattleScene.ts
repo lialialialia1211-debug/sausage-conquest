@@ -93,6 +93,9 @@ export class BattleScene extends Phaser.Scene {
   private opponentBaseScale = 1;
   private energyPulseTween: Phaser.Tweens.Tween | null = null;
 
+  // ── Opponent portrait (set when texture exists, used for hit detection) ──────
+  private opponentPortrait: Phaser.GameObjects.Image | null = null;
+
   // ── Event listener refs ──────────────────────────────────────────────────────
   private contextMenuHandler: ((e: Event) => void) | null = null;
 
@@ -126,14 +129,17 @@ export class BattleScene extends Phaser.Scene {
     this.isDone = false;
     this.battleTimer = 60;
     this.energyPulseTween = null;
+    this.opponentPortrait = null;
     this.weaponBonus = 1;
     this.weaponName = '';
     this.opponentSpecialUsed = false;
     this.isDodging = false;
     this.dodgeCooldown = 0;
 
-    // Determine difficulty from playerSlot
-    this.difficulty = Math.max(1, Math.min(5, gameState.playerSlot));
+    // Determine difficulty from the opponent slot (next tier), not the player's current tier
+    const nextTier = Math.min(9, gameState.playerSlot + 1);
+    const nextSlot = GRID_SLOTS.find(s => s.tier === nextTier);
+    this.difficulty = Math.max(1, Math.min(5, nextSlot?.opponentDifficulty ?? gameState.playerSlot));
 
     // Simulation mode adjustments
     const isSimulation = gameState.gameMode === 'simulation';
@@ -771,13 +777,15 @@ export class BattleScene extends Phaser.Scene {
 
   private isHitOnOpponent(pointer: Phaser.Input.Pointer): boolean {
     if (!this.opponentEmoji || !this.opponentEmoji.active) return false;
-    const bounds = this.opponentEmoji.getBounds();
+    const hitTarget = (this.opponentPortrait?.active) ? this.opponentPortrait : this.opponentEmoji;
+    const bounds = hitTarget.getBounds();
     return bounds.contains(pointer.x, pointer.y);
   }
 
   private isHeadshot(pointer: Phaser.Input.Pointer): boolean {
     if (!this.opponentEmoji || !this.opponentEmoji.active) return false;
-    const bounds = this.opponentEmoji.getBounds();
+    const hitTarget = (this.opponentPortrait?.active) ? this.opponentPortrait : this.opponentEmoji;
+    const bounds = hitTarget.getBounds();
     return pointer.y < bounds.y + bounds.height / 3;
   }
 
@@ -1069,11 +1077,11 @@ export class BattleScene extends Phaser.Scene {
     const oppId = opponentSlotData?.opponentId || '';
     const oppTextureKey = `opponent-${oppId}`;
     if (this.textures.exists(oppTextureKey)) {
-      const portrait = this.add.image(this.opponentEmoji.x, this.opponentEmoji.y, oppTextureKey);
+      this.opponentPortrait = this.add.image(this.opponentEmoji.x, this.opponentEmoji.y, oppTextureKey);
       const maxH = height * 0.35;
       const maxW = width * 0.35;
-      const scale = Math.min(maxH / portrait.height, maxW / portrait.width);
-      portrait.setScale(scale).setDepth(this.opponentEmoji.depth + 1);
+      const scale = Math.min(maxH / this.opponentPortrait.height, maxW / this.opponentPortrait.width);
+      this.opponentPortrait.setScale(scale).setDepth(this.opponentEmoji.depth + 1);
       this.opponentEmoji.setAlpha(0); // hide emoji, show portrait instead
     }
 

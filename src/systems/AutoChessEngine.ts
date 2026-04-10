@@ -473,7 +473,6 @@ export function applyBattleResult(winner: 'player' | 'opponent' | 'draw'): strin
     const newSlot    = Math.min(9, currentSlot + 1);
     const newMap     = { ...gameState.map };
     newMap[newSlot]  = 'player';
-    newMap[currentSlot] = 'enemy';
 
     updateGameState({
       playerSlot: newSlot,
