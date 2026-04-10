@@ -1398,9 +1398,18 @@ export class BattleScene extends Phaser.Scene {
   // ── Transition ────────────────────────────────────────────────────────────────
 
   private transitionToSummary(): void {
-    this.cameras.main.fadeOut(500, 0, 0, 0);
-    this.cameras.main.once('camerafadeoutcomplete', () => {
+    let transitioned = false;
+    const doTransition = () => {
+      if (transitioned) return;
+      transitioned = true;
       this.scene.start('SummaryScene');
+    };
+    this.cameras.main.fadeOut(500, 0, 0, 0);
+    this.cameras.main.once('camerafadeoutcomplete', doTransition);
+    // Safety: if fadeOut doesn't complete within 1.5s, force transition
+    this.time.delayedCall(1500, () => {
+      if (!this.scene.isActive()) return;
+      doTransition();
     });
   }
 

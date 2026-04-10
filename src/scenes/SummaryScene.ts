@@ -107,9 +107,17 @@ export class SummaryScene extends Phaser.Scene {
     // Listen for restart
     EventBus.once('restart-game', () => {
       EventBus.emit('hide-panel');
-      this.cameras.main.fadeOut(400, 0, 0, 0);
-      this.cameras.main.once('camerafadeoutcomplete', () => {
+      let restarted = false;
+      const doRestart = () => {
+        if (restarted) return;
+        restarted = true;
         this.scene.start('BootScene');
+      };
+      this.cameras.main.fadeOut(400, 0, 0, 0);
+      this.cameras.main.once('camerafadeoutcomplete', doRestart);
+      this.time.delayedCall(1000, () => {
+        if (!this.scene.isActive()) return;
+        doRestart();
       });
     }, this);
   }
@@ -122,10 +130,17 @@ export class SummaryScene extends Phaser.Scene {
     advanceDay();
 
     EventBus.emit('hide-panel');
-    this.cameras.main.fadeOut(400, 0, 0, 0);
-    this.cameras.main.once('camerafadeoutcomplete', () => {
-      // Go to shop first, then morning
+    let transitioned = false;
+    const doTransition = () => {
+      if (transitioned) return;
+      transitioned = true;
       this.scene.start('ShopScene');
+    };
+    this.cameras.main.fadeOut(400, 0, 0, 0);
+    this.cameras.main.once('camerafadeoutcomplete', doTransition);
+    this.time.delayedCall(1000, () => {
+      if (!this.scene.isActive()) return;
+      doTransition();
     });
   };
 

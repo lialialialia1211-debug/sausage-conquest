@@ -32,8 +32,6 @@ export class EventScene extends Phaser.Scene {
       .setOrigin(0.5)
       .setAlpha(0.08);
 
-    this.cameras.main.fadeIn(400, 0, 0, 0);
-
     // Clean up any existing UIManager panel state
     EventBus.emit('hide-panel');
 
@@ -46,10 +44,19 @@ export class EventScene extends Phaser.Scene {
     this.eventQueue = rollDailyEvents();
 
     if (this.eventQueue.length === 0) {
-      // No events today — skip straight to summary
-      this.finishAllEvents();
+      // No events today — skip directly to next scene without fade effects
+      // (GrillScene already faded to black, no need to fadeIn then fadeOut again)
+      this.readyForNext = true;
+      if (gameState.day % 2 === 0) {
+        this.scene.start('BattleScene');
+      } else {
+        this.scene.start('SummaryScene');
+      }
       return;
     }
+
+    // Only fadeIn when events will be shown
+    this.cameras.main.fadeIn(400, 0, 0, 0);
 
     // Show first event
     this.showNextEvent();
