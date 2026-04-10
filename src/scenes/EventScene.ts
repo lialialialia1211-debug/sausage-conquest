@@ -129,8 +129,10 @@ export class EventScene extends Phaser.Scene {
         duration: 300,
         ease: 'Back.Out',
         onComplete: () => {
+          if (!this.scene.isActive()) return;
           this.cameras.main.shake(300, 0.012);
           this.time.delayedCall(1200, () => {
+            if (!this.scene.isActive()) { onComplete(); return; }
             this.tweens.add({
               targets: splash,
               alpha: 0,
@@ -180,14 +182,22 @@ export class EventScene extends Phaser.Scene {
     EventBus.off('event-done', this.onEventDone, this);
     this.removePanelFromDOM();
 
-    this.cameras.main.fadeOut(400, 0, 0, 0);
-    this.cameras.main.once('camerafadeoutcomplete', () => {
-      // After events: battle check (every 2 days), then summary
+    let transitioned = false;
+    const doTransition = () => {
+      if (transitioned) return;
+      transitioned = true;
       if (gameState.day % 2 === 0) {
         this.scene.start('BattleScene');
       } else {
         this.scene.start('SummaryScene');
       }
+    };
+    this.cameras.main.fadeOut(400, 0, 0, 0);
+    this.cameras.main.once('camerafadeoutcomplete', doTransition);
+    // Safety: if fadeOut doesn't complete within 1s, force transition
+    this.time.delayedCall(1000, () => {
+      if (!this.scene.isActive()) return;
+      doTransition();
     });
   }
 

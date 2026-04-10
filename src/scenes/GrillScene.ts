@@ -1561,6 +1561,7 @@ export class GrillScene extends Phaser.Scene {
           ease: 'Power2',
           onComplete: () => {
             alert.destroy();
+            if (this.isDone || !this.scene.isActive()) return;
             this.openCombatPanel(customer);
           },
         });
@@ -1682,6 +1683,7 @@ export class GrillScene extends Phaser.Scene {
               ease: 'Power2',
               onComplete: () => {
                 splash.destroy();
+                if (this.isDone || !this.scene.isActive()) return;
                 this.buildGrillEventPanel(event);
               },
             });
@@ -1932,12 +1934,20 @@ export class GrillScene extends Phaser.Scene {
 
     const dismissZone = this.add.zone(cx, dismissY + dismissBtnH / 2, dismissBtnW, dismissBtnH)
       .setInteractive({ cursor: 'pointer' });
-    dismissZone.on('pointerdown', () => {
+
+    const dismissGrillEvent = () => {
+      if (!this.grillEventOverlay) return;
       container.destroy();
       this.grillEventOverlay = null;
       this.isShowingGrillEvent = false;
-    });
+    };
+
+    dismissZone.on('pointerdown', dismissGrillEvent);
     container.add(dismissZone);
+
+    // Keyboard backup: ESC or Enter to dismiss
+    this.input.keyboard!.once('keydown-ESC', dismissGrillEvent);
+    this.input.keyboard!.once('keydown-ENTER', dismissGrillEvent);
   }
 
   // ── Quality label helpers ─────────────────────────────────────────────────
@@ -2402,6 +2412,7 @@ export class GrillScene extends Phaser.Scene {
           return c ? `${c.emoji}${c.name}` : id;
         });
         selectedDisplay.setText(names.length > 0 ? `已加：${names.join(' ')}` : '已加：（無）');
+        updateServeBtn();
       });
 
       this.condimentOverlay!.add([btnBg, condimentIcon, btnName]);
@@ -2409,19 +2420,32 @@ export class GrillScene extends Phaser.Scene {
 
     const btnRowY = startY + 2 * (btnH + gap) + 30;
 
-    // Serve button
-    const serveBtn = this.add.text(w / 2 - 80, btnRowY, '出餐！', {
-      fontSize: '18px', color: '#44ff44', backgroundColor: '#1a2a1a',
+    // Serve button — disabled until at least one condiment is selected
+    const serveBtn = this.add.text(w / 2 - 80, btnRowY, '加料出餐', {
+      fontSize: '18px', color: '#666666', backgroundColor: '#1a1a1a',
       padding: { x: 16, y: 10 }, fontFamily: FONT
-    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+    }).setOrigin(0.5);
+
+    const updateServeBtn = () => {
+      if (this.selectedCondiments.length > 0) {
+        serveBtn.setColor('#44ff44').setBackgroundColor('#1a2a1a');
+        serveBtn.setInteractive({ useHandCursor: true });
+      } else {
+        serveBtn.setColor('#666666').setBackgroundColor('#1a1a1a');
+        serveBtn.disableInteractive();
+      }
+    };
 
     serveBtn.on('pointerdown', () => {
+      if (this.selectedCondiments.length === 0) return;
       this.finalizeServe(warmSlot, sausage, customer);
     });
 
-    // Quick serve button — prominent, yellow, same size as serve button
+    updateServeBtn();
+
+    // Quick serve button — no condiments, lower score
     const quickBtn = this.add.text(w / 2 + 80, btnRowY, '快速出餐（不加料）', {
-      fontSize: '18px', color: '#ffcc00', backgroundColor: '#2a2a1a',
+      fontSize: '14px', color: '#ff8844', backgroundColor: '#2a1a0a',
       padding: { x: 16, y: 10 }, fontFamily: FONT
     }).setOrigin(0.5).setInteractive({ useHandCursor: true });
 
@@ -2969,6 +2993,13 @@ export class GrillScene extends Phaser.Scene {
     this.condimentOverlay = null;
     this.isShowingCondimentStation = false;
 
+    // Clean up grill event overlay
+    if (this.grillEventOverlay) {
+      this.grillEventOverlay.destroy();
+      this.grillEventOverlay = null;
+    }
+    this.isShowingGrillEvent = false;
+
     // Clean up away state
     this.isPlayerAway = false;
     this.currentActivity = null;
@@ -3016,10 +3047,18 @@ export class GrillScene extends Phaser.Scene {
       grillStats: this.grillStats,
     });
 
-    this.cameras.main.fadeOut(600, 0, 0, 0);
-    this.cameras.main.once('camerafadeoutcomplete', () => {
-      // Events happen after grilling, then battle check, then summary
+    let transitioned = false;
+    const doTransition = () => {
+      if (transitioned) return;
+      transitioned = true;
       this.scene.start('EventScene');
+    };
+    this.cameras.main.fadeOut(600, 0, 0, 0);
+    this.cameras.main.once('camerafadeoutcomplete', doTransition);
+    // Safety: if fadeOut doesn't complete within 1.5s, force transition
+    this.time.delayedCall(1500, () => {
+      if (!this.scene.isActive()) return;
+      doTransition();
     });
   }
 
