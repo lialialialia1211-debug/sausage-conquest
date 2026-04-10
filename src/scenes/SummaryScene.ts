@@ -113,8 +113,14 @@ export class SummaryScene extends Phaser.Scene {
         restarted = true;
         this.scene.start('BootScene');
       };
-      this.cameras.main.fadeOut(400, 0, 0, 0);
-      this.cameras.main.once('camerafadeoutcomplete', doRestart);
+      const { width: fw, height: fh } = this.scale;
+      const fadeRect = this.add.rectangle(fw / 2, fh / 2, fw, fh, 0x000000, 0).setDepth(9999);
+      this.tweens.add({
+        targets: fadeRect,
+        alpha: { from: 0, to: 1 },
+        duration: 400,
+        onComplete: doRestart,
+      });
       this.time.delayedCall(1000, () => {
         if (!this.scene.isActive()) return;
         doRestart();
@@ -136,8 +142,14 @@ export class SummaryScene extends Phaser.Scene {
       transitioned = true;
       this.scene.start('ShopScene');
     };
-    this.cameras.main.fadeOut(400, 0, 0, 0);
-    this.cameras.main.once('camerafadeoutcomplete', doTransition);
+    const { width: fw, height: fh } = this.scale;
+    const fadeRect = this.add.rectangle(fw / 2, fh / 2, fw, fh, 0x000000, 0).setDepth(9999);
+    this.tweens.add({
+      targets: fadeRect,
+      alpha: { from: 0, to: 1 },
+      duration: 400,
+      onComplete: doTransition,
+    });
     this.time.delayedCall(1000, () => {
       if (!this.scene.isActive()) return;
       doTransition();

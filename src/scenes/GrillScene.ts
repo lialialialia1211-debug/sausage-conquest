@@ -2981,85 +2981,103 @@ export class GrillScene extends Phaser.Scene {
     if (this.isDone) return;
     this.isDone = true;
 
-    // Stop BGM
-    if (this.bgm) {
-      this.bgm.stop();
-      this.bgm.destroy();
-      this.bgm = null;
+    try {
+      // Stop BGM
+      if (this.bgm) {
+        this.bgm.stop();
+        this.bgm.destroy();
+        this.bgm = null;
+      }
+
+      // Clean up condiment station
+      this.condimentOverlay?.destroy();
+      this.condimentOverlay = null;
+      this.isShowingCondimentStation = false;
+
+      // Clean up grill event overlay
+      if (this.grillEventOverlay) {
+        this.grillEventOverlay.destroy();
+        this.grillEventOverlay = null;
+      }
+      this.isShowingGrillEvent = false;
+
+      // Clean up away state
+      this.isPlayerAway = false;
+      this.currentActivity = null;
+      this.awayOverlay?.destroy();
+      this.awayOverlay = null;
+      (this as any).__awayBannerText = null;
+
+      // Clean up any active combat panel
+      if (this.currentCombatPanel) {
+        this.currentCombatPanel.destroy();
+        this.currentCombatPanel = null;
+      }
+      this.combatCustomersHandled.clear();
+      EventBus.off('combat-done');
+
+      // Stop timer flash tween if running
+      if (this.timerFlashTween) {
+        this.timerFlashTween.stop();
+        this.timerFlashTween = null;
+        if (this.timerText?.active) this.timerText.setAlpha(1);
+      }
+
+      // Count waste
+      const grillRemaining = this.grillSlots.filter(s => s.sausage && !s.sausage.served).length;
+      const warmingRemaining = this.warmingSlots.filter(s => s.sausage).length;
+
+      // Persist to game state
+      updateGameState({
+        dailySalesLog: [...this.salesLog],
+        dailyGrillStats: { ...this.grillStats },
+        dailyWaste: { grillRemaining, warmingRemaining },
+      });
+
+      // Increment cumulative grill stats
+      updateGameState({
+        stats: {
+          ...gameState.stats,
+          totalPerfect: (gameState.stats.totalPerfect ?? 0) + this.grillStats.perfect,
+          totalBurnt: (gameState.stats.totalBurnt ?? 0) + this.grillStats.burnt,
+        },
+      });
+
+      EventBus.emit('grill-done', {
+        salesLog: this.salesLog,
+        grillStats: this.grillStats,
+      });
+    } catch (e) {
+      console.error('[GrillScene] endGrilling cleanup error:', e);
     }
 
-    // Clean up condiment station
-    this.condimentOverlay?.destroy();
-    this.condimentOverlay = null;
-    this.isShowingCondimentStation = false;
-
-    // Clean up grill event overlay
-    if (this.grillEventOverlay) {
-      this.grillEventOverlay.destroy();
-      this.grillEventOverlay = null;
-    }
-    this.isShowingGrillEvent = false;
-
-    // Clean up away state
-    this.isPlayerAway = false;
-    this.currentActivity = null;
-    this.awayOverlay?.destroy();
-    this.awayOverlay = null;
-    (this as any).__awayBannerText = null;
-
-    // Clean up any active combat panel
-    if (this.currentCombatPanel) {
-      this.currentCombatPanel.destroy();
-      this.currentCombatPanel = null;
-    }
-    this.combatCustomersHandled.clear();
-    EventBus.off('combat-done');
-
-    // Stop timer flash tween if running
-    if (this.timerFlashTween) {
-      this.timerFlashTween.stop();
-      this.timerFlashTween = null;
-      this.timerText.setAlpha(1);
-    }
-
-    // Count waste
-    const grillRemaining = this.grillSlots.filter(s => s.sausage && !s.sausage.served).length;
-    const warmingRemaining = this.warmingSlots.filter(s => s.sausage).length;
-
-    // Persist to game state
-    updateGameState({
-      dailySalesLog: [...this.salesLog],
-      dailyGrillStats: { ...this.grillStats },
-      dailyWaste: { grillRemaining, warmingRemaining },
-    });
-
-    // Increment cumulative grill stats
-    updateGameState({
-      stats: {
-        ...gameState.stats,
-        totalPerfect: (gameState.stats.totalPerfect ?? 0) + this.grillStats.perfect,
-        totalBurnt: (gameState.stats.totalBurnt ?? 0) + this.grillStats.burnt,
-      },
-    });
-
-    EventBus.emit('grill-done', {
-      salesLog: this.salesLog,
-      grillStats: this.grillStats,
-    });
-
+    // Transition — MUST run even if cleanup above throws
     let transitioned = false;
     const doTransition = () => {
       if (transitioned) return;
       transitioned = true;
       this.scene.start('EventScene');
     };
-    this.cameras.main.fadeOut(600, 0, 0, 0);
-    this.cameras.main.once('camerafadeoutcomplete', doTransition);
-    // Safety: if fadeOut doesn't complete within 1.5s, force transition
-    this.time.delayedCall(1500, () => {
-      if (!this.scene.isActive()) return;
+
+    try {
+      // Use manual overlay tween instead of camera.fadeOut (more reliable)
+      const { width: fw, height: fh } = this.scale;
+      const fadeRect = this.add.rectangle(fw / 2, fh / 2, fw, fh, 0x000000, 0).setDepth(9999);
+      this.tweens.add({
+        targets: fadeRect,
+        alpha: { from: 0, to: 1 },
+        duration: 600,
+        onComplete: doTransition,
+      });
+      // Safety: force transition after 1.5s no matter what
+      this.time.delayedCall(1500, () => {
+        if (!this.scene.isActive()) return;
+        doTransition();
+      });
+    } catch (e) {
+      console.error('[GrillScene] transition error, forcing:', e);
       doTransition();
-    });
+    }
   }
 
   // ── Ready / Tutorial overlay ──────────────────────────────────────────────
