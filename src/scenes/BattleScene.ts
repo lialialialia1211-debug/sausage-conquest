@@ -93,6 +93,10 @@ export class BattleScene extends Phaser.Scene {
   private opponentBaseScale = 1;
   private energyPulseTween: Phaser.Tweens.Tween | null = null;
 
+  // ── Special cutscene ─────────────────────────────────────────────────────────
+  private specialCutsceneActive = false;
+  private specialCutsceneContainer: Phaser.GameObjects.Container | null = null;
+
   // ── Opponent portrait (set when texture exists, used for hit detection) ──────
   private opponentPortrait: Phaser.GameObjects.Image | null = null;
 
@@ -129,6 +133,8 @@ export class BattleScene extends Phaser.Scene {
     this.isDone = false;
     this.battleTimer = 60;
     this.energyPulseTween = null;
+    this.specialCutsceneActive = false;
+    this.specialCutsceneContainer = null;
     this.opponentPortrait = null;
     this.weaponBonus = 1;
     this.weaponName = '';
@@ -496,6 +502,10 @@ export class BattleScene extends Phaser.Scene {
   // ── Attack: Special (space/E, needs 100% energy) ──────────────────────────────
 
   private doSpecialAttack(): void {
+    if (this.specialCutsceneActive) {
+      this.dismissSpecialCutsceneAndFire();
+      return;
+    }
     if (!this.isFighting || this.isDone) return;
     if (this.energy < 100) {
       this.showInfoMessage('能量不足，需要 100%！', '#ff8800', 900);
@@ -961,12 +971,96 @@ export class BattleScene extends Phaser.Scene {
         repeat: -1,
         ease: 'Sine.InOut',
       });
-      this.showInfoMessage('特殊技能可用！按 空白鍵 / E', '#ffee00', 2000);
+      if (!this.specialCutsceneActive) {
+        this.showSpecialCutscene();
+      }
     } else if (this.energy < 100 && this.energyPulseTween) {
       this.energyPulseTween.stop();
       this.energyPulseTween = null;
       this.energyLabel.setScale(1);
     }
+  }
+
+  // ── Special cutscene (full-screen charcoal prompt) ────────────────────────────
+
+  private showSpecialCutscene(): void {
+    if (this.specialCutsceneActive || this.isDone) return;
+    this.specialCutsceneActive = true;
+    this.isFighting = false;
+
+    const { width, height } = this.scale;
+    this.specialCutsceneContainer = this.add.container(0, 0).setDepth(200);
+
+    // Dark overlay
+    const overlay = this.add.graphics();
+    overlay.fillStyle(0x000000, 0.75);
+    overlay.fillRect(0, 0, width, height);
+    this.specialCutsceneContainer.add(overlay);
+
+    const cx = width / 2;
+    const cy = height * 0.38;
+
+    // Glowing charcoal
+    const glow = this.add.graphics();
+    glow.fillStyle(0xff4400, 0.3); glow.fillCircle(cx, cy, 80);
+    glow.fillStyle(0xff6600, 0.4); glow.fillCircle(cx, cy, 55);
+    glow.fillStyle(0xff8800, 0.6); glow.fillCircle(cx, cy, 35);
+    this.specialCutsceneContainer.add(glow);
+
+    const charcoal = this.add.text(cx, cy, 'O', {
+      fontSize: '90px',
+      fontFamily: 'Microsoft JhengHei, PingFang TC, sans-serif',
+    }).setOrigin(0.5);
+    this.specialCutsceneContainer.add(charcoal);
+
+    this.tweens.add({ targets: charcoal, scaleX: 1.15, scaleY: 1.15, duration: 500, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
+    this.tweens.add({ targets: glow, alpha: { from: 1, to: 0.6 }, duration: 600, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
+
+    // Title
+    const title = this.add.text(cx, cy - 110, '能量全滿！', {
+      fontSize: '28px', fontFamily: 'Microsoft JhengHei, PingFang TC, sans-serif',
+      color: '#ffee00', stroke: '#ff6600', strokeThickness: 3,
+    }).setOrigin(0.5);
+    this.specialCutsceneContainer.add(title);
+
+    // Big action button
+    const btnY = height * 0.65;
+    const btnBg = this.add.graphics();
+    btnBg.fillStyle(0xff4400, 0.9);
+    btnBg.lineStyle(3, 0xffcc00, 1);
+    btnBg.fillRoundedRect(cx - 120, btnY - 28, 240, 56, 12);
+    btnBg.strokeRoundedRect(cx - 120, btnY - 28, 240, 56, 12);
+    this.specialCutsceneContainer.add(btnBg);
+
+    const btnText = this.add.text(cx, btnY, '丟她木炭！', {
+      fontSize: '26px', fontFamily: 'Microsoft JhengHei, PingFang TC, sans-serif',
+      color: '#ffffff', stroke: '#ff2200', strokeThickness: 2,
+    }).setOrigin(0.5);
+    this.specialCutsceneContainer.add(btnText);
+
+    this.tweens.add({ targets: btnText, scaleX: 1.08, scaleY: 1.08, duration: 400, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
+
+    const hitZone = this.add.zone(cx, btnY, 240, 56).setInteractive({ useHandCursor: true });
+    hitZone.on('pointerover', () => btnText.setColor('#ffee00'));
+    hitZone.on('pointerout', () => btnText.setColor('#ffffff'));
+    hitZone.on('pointerdown', () => this.dismissSpecialCutsceneAndFire());
+    this.specialCutsceneContainer.add(hitZone);
+
+    const hint = this.add.text(cx, height * 0.80, '也可以按 空白鍵 / E 發動', {
+      fontSize: '12px', color: '#888888',
+    }).setOrigin(0.5);
+    this.specialCutsceneContainer.add(hint);
+  }
+
+  private dismissSpecialCutsceneAndFire(): void {
+    if (!this.specialCutsceneActive) return;
+    this.specialCutsceneActive = false;
+    if (this.specialCutsceneContainer) {
+      this.specialCutsceneContainer.destroy();
+      this.specialCutsceneContainer = null;
+    }
+    this.isFighting = true;
+    this.doSpecialAttack();
   }
 
   // ── Background drawing ───────────────────────────────────────────────────────
@@ -1444,6 +1538,8 @@ export class BattleScene extends Phaser.Scene {
       this.input.keyboard.off('keydown-D');
       this.input.keyboard.off('keydown-SHIFT');
     }
+    if (this.specialCutsceneContainer) { this.specialCutsceneContainer.destroy(); this.specialCutsceneContainer = null; }
+    this.specialCutsceneActive = false;
     EventBus.off('battle-start');
     EventBus.off('battle-skip');
   }
