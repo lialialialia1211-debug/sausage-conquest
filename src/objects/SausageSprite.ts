@@ -16,9 +16,9 @@ const SQUIDINK_COLOR_MAX = 0x3a2a4a;
 // Mala: base red tint overlay color
 const MALA_TINT_COLOR = 0x8b0000;
 
-const SAUSAGE_W = 75;
-const SAUSAGE_H = 30;
-const BAR_W = 70;
+const SAUSAGE_W = 85;
+const SAUSAGE_H = 35;
+const BAR_W = 78;
 const BAR_H = 4;
 
 // Top bar sits above sausage, bottom bar sits below
@@ -100,9 +100,9 @@ export class SausageSprite extends Phaser.GameObjects.Container {
     const textureKey = `sausage-${sausage.sausageTypeId}`;
     if (scene.textures.exists(textureKey)) {
       const artImage = scene.add.image(0, 0, textureKey);
-      // Scale to fit the sausage body size (approximately 75×30 px)
-      const targetW = 100;
-      const targetH = 50;
+      // Scale to fit the sausage body size (approximately 85×35 px)
+      const targetW = 110;
+      const targetH = 55;
       const scale = Math.min(targetW / artImage.width, targetH / artImage.height);
       artImage.setScale(scale);
       artImage.setDepth(1); // above the gfx body

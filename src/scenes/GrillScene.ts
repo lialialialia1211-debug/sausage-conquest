@@ -34,6 +34,7 @@ import { AWAY_ACTIVITIES, rollActivityOutcome } from '../data/activities';
 import type { AwayActivity } from '../data/activities';
 import { getSpecialEffect } from '../data/sausage-effects';
 import type { SpecialEffectResult } from '../data/sausage-effects';
+import { CUSTOMER_COMMENTS, COUNTER_ATTACKS } from '../data/customerComments';
 
 // ── Layout constants ────────────────────────────────────────────────────────
 const GAME_DURATION = 90;      // seconds
@@ -163,6 +164,12 @@ export class GrillScene extends Phaser.Scene {
   private patienceBoostNext: number = 0;
   private patienceBoostAmount: number = 1;
 
+  // ── Customer commentary state ─────────────────────────────────────────────
+  private lastCommentTime = 0;
+  private commentBubble: Phaser.GameObjects.Text | null = null;
+  private counterAttackPanel: Phaser.GameObjects.Container | null = null;
+  private slowServiceTimer = 0; // how long grill+warming have been empty while customers wait
+
   constructor() {
     super({ key: 'GrillScene' });
   }
@@ -234,6 +241,10 @@ export class GrillScene extends Phaser.Scene {
     this.tipMultiplierServesLeft = 0;
     this.patienceBoostNext = 0;
     this.patienceBoostAmount = 1;
+    this.lastCommentTime = 0;
+    this.commentBubble = null;
+    this.counterAttackPanel = null;
+    this.slowServiceTimer = 0;
 
     // Worker: adi → extra grill slot
     let maxSlots = gameState.upgrades['grill-expand'] ? 6 : MAX_GRILL_SLOTS;
@@ -595,6 +606,8 @@ export class GrillScene extends Phaser.Scene {
     ) {
       this.endGrilling();
     }
+
+    this.tickCustomerCommentary(dt);
   }
 
   // ── Draw helpers ─────────────────────────────────────────────────────────
@@ -629,7 +642,7 @@ export class GrillScene extends Phaser.Scene {
     const rackW = 100 * maxSlots + 60;
     const barStartX = (width - rackW) / 2;
     const barEndX = barStartX + rackW;
-    const barCount = 7;
+    const barCount = 9;
     const barSpacing = 16;
 
     const rack = this.add.graphics();
@@ -686,7 +699,7 @@ export class GrillScene extends Phaser.Scene {
 
   private spawnFireParticle(): void {
     const { width, height } = this.scale;
-    const fireBaseY = height * GRILL_Y_FRAC + 34 + 7 * 16; // bottom of rack
+    const fireBaseY = height * GRILL_Y_FRAC + 34 + 9 * 16; // bottom of rack
     const spawnX = width * 0.04 + Math.random() * (width * 0.61);
     const particle = this.add.text(spawnX, fireBaseY, '*', {
       fontSize: '14px',
@@ -1049,7 +1062,7 @@ export class GrillScene extends Phaser.Scene {
         const { width: w, height: h } = this.scale;
         const barStartX = w * 0.04;
         const grillY = h * GRILL_Y_FRAC + 34;
-        this.redrawFireGlow(barStartX, grillY + 7 * 16, w * 0.61);
+        this.redrawFireGlow(barStartX, grillY + 9 * 16, w * 0.61);
       });
       // Override font size to 11px
       const txtObj = btn.list[1] as Phaser.GameObjects.Text;
@@ -1142,7 +1155,7 @@ export class GrillScene extends Phaser.Scene {
     ];
 
     const btnW = 120;
-    const btnH = 75;
+    const btnH = 85;
     const gap = 8;
     const totalBtns = allItems.length;
     const totalW = totalBtns * btnW + (totalBtns - 1) * gap;
@@ -1181,21 +1194,21 @@ export class GrillScene extends Phaser.Scene {
       // Show sausage art image in inventory button if available
       const textureKey = `sausage-${id}`;
       if (this.textures.exists(textureKey)) {
-        const img = this.add.image(0, -15, textureKey);
+        const img = this.add.image(0, -18, textureKey);
         const imgScale = Math.min(90 / img.width, 58 / img.height);
         img.setScale(imgScale).setAlpha(hasStock ? 1 : 0.3);
         container.add(img);
       }
 
-      const txt = this.add.text(0, 25, `×${qty}`, {
-        fontSize: '18px',
+      const txt = this.add.text(0, 16, `×${qty}`, {
+        fontSize: '20px',
         fontFamily: FONT,
         color: hasStock ? COLOR_ORANGE : '#442200',
         align: 'center',
       }).setOrigin(0.5);
 
-      const nameTxt = this.add.text(0, 30, info?.name ?? id, {
-        fontSize: '12px',
+      const nameTxt = this.add.text(0, 34, info?.name ?? id, {
+        fontSize: '13px',
         fontFamily: FONT,
         color: hasStock ? '#886633' : '#331100',
         align: 'center',
@@ -1242,7 +1255,7 @@ export class GrillScene extends Phaser.Scene {
       const qty = this.inventoryCopy[id] ?? 0;
       const hasStock = qty > 0;
       const btnW = 120;
-      const btnH = 75;
+      const btnH = 85;
 
       bgGfx.clear();
       if (!hasStock) {
@@ -2275,6 +2288,13 @@ export class GrillScene extends Phaser.Scene {
     warmSlot.sausage = null;
     this.clearWarmingSlotDisplay(warmSlot);
 
+    // 碎碎念觸發：品質差時
+    if (grillQuality === 'carbonized' || grillQuality === 'burnt') {
+      this.time.delayedCall(800, () => this.showCustomerComment('burnt'));
+    } else if (grillQuality === 'raw' || grillQuality === 'half-cooked') {
+      this.time.delayedCall(800, () => this.showCustomerComment('raw'));
+    }
+
     // Check for special sausage effect
     const directEffect = getSpecialEffect(ws.sausageTypeId);
     if (directEffect) {
@@ -2555,6 +2575,13 @@ export class GrillScene extends Phaser.Scene {
     this.bounceRevenue();
     this.updateStatsDisplay();
 
+    // 碎碎念觸發：品質差時
+    if (grillQuality === 'carbonized' || grillQuality === 'burnt') {
+      this.time.delayedCall(800, () => this.showCustomerComment('burnt'));
+    } else if (grillQuality === 'raw' || grillQuality === 'half-cooked') {
+      this.time.delayedCall(800, () => this.showCustomerComment('raw'));
+    }
+
     // Check for special sausage effect
     const finalizeEffect = getSpecialEffect(sausage.sausageTypeId);
     if (finalizeEffect) {
@@ -2594,6 +2621,178 @@ export class GrillScene extends Phaser.Scene {
 
     // Auto-dismiss after 1.5 seconds
     this.time.delayedCall(1500, () => { if (this.isDone || !this.scene.isActive()) return; if (popup.active) popup.destroy(); });
+  }
+
+  // ── Customer commentary & counter-attack ─────────────────────────────────
+
+  private tickCustomerCommentary(dt: number): void {
+    if (this.isDone || this.paused) return;
+    if (this.counterAttackPanel) return; // 正在顯示反擊面板，不要生成新的
+
+    this.lastCommentTime += dt;
+    if (this.lastCommentTime < 5) return; // 每 5 秒最多一次
+    this.lastCommentTime = 0;
+
+    // 取得在排隊的客人數
+    const waitingCount = this.customers.length;
+    if (waitingCount === 0) return;
+
+    // 檢查慢服務：排隊 ≥ 2 人且烤架 + 保溫區都空
+    const grillEmpty = this.grillSlots.every(s => !s.sausage);
+    const warmingEmpty = this.warmingSlots.every(s => !s.sausage);
+
+    if (waitingCount >= 2 && grillEmpty && warmingEmpty) {
+      this.slowServiceTimer += 5;
+      if (this.slowServiceTimer >= 10) { // 累計 10 秒空攤
+        this.showCustomerComment('slow');
+        return;
+      }
+    } else {
+      this.slowServiceTimer = Math.max(0, this.slowServiceTimer - 2);
+    }
+
+    // 排隊人數 ≥ 3 時偶爾觸發不耐煩
+    if (waitingCount >= 3 && Math.random() < 0.3) {
+      this.showCustomerComment('impatient');
+      return;
+    }
+  }
+
+  private showCustomerComment(category: keyof typeof CUSTOMER_COMMENTS): void {
+    // 移除舊氣泡
+    if (this.commentBubble?.active) {
+      this.commentBubble.destroy();
+      this.commentBubble = null;
+    }
+
+    const lines = CUSTOMER_COMMENTS[category];
+    const line = lines[Math.floor(Math.random() * lines.length)];
+
+    // 客人排隊區域大概在 height * 0.17
+    const queueY = this.scale.height * 0.17;
+    const bubbleX = this.scale.width / 2 + Math.random() * 100 - 50;
+    const bubbleY = queueY - 45;
+
+    this.commentBubble = this.add.text(bubbleX, bubbleY, `「${line}」`, {
+      fontSize: '14px',
+      fontFamily: 'Microsoft JhengHei, PingFang TC, sans-serif',
+      color: '#ffffff',
+      backgroundColor: '#333333dd',
+      padding: { x: 8, y: 4 },
+    }).setOrigin(0.5).setDepth(50);
+
+    // 淡出動畫
+    this.tweens.add({
+      targets: this.commentBubble,
+      y: bubbleY - 20,
+      alpha: { from: 1, to: 0 },
+      duration: 3000,
+      ease: 'Power1',
+      onComplete: () => {
+        if (this.commentBubble?.active) {
+          this.commentBubble.destroy();
+          this.commentBubble = null;
+        }
+      },
+    });
+
+    // 50% 機率觸發反擊面板
+    if (Math.random() < 0.5) {
+      this.time.delayedCall(500, () => {
+        this.showCounterAttackPanel();
+      });
+    }
+  }
+
+  private showCounterAttackPanel(): void {
+    if (this.counterAttackPanel) return;
+
+    const { width, height } = this.scale;
+    const panelW = 280;
+    const panelH = 120;
+    const px = width / 2;
+    const py = height * 0.45;
+
+    this.counterAttackPanel = this.add.container(px, py).setDepth(100);
+    this.paused = true; // 暫停烤制
+
+    // 背景
+    const bg = this.add.graphics();
+    bg.fillStyle(0x1a0a0a, 0.95);
+    bg.lineStyle(2, 0xff4444, 0.8);
+    bg.fillRoundedRect(-panelW / 2, -panelH / 2, panelW, panelH, 8);
+    bg.strokeRoundedRect(-panelW / 2, -panelH / 2, panelW, panelH, 8);
+    this.counterAttackPanel.add(bg);
+
+    // 標題
+    const title = this.add.text(0, -panelH / 2 + 16, '被客人激怒了！要反擊嗎？', {
+      fontSize: '13px',
+      fontFamily: 'Microsoft JhengHei, PingFang TC, sans-serif',
+      color: '#ff6666',
+    }).setOrigin(0.5);
+    this.counterAttackPanel.add(title);
+
+    // 按鈕
+    COUNTER_ATTACKS.forEach((atk, i) => {
+      const btnY = -10 + i * 32;
+      const btn = this.add.text(0, btnY, `${atk.label}（${atk.description}）`, {
+        fontSize: '12px',
+        fontFamily: 'Microsoft JhengHei, PingFang TC, sans-serif',
+        color: '#ffcc00',
+        backgroundColor: '#2a1a0a',
+        padding: { x: 10, y: 4 },
+      }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+
+      btn.on('pointerover', () => btn.setColor('#ffffff'));
+      btn.on('pointerout', () => btn.setColor('#ffcc00'));
+      btn.on('pointerdown', () => {
+        this.executeCounterAttack(atk);
+      });
+
+      this.counterAttackPanel!.add(btn);
+    });
+
+    // 忍住按鈕
+    const ignoreBtn = this.add.text(0, panelH / 2 - 18, '算了，忍一下', {
+      fontSize: '11px',
+      color: '#888888',
+    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+    ignoreBtn.on('pointerdown', () => this.dismissCounterAttack());
+    this.counterAttackPanel.add(ignoreBtn);
+
+    // 5 秒自動關閉
+    this.time.delayedCall(5000, () => this.dismissCounterAttack());
+  }
+
+  private executeCounterAttack(atk: typeof COUNTER_ATTACKS[0]): void {
+    // 扣錢 + 聲望
+    if (atk.moneyPenalty > 0) {
+      spendMoney(atk.moneyPenalty);
+    }
+    if (atk.repPenalty > 0) {
+      changeReputation(-atk.repPenalty);
+    }
+    if (atk.chaosPoints > 0) {
+      addChaos(atk.chaosPoints, `反擊客人：${atk.label}`);
+    }
+
+    // 趕走第一個排隊客人
+    const next = this.customerQueue.getNextCustomer();
+    if (next) {
+      this.customerQueue.serveCustomer(next.id, false);
+      this.customers = this.customers.filter(c => c.id !== next.id);
+    }
+
+    this.showFeedback(atk.feedback, this.scale.width / 2, this.scale.height * 0.25, atk.feedbackColor);
+    this.dismissCounterAttack();
+  }
+
+  private dismissCounterAttack(): void {
+    if (this.counterAttackPanel) {
+      this.counterAttackPanel.destroy();
+      this.counterAttackPanel = null;
+    }
+    this.paused = false;
   }
 
   private onCustomerTimeout(customerId: string): void {
@@ -3224,6 +3423,10 @@ export class GrillScene extends Phaser.Scene {
     }
     this.combatCustomersHandled.clear();
     EventBus.off('combat-done');
+
+    // Clean up commentary UI
+    if (this.commentBubble?.active) { this.commentBubble.destroy(); this.commentBubble = null; }
+    if (this.counterAttackPanel) { this.counterAttackPanel.destroy(); this.counterAttackPanel = null; }
 
     if (this.timerFlashTween) {
       this.timerFlashTween.stop();
