@@ -626,11 +626,11 @@ export class GrillScene extends Phaser.Scene {
     const grillY = height * GRILL_Y_FRAC + 34;
     // Grill rack centered on screen
     const maxSlots = gameState.upgrades['grill-expand'] ? 6 : MAX_GRILL_SLOTS;
-    const rackW = 85 * maxSlots + 60;
+    const rackW = 100 * maxSlots + 60;
     const barStartX = (width - rackW) / 2;
     const barEndX = barStartX + rackW;
     const barCount = 7;
-    const barSpacing = 13;
+    const barSpacing = 16;
 
     const rack = this.add.graphics();
 
@@ -639,7 +639,7 @@ export class GrillScene extends Phaser.Scene {
     this.redrawFireGlow(barStartX, grillY + barCount * barSpacing, barEndX - barStartX);
 
     // Horizontal grill bars
-    rack.lineStyle(3, 0x666666, 1);
+    rack.lineStyle(4, 0x666666, 1);
     for (let i = 0; i < barCount; i++) {
       const y = grillY + i * barSpacing;
       rack.beginPath();
@@ -649,7 +649,7 @@ export class GrillScene extends Phaser.Scene {
     }
 
     // Side rails
-    rack.lineStyle(5, 0x555555, 1);
+    rack.lineStyle(6, 0x555555, 1);
     rack.beginPath();
     rack.moveTo(barStartX, grillY);
     rack.lineTo(barStartX, grillY + (barCount - 1) * barSpacing);
@@ -686,7 +686,7 @@ export class GrillScene extends Phaser.Scene {
 
   private spawnFireParticle(): void {
     const { width, height } = this.scale;
-    const fireBaseY = height * GRILL_Y_FRAC + 34 + 7 * 13; // bottom of rack
+    const fireBaseY = height * GRILL_Y_FRAC + 34 + 7 * 16; // bottom of rack
     const spawnX = width * 0.04 + Math.random() * (width * 0.61);
     const particle = this.add.text(spawnX, fireBaseY, '*', {
       fontSize: '14px',
@@ -712,7 +712,7 @@ export class GrillScene extends Phaser.Scene {
 
   private setupGrillSlots(width: number, height: number, slotCount: number): void {
     const grillY = height * GRILL_Y_FRAC - 20;
-    const slotSpacing = 85; // fixed tight spacing between slots
+    const slotSpacing = 100; // fixed tight spacing between slots
     const totalW = slotSpacing * slotCount;
     const startX = (width - totalW) / 2 + slotSpacing / 2; // centered
 
@@ -727,7 +727,7 @@ export class GrillScene extends Phaser.Scene {
   private addOneGrillSlot(): void {
     const { width, height } = this.scale;
     const grillY = height * GRILL_Y_FRAC - 20;
-    const slotSpacing = 85;
+    const slotSpacing = 100;
     const slotCount = this.grillSlots.length + 1;
     const totalW = slotSpacing * slotCount;
     const startX = (width - totalW) / 2 + slotSpacing / 2;
@@ -1049,7 +1049,7 @@ export class GrillScene extends Phaser.Scene {
         const { width: w, height: h } = this.scale;
         const barStartX = w * 0.04;
         const grillY = h * GRILL_Y_FRAC + 34;
-        this.redrawFireGlow(barStartX, grillY + 7 * 13, w * 0.61);
+        this.redrawFireGlow(barStartX, grillY + 7 * 16, w * 0.61);
       });
       // Override font size to 11px
       const txtObj = btn.list[1] as Phaser.GameObjects.Text;
@@ -1102,8 +1102,8 @@ export class GrillScene extends Phaser.Scene {
   }
 
   private setupInventoryPanel(width: number, height: number): void {
-    const panelY = height * 0.90;
-    const panelH = height * 0.10;
+    const panelY = height * 0.88;
+    const panelH = height * 0.12;
 
     // Background
     const bg = this.add.graphics();
@@ -1114,7 +1114,7 @@ export class GrillScene extends Phaser.Scene {
     bg.setDepth(9);
 
     this.add.text(10, panelY + 4, '庫存 — 點擊選擇，再點烤架空位放置', {
-      fontSize: '11px',
+      fontSize: '13px',
       fontFamily: FONT,
       color: COLOR_DIM,
     }).setDepth(10);
@@ -1141,8 +1141,8 @@ export class GrillScene extends Phaser.Scene {
       ...unavailable.map(id => ({ id, qty: 0, hasStock: false })),
     ];
 
-    const btnW = 100;
-    const btnH = 60;
+    const btnW = 120;
+    const btnH = 75;
     const gap = 8;
     const totalBtns = allItems.length;
     const totalW = totalBtns * btnW + (totalBtns - 1) * gap;
@@ -1181,21 +1181,21 @@ export class GrillScene extends Phaser.Scene {
       // Show sausage art image in inventory button if available
       const textureKey = `sausage-${id}`;
       if (this.textures.exists(textureKey)) {
-        const img = this.add.image(0, -12, textureKey);
-        const imgScale = Math.min(70 / img.width, 45 / img.height);
+        const img = this.add.image(0, -15, textureKey);
+        const imgScale = Math.min(90 / img.width, 58 / img.height);
         img.setScale(imgScale).setAlpha(hasStock ? 1 : 0.3);
         container.add(img);
       }
 
       const txt = this.add.text(0, 25, `×${qty}`, {
-        fontSize: '16px',
+        fontSize: '18px',
         fontFamily: FONT,
         color: hasStock ? COLOR_ORANGE : '#442200',
         align: 'center',
       }).setOrigin(0.5);
 
       const nameTxt = this.add.text(0, 30, info?.name ?? id, {
-        fontSize: '9px',
+        fontSize: '12px',
         fontFamily: FONT,
         color: hasStock ? '#886633' : '#331100',
         align: 'center',
@@ -1230,8 +1230,8 @@ export class GrillScene extends Phaser.Scene {
 
   private updateInventoryDisplay(): void {
     const { width, height } = this.scale;
-    const panelY = height * 0.90;
-    const panelH = height * 0.10;
+    const panelY = height * 0.88;
+    const panelH = height * 0.12;
     this.rebuildInventoryButtons(width, panelY, panelH);
   }
 
@@ -1241,8 +1241,8 @@ export class GrillScene extends Phaser.Scene {
       const isSelected = this.selectedInventoryType === id;
       const qty = this.inventoryCopy[id] ?? 0;
       const hasStock = qty > 0;
-      const btnW = 100;
-      const btnH = 60;
+      const btnW = 120;
+      const btnH = 75;
 
       bgGfx.clear();
       if (!hasStock) {
