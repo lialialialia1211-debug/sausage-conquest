@@ -9,7 +9,7 @@ import { checkAchievements } from '../systems/AchievementEngine';
 import { sfx } from '../utils/SoundFX';
 import type { SaleRecord } from '../types';
 
-const MAX_DAYS = 20;
+const MAX_DAYS = 30;
 
 export class SummaryScene extends Phaser.Scene {
   private readyForNext = false;
@@ -70,10 +70,31 @@ export class SummaryScene extends Phaser.Scene {
       return;
     }
 
-    // Check: Day 20 reached
+    // Check: Day 30 reached
     if (gameState.day >= MAX_DAYS) {
-      this.triggerEnding('day20');
+      this.triggerEnding('day30');
       return;
+    }
+
+    // Chapter milestone checkpoints (celebratory toasts, not game-overs)
+    if (gameState.day === 10 || gameState.day === 20) {
+      const tier = gameState.playerSlot ?? 1;
+      const money = gameState.money ?? 0;
+      const battlesWon = (gameState.stats?.['battlesWon'] as number) ?? 0;
+
+      if (gameState.day === 10) {
+        this.showAchievementToasts([{
+          emoji: '',
+          name: '第一章完結',
+          joke: `撐過去了！攤位等級：${tier} 階 | 資金：$${money} | 戰績：${battlesWon} 勝`,
+        }]);
+      } else {
+        this.showAchievementToasts([{
+          emoji: '',
+          name: '最終章開始',
+          joke: `後半戰開始！最後10天衝向夜市之王！攤位：${tier} 階 | 資金：$${money}`,
+        }]);
+      }
     }
 
     // No game over — check achievements

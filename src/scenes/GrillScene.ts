@@ -2165,7 +2165,12 @@ export class GrillScene extends Phaser.Scene {
     }
 
     const ws = warmSlot.sausage;
-    const grillQuality = ws.grillQuality as GrillQuality;
+    // Apply practice bonus: 'ok' quality has 50% chance to be treated as 'perfect'
+    let grillQuality = ws.grillQuality as GrillQuality;
+    if (gameState.morningPrep === 'practice' && grillQuality === 'ok' && Math.random() < 0.5) {
+      grillQuality = 'perfect';
+      this.showFeedback('練習加成！', warmSlot.x, warmSlot.y - 70, '#88ffcc');
+    }
 
     // Calculate warming multiplier
     let warmMultiplier = 1.2;
@@ -2588,15 +2593,22 @@ export class GrillScene extends Phaser.Scene {
       this.salesLog.push(record);
     }
 
+    // Apply practice bonus: 'ok' quality has 50% chance to be treated as 'perfect'
+    let effectiveGrillQuality = sausage.grillQuality as GrillQuality;
+    if (gameState.morningPrep === 'practice' && effectiveGrillQuality === 'ok' && Math.random() < 0.5) {
+      effectiveGrillQuality = 'perfect';
+      this.showFeedback('練習加成！', warmSlot.x, warmSlot.y - 70, '#88ffcc');
+    }
+
     // Track grill quality stats
-    const grillQuality = sausage.grillQuality as keyof typeof this.grillStats;
+    const grillQuality = effectiveGrillQuality as keyof typeof this.grillStats;
     if (grillQuality in this.grillStats) {
       (this.grillStats as Record<string, number>)[grillQuality]++;
     }
 
     // ── Combo system ────────────────────────────────────────────────────────
     const prevCombo = this.perfectCombo;
-    const comboMultiplier = this.handleCombo(sausage.grillQuality, warmSlot.x, warmSlot.y);
+    const comboMultiplier = this.handleCombo(effectiveGrillQuality, warmSlot.x, warmSlot.y);
 
     // Trigger milestone effects when thresholds are first crossed
     if (this.perfectCombo === 5 || this.perfectCombo === 3) {
@@ -2616,14 +2628,14 @@ export class GrillScene extends Phaser.Scene {
     }
 
     // ── Perfect serve visuals ────────────────────────────────────────────
-    if (sausage.grillQuality === 'perfect') {
+    if (effectiveGrillQuality === 'perfect') {
       this.showFeedback('完美!', warmSlot.x, warmSlot.y - 50, '#ffd700');
       this.flashGrillSlotGold(warmSlot.x, warmSlot.y);
       this.shakeCamera(0.005, 100);
     }
 
     // ── Carbonized serve visuals ─────────────────────────────────────────
-    if (sausage.grillQuality === 'carbonized') {
+    if (effectiveGrillQuality === 'carbonized') {
       this.flashScreenDark();
     }
 
@@ -2667,7 +2679,7 @@ export class GrillScene extends Phaser.Scene {
     this.updateStatsDisplay();
 
     // ── Customer reaction bubble ─────────────────────────────────────────
-    this.time.delayedCall(300, () => this.showCustomerReactionBubble(sausage.grillQuality));
+    this.time.delayedCall(300, () => this.showCustomerReactionBubble(effectiveGrillQuality));
 
     // 碎碎念觸發：品質差時
     if (grillQuality === 'carbonized' || grillQuality === 'burnt') {

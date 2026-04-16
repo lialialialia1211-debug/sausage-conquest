@@ -92,6 +92,8 @@ export const gameState = {
   gameMode: '' as string,  // 'normal' | 'simulation' | '' (not yet chosen)
   // Track which one-time economy hint notifications have been shown (by hint ID)
   economyHintsShown: [] as string[],
+  // Morning preparation choice for today: 'scout' | 'practice' | 'social' | '' (empty = not chosen)
+  morningPrep: '' as string,
 };
 
 // Update state and notify UI via EventBus
@@ -118,6 +120,7 @@ export function advanceDay(): void {
     workerSalaryPaid: false,
     dailyOrderScores: [],
     battleBonus: 0,
+    morningPrep: '',
     // grillEventCooldowns persist across days — do NOT reset here
     // customerLoyalty persists across days — do NOT reset here
   });

@@ -356,6 +356,10 @@ export class BattleScene extends Phaser.Scene {
     // Apply grill quality bonus from today's session
     this.weaponBonus += this.grillBonus;
 
+    // Apply morning prep scout bonus
+    const scoutBonus = gameState.morningPrep === 'scout' ? 0.15 : 0;
+    this.weaponBonus += scoutBonus;
+
     this.setupInputListeners();
     this.showInfoMessage('戰鬥開始！', '#44ff88', 1200);
 
@@ -363,6 +367,13 @@ export class BattleScene extends Phaser.Scene {
     if (this.grillBonus > 0) {
       this.time.delayedCall(400, () => {
         this.showGrillBonusBanner(this.grillBonus);
+      });
+    }
+
+    // Show scout bonus banner if applicable
+    if (scoutBonus > 0) {
+      this.time.delayedCall(800, () => {
+        this.showScoutBonusBanner();
       });
     }
 
@@ -386,6 +397,29 @@ export class BattleScene extends Phaser.Scene {
       stroke: '#000000',
       strokeThickness: 3,
       shadow: { blur: 10, color: '#ff8800', fill: true },
+    }).setOrigin(0.5).setDepth(45);
+
+    this.tweens.add({
+      targets: obj,
+      alpha: 0,
+      delay: 1600,
+      duration: 400,
+      onComplete: () => obj.destroy(),
+    });
+  }
+
+  // ── Scout bonus banner ────────────────────────────────────────────────────────
+
+  private showScoutBonusBanner(): void {
+    const { width } = this.scale;
+    const obj = this.add.text(width / 2, 90, '偵查加成：+15%', {
+      fontSize: '18px',
+      fontFamily: FONT,
+      color: '#44ccff',
+      fontStyle: 'bold',
+      stroke: '#000000',
+      strokeThickness: 3,
+      shadow: { blur: 10, color: '#0088cc', fill: true },
     }).setOrigin(0.5).setDepth(45);
 
     this.tweens.add({

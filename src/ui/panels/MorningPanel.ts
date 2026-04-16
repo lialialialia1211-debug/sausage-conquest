@@ -1,6 +1,6 @@
 // MorningPanel — 早上進貨備料 HTML panel (pure DOM, no Phaser)
 import { EventBus } from '../../utils/EventBus';
-import { gameState } from '../../state/GameState';
+import { gameState, updateGameState } from '../../state/GameState';
 import { buyStock } from '../../systems/EconomyEngine';
 import { SAUSAGE_TYPES } from '../../data/sausages';
 import { GRID_SLOTS } from '../../data/map';
@@ -13,6 +13,27 @@ export interface SpoilageInfo {
   spoilage: Record<string, number>;
 }
 
+const PREP_CHOICES = [
+  {
+    id: 'scout',
+    label: '偵查對手',
+    desc: '「觀察隔壁攤的弱點」',
+    effect: '戰鬥武器加成 +15%',
+  },
+  {
+    id: 'practice',
+    label: '練習烤功',
+    desc: '「早起練翻香腸」',
+    effect: '今日普通品質有 50% 機率升為完美',
+  },
+  {
+    id: 'social',
+    label: '串門子',
+    desc: '「跟鄰居攤販聊天」',
+    effect: '多一次事件機會，客流量 +10%',
+  },
+] as const;
+
 export class MorningPanel {
   private panel: HTMLElement;
   private quantities: Record<string, number> = {};
@@ -23,6 +44,7 @@ export class MorningPanel {
   private qtyDisplays: Map<string, HTMLElement> = new Map();
   private subtotalEls: Map<string, HTMLElement> = new Map();
   private cardRefs: Map<string, { sausage: SausageType }> = new Map();
+  private selectedPrep: string = '';
 
   constructor(spoilageInfo?: SpoilageInfo) {
     // Init quantities to 0 for each sausage type
@@ -55,6 +77,75 @@ export class MorningPanel {
       statsSection.textContent = `建議今日進貨：${suggestMin}~${suggestMax} 根（依攤位地段估算）`;
     }
     this.panel.appendChild(statsSection);
+
+    // ── Morning prep section ────────────────────────────────────────────────
+    const prepSection = document.createElement('div');
+    prepSection.style.cssText = 'margin-bottom:14px;';
+
+    const prepTitle = document.createElement('div');
+    prepTitle.style.cssText = 'font-size:13px;color:#aaa;margin-bottom:8px;letter-spacing:1px;text-transform:uppercase;';
+    prepTitle.textContent = '今天的準備（選一項）';
+    prepSection.appendChild(prepTitle);
+
+    const prepBtns: HTMLButtonElement[] = [];
+    for (const choice of PREP_CHOICES) {
+      const btn = document.createElement('button');
+      btn.style.cssText = [
+        'display:block;width:100%;text-align:left;',
+        'background:#0d0d1a;border:1px solid #333;border-radius:6px;',
+        'padding:10px 14px;margin-bottom:6px;cursor:pointer;',
+        'transition:border-color 0.15s,background 0.15s;',
+      ].join('');
+
+      const labelEl = document.createElement('span');
+      labelEl.style.cssText = 'font-size:14px;font-weight:bold;color:#e0e0ff;display:block;';
+      labelEl.textContent = `${choice.label} — ${choice.desc}`;
+
+      const effectEl = document.createElement('span');
+      effectEl.style.cssText = 'font-size:11px;color:#666;display:block;margin-top:3px;';
+      effectEl.textContent = choice.effect;
+
+      btn.appendChild(labelEl);
+      btn.appendChild(effectEl);
+
+      btn.addEventListener('click', () => {
+        this.selectedPrep = choice.id;
+        updateGameState({ morningPrep: choice.id });
+        // Update button visuals
+        for (const b of prepBtns) {
+          b.style.borderColor = '#333';
+          b.style.background = '#0d0d1a';
+        }
+        btn.style.borderColor = '#7b44ff';
+        btn.style.background = '#1a0f33';
+        this.updateSummary();
+      });
+
+      prepBtns.push(btn);
+      prepSection.appendChild(btn);
+    }
+
+    // Skip link
+    const skipWrap = document.createElement('div');
+    skipWrap.style.cssText = 'text-align:right;margin-top:2px;';
+    const skipLink = document.createElement('a');
+    skipLink.href = '#';
+    skipLink.textContent = '跳過';
+    skipLink.style.cssText = 'font-size:11px;color:#555;text-decoration:underline;';
+    skipLink.addEventListener('click', (e) => {
+      e.preventDefault();
+      this.selectedPrep = 'skip';
+      updateGameState({ morningPrep: 'skip' });
+      for (const b of prepBtns) {
+        b.style.borderColor = '#333';
+        b.style.background = '#0d0d1a';
+      }
+      this.updateSummary();
+    });
+    skipWrap.appendChild(skipLink);
+    prepSection.appendChild(skipWrap);
+
+    this.panel.appendChild(prepSection);
 
     // Sausage cards container (only show unlocked types)
     const cardsEl = document.createElement('div');
@@ -334,13 +425,18 @@ export class MorningPanel {
     const reserve = this.getRentReserve();
     this.summaryRemain.style.color = remaining < reserve ? 'var(--neon-red, #ff4444)' : '';
 
-    // Enable confirm if player has new purchases OR existing inventory
+    // Enable confirm if player has chosen a prep AND (has new purchases OR existing inventory)
     const hasNewPurchases = Object.values(this.quantities).some(q => q > 0);
     const hasExistingStock = Object.values(gameState.inventory).some(q => q > 0);
-    const canProceed = hasNewPurchases || hasExistingStock;
+    const hasPrepChoice = this.selectedPrep !== '';
+    const canProceed = hasPrepChoice && (hasNewPurchases || hasExistingStock);
     this.confirmBtn.disabled = !canProceed;
     this.confirmBtn.style.opacity = canProceed ? '1' : '0.5';
-    this.confirmBtn.textContent = hasNewPurchases ? '確認進貨' : '直接出攤';
+    if (!hasPrepChoice) {
+      this.confirmBtn.textContent = '請先選擇今日準備';
+    } else {
+      this.confirmBtn.textContent = hasNewPurchases ? '確認進貨' : '直接出攤';
+    }
   }
 
   private onConfirm = (): void => {
