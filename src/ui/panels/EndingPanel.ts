@@ -6,7 +6,7 @@ import { INITIAL_SAUSAGES } from '../../data/sausages';
 import { resetAchievements } from '../../systems/AchievementEngine';
 import { resetEventTracking } from '../../systems/EventEngine';
 
-export type EndingType = 'bankrupt' | 'loan-shark' | 'territory-win' | 'day20';
+export type EndingType = 'bankrupt' | 'loan-shark' | 'territory-win' | 'day20' | 'day30';
 
 export interface EndingData {
   type: EndingType;
@@ -53,12 +53,12 @@ function calculateGrillPR(stats: typeof gameState.stats): { score: number; pr: n
   return { score, pr, title, titleEmoji };
 }
 
-function getDay20Grade(playerSlot: number): { grade: string; gradeEmoji: string; title: string } {
+function getFinalGrade(playerSlot: number): { grade: string; gradeEmoji: string; title: string } {
   if (playerSlot >= 9) return { grade: 'S', gradeEmoji: '', title: '夜市之王' };
   if (playerSlot >= 7) return { grade: 'A', gradeEmoji: '', title: '呼聲最高的挑戰者' };
   if (playerSlot >= 4) return { grade: 'B', gradeEmoji: '', title: '中段班老闆' };
   if (playerSlot >= 2) return { grade: 'C', gradeEmoji: '', title: '還在掙扎中' };
-  return { grade: 'F', gradeEmoji: '', title: '原地踏步二十天' };
+  return { grade: 'F', gradeEmoji: '', title: '原地踏步' };
 }
 
 function buildEndingConfig(type: EndingType): EndingConfig {
@@ -84,11 +84,21 @@ function buildEndingConfig(type: EndingType): EndingConfig {
     }
     case 'day20': {
       const slot = gameState.playerSlot || 1;
-      const { grade, gradeEmoji, title } = getDay20Grade(slot);
+      const { grade, gradeEmoji, title } = getFinalGrade(slot);
       return {
         emoji: gradeEmoji,
         title: `評等 ${grade}`,
         dramatic: title,
+        grade,
+      };
+    }
+    case 'day30': {
+      const slot = gameState.playerSlot || 1;
+      const { grade, gradeEmoji, title } = getFinalGrade(slot);
+      return {
+        emoji: gradeEmoji,
+        title: `評等 ${grade}`,
+        dramatic: `三十天的夜市征途結束了。${title}`,
         grade,
       };
     }

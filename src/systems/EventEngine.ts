@@ -13,11 +13,8 @@ export function rollDailyEvents(): GameEvent[] {
     !SCHEDULED_EVENT_IDS.includes(e.id)
   );
 
-  // Social prep bonus: raise max events by 1 and add traffic bonus
+  // Social prep bonus: raise max events by 1 (traffic bonus applied in GrillScene)
   const socialBonus = gameState.morningPrep === 'social';
-  if (socialBonus) {
-    updateGameState({ dailyTrafficBonus: (gameState.dailyTrafficBonus ?? 0) + 0.1 });
-  }
   const maxEvents = (gameState.day <= 3 ? 1 : 2) + (socialBonus ? 1 : 0);
   // Increased event frequency: 15% chance of no events (was 30%)
   const count = eligible.length === 0
