@@ -124,6 +124,51 @@ export class MorningScene extends Phaser.Scene {
       }
     }
 
+    // ── Contextual economy event triggers (one-time hints) ──
+    const hintsShown = gameState.economyHintsShown;
+
+    // 1. Loan shark introduction — player has been struggling with low funds
+    if (
+      !hintsShown.includes('loan-shark') &&
+      gameState.money < 3000 &&
+      gameState.day >= 4 &&
+      !gameState.loans.active
+    ) {
+      notifications.push('地下錢莊的阿龍遞來一張名片：「缺錢？找我。」→ 商店「貸款」頁');
+      updateGameState({ economyHintsShown: [...hintsShown, 'loan-shark'] });
+    }
+
+    // 2. Player lending introduction — player is cash-rich and can lend to others
+    if (
+      !hintsShown.includes('player-lending') &&
+      gameState.money > 5000 &&
+      gameState.day >= 7 &&
+      gameState.playerLoans.length === 0
+    ) {
+      notifications.push('有人在攤位前徘徊，欲言又止...「老闆，可以借我一點錢嗎？」→ 商店「貸款」頁');
+      updateGameState({ economyHintsShown: [...gameState.economyHintsShown, 'player-lending'] });
+    }
+
+    // 3. Black market unlock announcement — when black market just became available
+    if (
+      !hintsShown.includes('black-market') &&
+      gameState.blackMarketUnlocked
+    ) {
+      notifications.push('深夜，有人塞了一張紙條在你的攤車上：「暗巷第三間，敲三下。」→ 商店解鎖黑市');
+      updateGameState({ economyHintsShown: [...gameState.economyHintsShown, 'black-market'] });
+    }
+
+    // 4. Hui introduction — mid-game, player hasn't joined mutual aid club yet
+    if (
+      !hintsShown.includes('hui') &&
+      gameState.day >= 8 &&
+      !gameState.hui.isActive &&
+      gameState.money > 2000
+    ) {
+      notifications.push('隔壁攤的阿姨拉住你：「我們幾個攤販有組互助會，要不要一起？」→ 商店「互助會」');
+      updateGameState({ economyHintsShown: [...gameState.economyHintsShown, 'hui'] });
+    }
+
     // Phaser background: morning sky gradient
     const bg = this.add.graphics();
     bg.fillGradientStyle(0x0a0a1a, 0x0a0a1a, 0x1a1a3e, 0x101030, 1);

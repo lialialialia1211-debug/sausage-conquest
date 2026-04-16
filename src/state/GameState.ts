@@ -90,6 +90,8 @@ export const gameState = {
     totalCollected: 0,
   } as HuiState,
   gameMode: '' as string,  // 'normal' | 'simulation' | '' (not yet chosen)
+  // Track which one-time economy hint notifications have been shown (by hint ID)
+  economyHintsShown: [] as string[],
 };
 
 // Update state and notify UI via EventBus

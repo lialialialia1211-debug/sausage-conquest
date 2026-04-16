@@ -102,6 +102,11 @@ body {
   color: #ffffff;
 }
 
+@keyframes status-blink {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+
 /* Panel area below status bar */
 #panel-area {
   position: absolute;

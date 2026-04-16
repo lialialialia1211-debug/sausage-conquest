@@ -12,6 +12,10 @@ export class StatusBar {
   private undergroundRepEl: HTMLElement;
   private chaosEl: HTMLElement;
   private bodyguardEl: HTMLElement;
+  // Financial state indicators
+  private loanIndicatorEl: HTMLElement;
+  private huiIndicatorEl: HTMLElement;
+  private playerLoansIndicatorEl: HTMLElement;
 
   constructor(container: HTMLElement) {
     this.element = document.createElement('div');
@@ -25,6 +29,12 @@ export class StatusBar {
     this.chaosEl.style.display = gameState.chaosCount > 0 ? '' : 'none';
     this.bodyguardEl = this.createItem('護', `保鑣剩 ${gameState.bodyguardDaysLeft} 天`);
     this.bodyguardEl.style.display = gameState.hasBodyguard ? '' : 'none';
+
+    // Financial indicators — created and initially synced
+    this.loanIndicatorEl = this.createFinancialIndicator();
+    this.huiIndicatorEl = this.createFinancialIndicator();
+    this.playerLoansIndicatorEl = this.createFinancialIndicator();
+    this.syncFinancialIndicators();
 
     // Mute toggle button
     const muteBtn = document.createElement('div');
@@ -44,6 +54,9 @@ export class StatusBar {
     this.element.appendChild(this.undergroundRepEl);
     this.element.appendChild(this.chaosEl);
     this.element.appendChild(this.bodyguardEl);
+    this.element.appendChild(this.loanIndicatorEl);
+    this.element.appendChild(this.huiIndicatorEl);
+    this.element.appendChild(this.playerLoansIndicatorEl);
     this.element.appendChild(muteBtn);
 
     container.appendChild(this.element);
@@ -84,6 +97,55 @@ export class StatusBar {
     return item;
   }
 
+  // Create a bare container for financial indicators (styled inline)
+  private createFinancialIndicator(): HTMLElement {
+    const el = document.createElement('div');
+    el.className = 'status-item';
+    el.style.fontSize = '12px';
+    el.style.display = 'none';
+    return el;
+  }
+
+  // Sync all three financial indicators to current gameState
+  private syncFinancialIndicators(): void {
+    // 1. Active loan indicator
+    const loan = gameState.loans.active;
+    if (loan) {
+      const isOverdue = loan.overdueDays > 0;
+      this.loanIndicatorEl.textContent = `借 $${loan.totalOwed.toLocaleString()}`;
+      this.loanIndicatorEl.style.color = isOverdue ? '#ff4444' : '#ff8888';
+      this.loanIndicatorEl.style.animation = isOverdue ? 'status-blink 0.8s step-start infinite' : '';
+      this.loanIndicatorEl.title = isOverdue ? `逾期 ${loan.overdueDays} 天！` : `還款日：Day ${loan.dueDay}`;
+      this.loanIndicatorEl.style.display = '';
+    } else {
+      this.loanIndicatorEl.style.display = 'none';
+    }
+
+    // 2. Hui cycle indicator
+    if (gameState.hui.isActive) {
+      this.huiIndicatorEl.textContent = `會 ${gameState.hui.cycle}/5`;
+      this.huiIndicatorEl.style.color = '#f5a623';
+      this.huiIndicatorEl.style.animation = '';
+      this.huiIndicatorEl.title = `標會第 ${gameState.hui.cycle} 輪`;
+      this.huiIndicatorEl.style.display = '';
+    } else {
+      this.huiIndicatorEl.style.display = 'none';
+    }
+
+    // 3. Outstanding player loans (money lent out = future income)
+    const activePlayerLoans = gameState.playerLoans.filter(l => l.status === 'active');
+    if (activePlayerLoans.length > 0) {
+      this.playerLoansIndicatorEl.textContent = `放 ${activePlayerLoans.length}筆`;
+      this.playerLoansIndicatorEl.style.color = '#4caf50';
+      this.playerLoansIndicatorEl.style.animation = '';
+      const total = activePlayerLoans.reduce((sum, l) => sum + l.totalOwed, 0);
+      this.playerLoansIndicatorEl.title = `待收 $${total.toLocaleString()}`;
+      this.playerLoansIndicatorEl.style.display = '';
+    } else {
+      this.playerLoansIndicatorEl.style.display = 'none';
+    }
+  }
+
   private onStateUpdated = (): void => {
     const moneyValue = this.moneyEl.querySelector('.value') as HTMLElement;
     const dayValue = this.dayEl.querySelector('.value') as HTMLElement;
@@ -107,6 +169,9 @@ export class StatusBar {
     // Bodyguard status: only show when active
     if (bodyguardValue) bodyguardValue.textContent = `保鑣剩 ${gameState.bodyguardDaysLeft} 天`;
     this.bodyguardEl.style.display = gameState.hasBodyguard ? '' : 'none';
+
+    // Financial state indicators
+    this.syncFinancialIndicators();
   };
 
   destroy(): void {
