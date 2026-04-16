@@ -45,6 +45,8 @@ export const gameState = {
   defeatedOpponents: [] as string[],
   // Daily event effects (reset each day)
   dailyTrafficBonus: 0,
+  // Grill perfect count for current day — read by BattleScene for combat bonus
+  dailyPerfectCount: 0,
   skipDay: false,
   // Hired part-time workers (array of worker IDs)
   hiredWorkers: [] as string[],

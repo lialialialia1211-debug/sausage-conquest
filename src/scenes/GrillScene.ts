@@ -3480,6 +3480,7 @@ export class GrillScene extends Phaser.Scene {
         dailySalesLog: [...this.salesLog],
         dailyGrillStats: { ...this.grillStats },
         dailyWaste: { grillRemaining, warmingRemaining },
+        dailyPerfectCount: this.grillStats.perfect,
       });
 
       // Increment cumulative grill stats

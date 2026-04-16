@@ -1,7 +1,7 @@
 // BattleScene — 第一人稱香腸格鬥（First-person sausage fighting）
 import Phaser from 'phaser';
 import { EventBus } from '../utils/EventBus';
-import { gameState, spendMoney, addMoney } from '../state/GameState';
+import { gameState, spendMoney, addMoney, updateGameState } from '../state/GameState';
 
 import {
   calculateBattleCost,
@@ -81,6 +81,7 @@ export class BattleScene extends Phaser.Scene {
   // ── Weapon (B1) ──────────────────────────────────────────────────────────────
   private weaponBonus: number = 1;
   private weaponName: string = '';
+  private grillBonus: number = 0;
 
   // ── Opponent special (B2) ────────────────────────────────────────────────────
   private opponentSpecialUsed: boolean = false;
@@ -124,7 +125,9 @@ export class BattleScene extends Phaser.Scene {
     this.playerMaxHp = 100;
     this.opponentHp = 100;
     this.opponentMaxHp = 100;
-    this.energy = 0;
+    // Reputation → starting energy (crowd support bonus)
+    const repEnergy = Math.min(50, Math.floor(gameState.reputation / 2));
+    this.energy = repEnergy;
     this.normalCd = 0;
     this.heavyCd = 0;
     this.opponentStunTimer = 0;
@@ -141,6 +144,10 @@ export class BattleScene extends Phaser.Scene {
     this.opponentSpecialUsed = false;
     this.isDodging = false;
     this.dodgeCooldown = 0;
+
+    // Read grill quality bonus from today's session then clear it
+    this.grillBonus = Math.min(0.5, Math.floor(gameState.dailyPerfectCount / 5) * 0.1);
+    updateGameState({ dailyPerfectCount: 0 });
 
     // Determine difficulty from the opponent slot (next tier), not the player's current tier
     const nextTier = Math.min(9, gameState.playerSlot + 1);
@@ -181,6 +188,37 @@ export class BattleScene extends Phaser.Scene {
     EventBus.emit('scene-ready', 'BattleScene');
 
     this.cameras.main.once('camerafadeincomplete', () => {
+      // Show crowd support notification if player starts with bonus energy
+      if (repEnergy > 0) {
+        const { width: w, height: h } = this.scale;
+        const notifY = h * OPP_CENTER_Y_FRAC + 90;
+        const notif = this.add.text(w / 2, notifY, `觀眾聲援：+${repEnergy} 能量`, {
+          fontSize: '16px',
+          fontFamily: FONT,
+          color: '#ffcc00',
+          fontStyle: 'bold',
+          backgroundColor: '#1a1100',
+          padding: { x: 12, y: 6 },
+          shadow: { blur: 8, color: '#cc8800', fill: true },
+        }).setOrigin(0.5).setDepth(45).setAlpha(0);
+
+        this.tweens.add({
+          targets: notif,
+          alpha: 1,
+          duration: 300,
+          ease: 'Quad.Out',
+          onComplete: () => {
+            this.tweens.add({
+              targets: notif,
+              alpha: 0,
+              delay: 1600,
+              duration: 400,
+              ease: 'Quad.In',
+              onComplete: () => notif.destroy(),
+            });
+          },
+        });
+      }
       this.handleBattleDay();
     });
   }
@@ -315,13 +353,47 @@ export class BattleScene extends Phaser.Scene {
     // Apply scouting bonus from activities
     this.weaponBonus += gameState.battleBonus || 0;
 
+    // Apply grill quality bonus from today's session
+    this.weaponBonus += this.grillBonus;
+
     this.setupInputListeners();
     this.showInfoMessage('戰鬥開始！', '#44ff88', 1200);
+
+    // Show grill bonus banner if applicable
+    if (this.grillBonus > 0) {
+      this.time.delayedCall(400, () => {
+        this.showGrillBonusBanner(this.grillBonus);
+      });
+    }
 
     // Show weapon info after start message
     this.time.delayedCall(600, () => {
       const bonusStr = this.weaponBonus.toFixed(2);
       this.showInfoMessage(`武器：${this.weaponName} (×${bonusStr}倍傷害)`, '#ffcc44', 2000);
+    });
+  }
+
+  // ── Grill bonus banner ────────────────────────────────────────────────────────
+
+  private showGrillBonusBanner(bonus: number): void {
+    const { width } = this.scale;
+    const pct = Math.round(bonus * 100);
+    const obj = this.add.text(width / 2, 60, `烤功加成：+${pct}%`, {
+      fontSize: '20px',
+      fontFamily: FONT,
+      color: '#ffdd44',
+      fontStyle: 'bold',
+      stroke: '#000000',
+      strokeThickness: 3,
+      shadow: { blur: 10, color: '#ff8800', fill: true },
+    }).setOrigin(0.5).setDepth(45);
+
+    this.tweens.add({
+      targets: obj,
+      alpha: 0,
+      delay: 1600,
+      duration: 400,
+      onComplete: () => obj.destroy(),
     });
   }
 
