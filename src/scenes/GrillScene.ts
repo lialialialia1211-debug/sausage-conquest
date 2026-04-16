@@ -37,7 +37,14 @@ import type { SpecialEffectResult } from '../data/sausage-effects';
 import { CUSTOMER_COMMENTS, COUNTER_ATTACKS } from '../data/customerComments';
 
 // ── Layout constants ────────────────────────────────────────────────────────
-const GAME_DURATION = 90;      // seconds
+// Tier-based session duration: early tiers are shorter and less demanding
+function getSessionDuration(): number {
+  const tier = gameState.playerSlot || 1;
+  if (tier <= 3) return 75;
+  if (tier <= 6) return 90;
+  return 105;
+}
+const GAME_DURATION = 90;      // seconds (kept as fallback reference)
 const MAX_GRILL_SLOTS = 4;     // 6 if grill-expand upgrade
 const GRILL_Y_FRAC = 0.35;    // grill vertical position as fraction of screen height (true center)
 // Warming zone has no fixed limit — slots are created dynamically
@@ -90,6 +97,11 @@ export class GrillScene extends Phaser.Scene {
   private paused = true; // Start paused until player clicks "開始營業"
   // Session traffic bonus from events (multiplier added to base)
   private sessionTrafficBonus = 0;
+
+  // ── Combo state ─────────────────────────────────────────────────────────
+  private perfectCombo = 0;
+  private maxCombo = 0;
+  private comboText: Phaser.GameObjects.Text | null = null;
 
   // ── Hover & keyboard state ──────────────────────────────────────────────
   private hoveredSlotIndex: number | null = null;
@@ -189,7 +201,7 @@ export class GrillScene extends Phaser.Scene {
 
     // Reset session state
     this.heatLevel = 'low';
-    this.timeLeft = GAME_DURATION;
+    this.timeLeft = getSessionDuration();
     this.speedMultiplier = 1;
     this.salesLog = [];
     this.grillStats = { perfect: 0, ok: 0, raw: 0, burnt: 0, 'half-cooked': 0, 'slightly-burnt': 0, carbonized: 0 };
@@ -245,6 +257,9 @@ export class GrillScene extends Phaser.Scene {
     this.commentBubble = null;
     this.counterAttackPanel = null;
     this.slowServiceTimer = 0;
+    this.perfectCombo = 0;
+    this.maxCombo = 0;
+    this.comboText = null;
 
     // Worker: adi → extra grill slot
     let maxSlots = gameState.upgrades['grill-expand'] ? 6 : MAX_GRILL_SLOTS;
@@ -1275,7 +1290,7 @@ export class GrillScene extends Phaser.Scene {
 
   private setupHUD(width: number, _height: number): void {
     // ── Top left: timer ──────────────────────────────────────────────────
-    this.timerText = this.add.text(16, 55, '90s', {
+    this.timerText = this.add.text(16, 55, `${this.timeLeft}s`, {
       fontSize: '18px',
       fontFamily: FONT,
       color: '#ffcc44',
@@ -1326,6 +1341,15 @@ export class GrillScene extends Phaser.Scene {
       fontFamily: FONT,
       color: COLOR_ORANGE,
     }).setOrigin(0.5, 0).setDepth(10);
+
+    // ── Combo counter (hidden until combo >= 2) ──────────────────────────
+    this.comboText = this.add.text(width / 2, 32, '', {
+      fontSize: '16px',
+      fontFamily: FONT,
+      color: '#ffd700',
+      stroke: '#000000',
+      strokeThickness: 3,
+    }).setOrigin(0.5, 0).setDepth(100).setAlpha(0);
   }
 
   private setupEndButton(width: number, height: number): void {
@@ -2188,6 +2212,39 @@ export class GrillScene extends Phaser.Scene {
       (this.grillStats as Record<string, number>)[grillQuality]++;
     }
 
+    // ── Combo system ────────────────────────────────────────────────────────
+    const directPrevCombo = this.perfectCombo;
+    const directComboMultiplier = this.handleCombo(ws.grillQuality, warmSlot.x, warmSlot.y);
+
+    if (this.perfectCombo === 5 || this.perfectCombo === 3) {
+      this.triggerComboMilestone(this.perfectCombo, warmSlot.x, warmSlot.y);
+    } else if (this.perfectCombo >= 2 && this.perfectCombo !== directPrevCombo) {
+      if (this.perfectCombo !== 3 && this.perfectCombo !== 5) {
+        this.showFeedback(`Combo x${this.perfectCombo}!`, warmSlot.x, warmSlot.y - 65, '#ffd700');
+      }
+    }
+
+    const directComboBonus = directComboMultiplier > 1.0 ? Math.round(price * (directComboMultiplier - 1.0)) : 0;
+    if (directComboBonus > 0) {
+      addMoney(directComboBonus);
+      this.sessionRevenue += directComboBonus;
+    }
+
+    // ── Perfect serve visuals ────────────────────────────────────────────
+    if (ws.grillQuality === 'perfect') {
+      this.showFeedback('完美!', warmSlot.x, warmSlot.y - 50, '#ffd700');
+      this.flashGrillSlotGold(warmSlot.x, warmSlot.y);
+      this.shakeCamera(0.005, 100);
+    }
+
+    // ── Carbonized serve visuals ─────────────────────────────────────────
+    if (ws.grillQuality === 'carbonized') {
+      this.flashScreenDark();
+    }
+
+    // ── Customer reaction bubble ─────────────────────────────────────────
+    this.time.delayedCall(300, () => this.showCustomerReactionBubble(ws.grillQuality));
+
     // Capture tip multiplier before decrementing (for this serve)
     const directTipMultiplier = this.tipMultiplierServesLeft > 0 ? this.activeTipMultiplier : 1;
     if (this.tipMultiplierServesLeft > 0) {
@@ -2537,6 +2594,39 @@ export class GrillScene extends Phaser.Scene {
       (this.grillStats as Record<string, number>)[grillQuality]++;
     }
 
+    // ── Combo system ────────────────────────────────────────────────────────
+    const prevCombo = this.perfectCombo;
+    const comboMultiplier = this.handleCombo(sausage.grillQuality, warmSlot.x, warmSlot.y);
+
+    // Trigger milestone effects when thresholds are first crossed
+    if (this.perfectCombo === 5 || this.perfectCombo === 3) {
+      this.triggerComboMilestone(this.perfectCombo, warmSlot.x, warmSlot.y);
+    } else if (this.perfectCombo >= 2 && this.perfectCombo !== prevCombo) {
+      // Show combo count text for combos other than the milestone numbers
+      if (this.perfectCombo !== 3 && this.perfectCombo !== 5) {
+        this.showFeedback(`Combo x${this.perfectCombo}!`, warmSlot.x, warmSlot.y - 65, '#ffd700');
+      }
+    }
+
+    // Apply combo revenue bonus (addMoney on top of the base sale)
+    const comboBonus = comboMultiplier > 1.0 ? Math.round(effectivePrice * (comboMultiplier - 1.0)) : 0;
+    if (comboBonus > 0) {
+      addMoney(comboBonus);
+      this.sessionRevenue += comboBonus;
+    }
+
+    // ── Perfect serve visuals ────────────────────────────────────────────
+    if (sausage.grillQuality === 'perfect') {
+      this.showFeedback('完美!', warmSlot.x, warmSlot.y - 50, '#ffd700');
+      this.flashGrillSlotGold(warmSlot.x, warmSlot.y);
+      this.shakeCamera(0.005, 100);
+    }
+
+    // ── Carbonized serve visuals ─────────────────────────────────────────
+    if (sausage.grillQuality === 'carbonized') {
+      this.flashScreenDark();
+    }
+
     // Apply active tip multiplier from special sausage effect
     if (this.tipMultiplierServesLeft > 0) {
       score.tipAmount = Math.round(score.tipAmount * this.activeTipMultiplier);
@@ -2575,6 +2665,9 @@ export class GrillScene extends Phaser.Scene {
 
     this.bounceRevenue();
     this.updateStatsDisplay();
+
+    // ── Customer reaction bubble ─────────────────────────────────────────
+    this.time.delayedCall(300, () => this.showCustomerReactionBubble(sausage.grillQuality));
 
     // 碎碎念觸發：品質差時
     if (grillQuality === 'carbonized' || grillQuality === 'burnt') {
@@ -2961,6 +3054,158 @@ export class GrillScene extends Phaser.Scene {
     });
   }
 
+  // ── Combo system ─────────────────────────────────────────────────────────
+
+  // Call after each serve with the served sausage's grillQuality.
+  // Returns the revenue bonus multiplier that should be applied to this sale.
+  private handleCombo(grillQuality: string, serveX: number, serveY: number): number {
+    if (grillQuality === 'perfect') {
+      this.perfectCombo++;
+      if (this.perfectCombo > this.maxCombo) this.maxCombo = this.perfectCombo;
+    } else {
+      // Combo break
+      if (this.perfectCombo >= 2) {
+        this.showFeedback('combo 中斷', serveX, serveY - 65, '#aaaaaa');
+      }
+      this.perfectCombo = 0;
+    }
+
+    this.updateComboDisplay();
+
+    // Determine revenue multiplier and side effects
+    if (this.perfectCombo >= 5) {
+      return 1.5;
+    } else if (this.perfectCombo >= 3) {
+      return 1.2;
+    }
+    return 1.0;
+  }
+
+  private updateComboDisplay(): void {
+    if (!this.comboText) return;
+    if (this.perfectCombo >= 2) {
+      let label = `Combo x${this.perfectCombo}!`;
+      if (this.perfectCombo >= 5) label += ' 神之手!';
+      this.comboText.setText(label).setAlpha(1);
+    } else {
+      this.comboText.setAlpha(0);
+    }
+  }
+
+  // Trigger milestone visual effects when a threshold is first crossed.
+  private triggerComboMilestone(combo: number, serveX: number, serveY: number): void {
+    const { width, height } = this.scale;
+    if (combo === 5) {
+      // Stronger golden vignette + floating text
+      this.showFeedback('神之手! 1.5x + 耐心回滿', width / 2, height * 0.12, '#ffd700');
+      this.customerQueue.resetAllPatience();
+      this.flashScreenEdge(0xffd700, 0.45, 600);
+    } else if (combo === 3) {
+      this.showFeedback('Combo x3! 收入 1.2x', width / 2, height * 0.12, '#ffd700');
+      this.flashScreenEdge(0xffd700, 0.3, 400);
+    } else if (combo >= 2 && combo !== 3 && combo !== 5) {
+      // Show plain combo feedback for other thresholds
+      this.showFeedback(`Combo x${combo}!`, serveX, serveY - 65, '#ffd700');
+    }
+  }
+
+  // Brief colored vignette / screen-edge glow
+  private flashScreenEdge(color: number, maxAlpha: number, duration: number): void {
+    const { width, height } = this.scale;
+    const vignette = this.add.graphics().setDepth(200);
+    vignette.fillStyle(color, maxAlpha);
+    // Draw as a hollow rectangle (4 thick edge rects)
+    const thickness = 28;
+    vignette.fillRect(0, 0, width, thickness);
+    vignette.fillRect(0, height - thickness, width, thickness);
+    vignette.fillRect(0, 0, thickness, height);
+    vignette.fillRect(width - thickness, 0, thickness, height);
+
+    this.tweens.add({
+      targets: vignette,
+      alpha: 0,
+      duration,
+      ease: 'Power2',
+      onComplete: () => { if (vignette.active) vignette.destroy(); },
+    });
+  }
+
+  // Gold flash on a grill slot (perfect serve visual)
+  private flashGrillSlotGold(slotX: number, slotY: number): void {
+    const flash = this.add.graphics().setDepth(50);
+    flash.fillStyle(0xffd700, 0.55);
+    flash.fillRect(slotX - 34, slotY - 44, 68, 88);
+
+    this.tweens.add({
+      targets: flash,
+      alpha: 0,
+      duration: 300,
+      ease: 'Power1',
+      onComplete: () => { if (flash.active) flash.destroy(); },
+    });
+  }
+
+  // Dark screen overlay for carbonized serve
+  private flashScreenDark(): void {
+    const { width, height } = this.scale;
+    const overlay = this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.1)
+      .setDepth(200);
+
+    this.tweens.add({
+      targets: overlay,
+      alpha: 0,
+      duration: 500,
+      ease: 'Power1',
+      onComplete: () => { if (overlay.active) overlay.destroy(); },
+    });
+  }
+
+  // Camera shake helper
+  private shakeCamera(intensity: number, duration: number): void {
+    this.cameras.main.shake(duration, intensity);
+  }
+
+  // Customer reaction bubble near queue
+  private showCustomerReactionBubble(grillQuality: string): void {
+    const { width, height } = this.scale;
+    const queueY = height * 0.17;
+    const bubbleX = width / 2 + (Math.random() * 120 - 60);
+    const bubbleY = queueY - 50;
+
+    let lines: string[];
+    let color: string;
+
+    if (grillQuality === 'perfect') {
+      lines = ['哦～', '太厲害了!', '完美!'];
+      color = '#ffd700';
+    } else if (grillQuality === 'ok' || grillQuality === 'slightly-burnt') {
+      lines = ['還不錯', '可以'];
+      color = '#aaffaa';
+    } else {
+      lines = ['...這能吃?', '咳咳', '焦了吧'];
+      color = '#ff8888';
+    }
+
+    const line = lines[Math.floor(Math.random() * lines.length)];
+
+    const bubble = this.add.text(bubbleX, bubbleY, `「${line}」`, {
+      fontSize: '13px',
+      fontFamily: FONT,
+      color,
+      backgroundColor: '#222222cc',
+      padding: { x: 6, y: 3 },
+    }).setOrigin(0.5).setDepth(50);
+
+    this.tweens.add({
+      targets: bubble,
+      y: bubbleY - 22,
+      alpha: 0,
+      duration: 2200,
+      ease: 'Power1',
+      onComplete: () => { if (bubble.active) bubble.destroy(); },
+    });
+  }
+
   // ── Leave stall / activity system ────────────────────────────────────────
 
   private showActivityMenu(): void {
@@ -3306,7 +3551,7 @@ export class GrillScene extends Phaser.Scene {
       `Day ${gameState.day} — 準備營業`,
       '',
       `今日庫存：${inventorySummary || '（空）'}`,
-      `營業時間：90 秒`,
+      `營業時間：${this.timeLeft} 秒`,
       `第 ${gameState.playerSlot} 層 — ${playerSlotData.name}（人流 ×${playerSlotData.trafficMultiplier}）`,
       '',
     ];
