@@ -2240,6 +2240,10 @@ export class GrillScene extends Phaser.Scene {
       this.showFeedback('完美!', warmSlot.x, warmSlot.y - 50, '#ffd700');
       this.flashGrillSlotGold(warmSlot.x, warmSlot.y);
       this.shakeCamera(0.005, 100);
+      // High-difficulty sausage special cutscenes
+      if (sausageId === 'cheese') this.triggerCheeseExplosion(warmSlot.x, warmSlot.y);
+      else if (sausageId === 'squidink') this.triggerSquidinkReveal(warmSlot.x, warmSlot.y);
+      else if (sausageId === 'great-wall') this.triggerGreatWallSpectacle(warmSlot.x, warmSlot.y);
     }
 
     // ── Carbonized serve visuals ─────────────────────────────────────────
@@ -2632,6 +2636,10 @@ export class GrillScene extends Phaser.Scene {
       this.showFeedback('完美!', warmSlot.x, warmSlot.y - 50, '#ffd700');
       this.flashGrillSlotGold(warmSlot.x, warmSlot.y);
       this.shakeCamera(0.005, 100);
+      // High-difficulty sausage special cutscenes
+      if (sausage.sausageTypeId === 'cheese') this.triggerCheeseExplosion(warmSlot.x, warmSlot.y);
+      else if (sausage.sausageTypeId === 'squidink') this.triggerSquidinkReveal(warmSlot.x, warmSlot.y);
+      else if (sausage.sausageTypeId === 'great-wall') this.triggerGreatWallSpectacle(warmSlot.x, warmSlot.y);
     }
 
     // ── Carbonized serve visuals ─────────────────────────────────────────
@@ -3783,5 +3791,235 @@ export class GrillScene extends Phaser.Scene {
       managementFee: { weeklyAmount: 500, lastPaidDay: 0, isResisting: false, resistDays: 0, bribedInspector: false, rebranded: false },
       hui: { isActive: false, day: 0, cycle: 0, members: [], pot: 0, dailyFee: 100, playerHasCollected: false, playerBidAmount: 0, runaway: false, totalPaidIn: 0, totalCollected: 0 },
     });
+  }
+
+  // ── Task 5.1: Cheese Perfect — 起司爆漿瞬間 ─────────────────────────────
+  private triggerCheeseExplosion(x: number, y: number): void {
+    const { width, height } = this.scale;
+
+    // Stronger camera shake
+    this.shakeCamera(0.01, 200);
+
+    // Yellow particle burst: 8-12 small circles flying outward
+    const particleCount = 8 + Math.floor(Math.random() * 5);
+    for (let i = 0; i < particleCount; i++) {
+      const angle = (Math.PI * 2 * i) / particleCount + (Math.random() * 0.4 - 0.2);
+      const speed = 80 + Math.random() * 80;
+      const gfx = this.add.graphics().setDepth(92);
+      gfx.fillStyle(0xffe033, 1);
+      gfx.fillCircle(0, 0, 4 + Math.random() * 4);
+      gfx.setPosition(x, y);
+
+      this.tweens.add({
+        targets: gfx,
+        x: x + Math.cos(angle) * speed,
+        y: y + Math.sin(angle) * speed,
+        alpha: 0,
+        duration: 500,
+        ease: 'Power2',
+        onComplete: () => { if (gfx.active) gfx.destroy(); },
+      });
+    }
+
+    // Dramatic text at screen center
+    const label = this.add.text(width / 2, height / 2, '起司爆漿！！！', {
+      fontSize: '48px',
+      color: '#ffe033',
+      fontFamily: FONT,
+      stroke: '#7a5800',
+      strokeThickness: 4,
+    }).setOrigin(0.5).setDepth(95).setScale(0).setAlpha(1);
+
+    this.tweens.add({
+      targets: label,
+      scaleX: 1.2,
+      scaleY: 1.2,
+      duration: 300,
+      ease: 'Back.Out',
+      onComplete: () => {
+        this.tweens.add({
+          targets: label,
+          scaleX: 0,
+          scaleY: 0,
+          alpha: 0,
+          duration: 500,
+          delay: 200,
+          ease: 'Power2',
+          onComplete: () => { if (label.active) label.destroy(); },
+        });
+      },
+    });
+
+    // All nearby customers get +3s patience bonus
+    for (const display of (this.customerQueue as any).displays as Array<{ state: string; remainingPatience: number; initialPatience: number }>) {
+      if (display.state !== 'waiting') continue;
+      display.remainingPatience = Math.min(display.initialPatience, display.remainingPatience + 3);
+    }
+    this.customerQueue.multiplyAllPatience(1); // force redraw via existing method
+    this.showFeedback('起司爆漿！附近客人+3s耐心', width / 2, height * 0.38, '#ffe033');
+  }
+
+  // ── Task 5.2: Squidink Perfect — 破暗 ────────────────────────────────────
+  private triggerSquidinkReveal(_x: number, _y: number): void {
+    const { width, height } = this.scale;
+
+    // Full-screen dark overlay
+    const overlay = this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0)
+      .setDepth(90);
+
+    this.tweens.add({
+      targets: overlay,
+      alpha: 0.7,
+      duration: 150,
+      ease: 'Power1',
+      onComplete: () => {
+        // Draw 3-5 golden crack lines from center outward
+        const crackCount = 3 + Math.floor(Math.random() * 3);
+        const cracks = this.add.graphics().setDepth(91);
+        cracks.lineStyle(2, 0xffd700, 1);
+        const cx = width / 2;
+        const cy = height / 2;
+        for (let i = 0; i < crackCount; i++) {
+          const angle = (Math.PI * 2 * i) / crackCount + (Math.random() * 0.5 - 0.25);
+          const len = 120 + Math.random() * 100;
+          // Jagged crack: two segments
+          const midLen = len * (0.4 + Math.random() * 0.2);
+          const jitterAngle = angle + (Math.random() * 0.4 - 0.2);
+          const mx = cx + Math.cos(jitterAngle) * midLen;
+          const my = cy + Math.sin(jitterAngle) * midLen;
+          const ex = cx + Math.cos(angle) * len;
+          const ey = cy + Math.sin(angle) * len;
+          cracks.beginPath();
+          cracks.moveTo(cx, cy);
+          cracks.lineTo(mx, my);
+          cracks.lineTo(ex, ey);
+          cracks.strokePath();
+        }
+
+        // Shatter: fade overlay and cracks out together
+        this.tweens.add({
+          targets: [overlay, cracks],
+          alpha: 0,
+          duration: 400,
+          delay: 300,
+          ease: 'Power2',
+          onComplete: () => {
+            if (overlay.active) overlay.destroy();
+            if (cracks.active) cracks.destroy();
+          },
+        });
+
+        // Reveal golden text
+        const label = this.add.text(width / 2, height / 2, '盲烤成功！', {
+          fontSize: '52px',
+          color: '#ffd700',
+          fontFamily: FONT,
+          stroke: '#5c3d00',
+          strokeThickness: 5,
+        }).setOrigin(0.5).setDepth(93).setAlpha(0);
+
+        this.tweens.add({
+          targets: label,
+          alpha: 1,
+          duration: 200,
+          delay: 150,
+          ease: 'Power1',
+          onComplete: () => {
+            // Glow pulse then fade
+            this.tweens.add({
+              targets: label,
+              alpha: 0,
+              scaleX: 1.15,
+              scaleY: 1.15,
+              duration: 1000,
+              delay: 500,
+              ease: 'Power2',
+              onComplete: () => { if (label.active) label.destroy(); },
+            });
+          },
+        });
+      },
+    });
+  }
+
+  // ── Task 5.3: Great Wall Perfect — 圍觀拍照 ──────────────────────────────
+  private triggerGreatWallSpectacle(x: number, y: number): void {
+    const { width, height } = this.scale;
+
+    // 4-6 camera flash effects (white rectangles blinking at random positions)
+    const flashCount = 4 + Math.floor(Math.random() * 3);
+    for (let i = 0; i < flashCount; i++) {
+      const fx = x + (Math.random() * 180 - 90);
+      const fy = y + (Math.random() * 120 - 60);
+      const flash = this.add.rectangle(fx, fy, 30 + Math.random() * 20, 22 + Math.random() * 14, 0xffffff, 0)
+        .setDepth(91);
+
+      this.tweens.add({
+        targets: flash,
+        alpha: 0.85,
+        duration: 80,
+        delay: i * 120,
+        ease: 'Power1',
+        yoyo: true,
+        onComplete: () => {
+          // Second blink
+          this.tweens.add({
+            targets: flash,
+            alpha: 0.7,
+            duration: 60,
+            yoyo: true,
+            onComplete: () => { if (flash.active) flash.destroy(); },
+          });
+        },
+      });
+    }
+
+    // Staggered floating text bubbles
+    const bubbleTexts = ['太扯了!', '拍到了!', '上傳IG!'];
+    const bubblePositions = [
+      { x: width * 0.2, y: height * 0.45 },
+      { x: width * 0.75, y: height * 0.35 },
+      { x: width * 0.5, y: height * 0.55 },
+    ];
+    bubbleTexts.forEach((txt, idx) => {
+      const bx = bubblePositions[idx].x;
+      const by = bubblePositions[idx].y;
+      const bubble = this.add.text(bx, by, txt, {
+        fontSize: '22px',
+        color: '#ffffff',
+        backgroundColor: '#222288',
+        padding: { x: 8, y: 4 },
+        fontFamily: FONT,
+      }).setOrigin(0.5).setDepth(92).setAlpha(0);
+
+      this.tweens.add({
+        targets: bubble,
+        alpha: 1,
+        y: by - 18,
+        duration: 300,
+        delay: idx * 300,
+        ease: 'Back.Out',
+        onComplete: () => {
+          this.tweens.add({
+            targets: bubble,
+            alpha: 0,
+            y: by - 40,
+            duration: 500,
+            delay: 600,
+            ease: 'Power1',
+            onComplete: () => { if (bubble.active) bubble.destroy(); },
+          });
+        },
+      });
+    });
+
+    // Reputation +3
+    changeReputation(3);
+
+    // All waiting customers patience restored to full
+    this.customerQueue.resetAllPatience();
+
+    // Result text at screen top
+    this.showFeedback('萬里腸城震撼！聲望+3', width / 2, height * 0.08, '#ffd700');
   }
 }
