@@ -22,6 +22,7 @@ export class EveningScene extends Phaser.Scene {
 
     // If skipDay is set, bypass the grill entirely and jump to EventScene
     if (gameState.skipDay) {
+      updateGameState({ skipDay: false });
       this.scene.start('EventScene');
       return;
     }
@@ -104,14 +105,20 @@ export class EveningScene extends Phaser.Scene {
 
     // Auto-select location: player's slot is fixed by battle results
     const playerTier = gameState.playerSlot || 1;
-    const slot = GRID_SLOTS.find(s => s.tier === playerTier) || GRID_SLOTS[0];
+    let slot = GRID_SLOTS.find(s => s.tier === playerTier) || GRID_SLOTS[0];
 
     updateGameState({ selectedSlot: slot.id });
 
-    // Auto-deduct rent for the current slot
+    // Auto-deduct rent for the current slot; fall back to tier 1 if can't afford
     if (slot.rent > 0) {
-      spendMoney(slot.rent);
-      updateGameState({ dailyExpenses: gameState.dailyExpenses + slot.rent });
+      const paid = spendMoney(slot.rent);
+      if (paid) {
+        updateGameState({ dailyExpenses: gameState.dailyExpenses + slot.rent });
+      } else {
+        const freeSlot = GRID_SLOTS.find(s => s.rent === 0) || GRID_SLOTS[0];
+        updateGameState({ selectedSlot: freeSlot.id });
+        slot = freeSlot;
+      }
     }
 
     // Carry forward existing prices; fill missing unlocked sausages with suggested price

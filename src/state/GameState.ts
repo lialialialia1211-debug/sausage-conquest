@@ -111,8 +111,6 @@ export function advanceDay(): void {
     dailyGrillStats: { perfect: 0, ok: 0, raw: 0, burnt: 0, 'half-cooked': 0, 'slightly-burnt': 0, carbonized: 0 },
     warmingZone: overnightSausages,
     dailyWaste: { grillRemaining: 0, warmingRemaining: 0 },
-    dailyTrafficBonus: 0,
-    skipDay: false,
     workerSalaryPaid: false,
     dailyOrderScores: [],
     battleBonus: 0,

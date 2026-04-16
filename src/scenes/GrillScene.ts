@@ -1468,6 +1468,7 @@ export class GrillScene extends Phaser.Scene {
     const trafficNorm = Math.max(1, Math.min(5, rawTraffic));
 
     const marketingBonus = (gameState.upgrades['neon-sign'] ? 0.15 : 0) + (gameState.dailyTrafficBonus ?? 0);
+    updateGameState({ dailyTrafficBonus: 0 });
     let pool = generateCustomers(trafficNorm, marketingBonus);
     // Cap at ~40 customers for a 90-second session (generous flow)
     if (pool.length > 40) pool = pool.slice(0, 40);
