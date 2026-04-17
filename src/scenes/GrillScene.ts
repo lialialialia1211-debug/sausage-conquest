@@ -67,9 +67,20 @@ interface GrillSlot {
   sausage: GrillingSausage | null;
   x: number;
   y: number;
-  placeholderGfx: Phaser.GameObjects.Graphics | null;
+  placeholderGfx: GrillSlotGraphics | null;
   serveBtn: Phaser.GameObjects.Text | null;
   serveHint: Phaser.GameObjects.Text | null;
+  // Runtime state flags attached during play
+  __flipPromptShown?: boolean;
+  __carbonWarnShown?: boolean;
+  __burntWarnShown?: boolean;
+  __autoFlipped?: boolean;
+  __lastClickTime?: number;
+}
+
+// Extended Graphics object that carries the associated hit zone
+interface GrillSlotGraphics extends Phaser.GameObjects.Graphics {
+  __hitZone?: Phaser.GameObjects.Zone;
 }
 
 interface WarmingSlot {
@@ -79,6 +90,11 @@ interface WarmingSlot {
   bgGfx: Phaser.GameObjects.Graphics | null;
   infoText: Phaser.GameObjects.Text | null;
   stateText: Phaser.GameObjects.Text | null;
+  // Layout geometry cached at creation time
+  __x?: number;
+  __y?: number;
+  __w?: number;
+  __h?: number;
 }
 
 export class GrillScene extends Phaser.Scene {
@@ -164,6 +180,7 @@ export class GrillScene extends Phaser.Scene {
   private workerActionTimer: number = 0;
   private awayOverlay: Phaser.GameObjects.Container | null = null;
   private meiServeTimer: number = 0;
+  private __awayBannerText: Phaser.GameObjects.Text | null = null;
 
   // ── Condiment station state ──────────────────────────────────────────────
   private condimentOverlay: Phaser.GameObjects.Container | null = null;
@@ -453,8 +470,8 @@ export class GrillScene extends Phaser.Scene {
       const nonHeated = updated.currentSide === 'bottom' ? updated.topDoneness : updated.bottomDoneness;
 
       // Show "點一下翻面！" hint when heated side hits green zone (70+) and other side not yet cooked
-      if (heatedSide >= 70 && nonHeated < 30 && !(slot as any).__flipPromptShown) {
-        (slot as any).__flipPromptShown = true;
+      if (heatedSide >= 70 && nonHeated < 30 && !slot.__flipPromptShown) {
+        slot.__flipPromptShown = true;
         this.showFeedback('點一下翻面！', slot.x, slot.y - 55, '#39ff14');
       }
 
@@ -468,26 +485,26 @@ export class GrillScene extends Phaser.Scene {
 
       // Show warning for overcooked
       const currentQuality = judgeQuality(updated, isSimulation);
-      if (currentQuality === 'carbonized' && !(slot as any).__carbonWarnShown) {
+      if (currentQuality === 'carbonized' && !slot.__carbonWarnShown) {
         sfx.playBurnt();
         this.showFeedback('碳化了！快起鍋', slot.x, slot.y - 55, '#ff3300');
-        (slot as any).__carbonWarnShown = true;
-      } else if (currentQuality === 'burnt' && !(slot as any).__burntWarnShown) {
+        slot.__carbonWarnShown = true;
+      } else if (currentQuality === 'burnt' && !slot.__burntWarnShown) {
         this.showFeedback('焦了！趕快起鍋', slot.x, slot.y - 55, '#ff6600');
-        (slot as any).__burntWarnShown = true;
+        slot.__burntWarnShown = true;
       }
 
       // Auto-grill: if upgrade active, auto-flip when heated side >= 70 and other < 70
       if (gameState.upgrades['auto-grill']) {
-        if (heatedSide >= 70 && nonHeated < 70 && !(slot as any).__autoFlipped) {
-          (slot as any).__autoFlipped = true;
-          (slot as any).__flipPromptShown = true;
+        if (heatedSide >= 70 && nonHeated < 70 && !slot.__autoFlipped) {
+          slot.__autoFlipped = true;
+          slot.__flipPromptShown = true;
           this.doFlipSlot(slot);
           this.showFeedback('自動翻面', slot.x, slot.y - 40, '#44ccff');
         }
         // Reset auto-flip flag when the new side becomes active
         if (heatedSide < 70) {
-          (slot as any).__autoFlipped = false;
+          slot.__autoFlipped = false;
         }
       }
     }
@@ -525,9 +542,8 @@ export class GrillScene extends Phaser.Scene {
       this.awayActivityTimer -= dt;
 
       // Update banner text
-      const bannerText = (this as any).__awayBannerText as Phaser.GameObjects.Text | null;
-      if (bannerText) {
-        bannerText.setText(
+      if (this.__awayBannerText) {
+        this.__awayBannerText.setText(
           `${this.currentActivity.name}中... (${Math.ceil(this.awayActivityTimer)}秒)`
         );
       }
@@ -815,13 +831,14 @@ export class GrillScene extends Phaser.Scene {
     });
 
     // Store graphics in slot (zone needs to be tracked too — attach to graphics)
-    (g as any).__hitZone = hitZone;
-    slot.placeholderGfx = g;
+    const gfx = g as GrillSlotGraphics;
+    gfx.__hitZone = hitZone;
+    slot.placeholderGfx = gfx;
   }
 
   private clearSlotPlaceholder(slot: GrillSlot): void {
     if (slot.placeholderGfx) {
-      const zone = (slot.placeholderGfx as any).__hitZone as Phaser.GameObjects.Zone | undefined;
+      const zone = slot.placeholderGfx.__hitZone;
       if (zone) zone.destroy();
       slot.placeholderGfx.destroy();
       slot.placeholderGfx = null;
@@ -907,10 +924,10 @@ export class GrillScene extends Phaser.Scene {
       }
     });
 
-    (slot as any).__x = sx;
-    (slot as any).__y = sy;
-    (slot as any).__w = slotW;
-    (slot as any).__h = this.wzSlotH;
+    slot.__x = sx;
+    slot.__y = sy;
+    slot.__w = slotW;
+    slot.__h = this.wzSlotH;
 
     return slot;
   }
@@ -991,10 +1008,10 @@ export class GrillScene extends Phaser.Scene {
     }
 
     // Redraw background with quality-tinted border
-    const x = (slot as any).__x as number;
-    const y = (slot as any).__y as number;
-    const w = (slot as any).__w as number;
-    const h = (slot as any).__h as number;
+    const x = slot.__x ?? 0;
+    const y = slot.__y ?? 0;
+    const w = slot.__w ?? 0;
+    const h = slot.__h ?? 0;
     this.redrawWarmingSlotBgQuality(slot, x, y, w, h);
   }
 
@@ -1002,10 +1019,10 @@ export class GrillScene extends Phaser.Scene {
     if (slot.infoText) slot.infoText.setText('空');
     if (slot.stateText) slot.stateText.setText('');
 
-    const x = (slot as any).__x as number;
-    const y = (slot as any).__y as number;
-    const w = (slot as any).__w as number;
-    const h = (slot as any).__h as number;
+    const x = slot.__x ?? 0;
+    const y = slot.__y ?? 0;
+    const w = slot.__w ?? 0;
+    const h = slot.__h ?? 0;
     this.redrawWarmingSlotBg(slot, x, y, w, h);
   }
 
@@ -1509,7 +1526,7 @@ export class GrillScene extends Phaser.Scene {
     slot.sprite.triggerFlip();
     slot.sprite.updateData(slot.sausage);
     sfx.playFlip();
-    (slot as any).__flipPromptShown = false;
+    slot.__flipPromptShown = false;
     this.showFeedback('翻面！', slot.x, slot.y + 35, '#ffcc44');
   }
 
@@ -2040,13 +2057,13 @@ export class GrillScene extends Phaser.Scene {
       const currentSlot = this.grillSlots.find(s => s.sprite === sprite);
       if (!currentSlot) return;
       const now = Date.now();
-      const lastClickTime = (currentSlot as any).__lastClickTime || 0;
+      const lastClickTime = currentSlot.__lastClickTime ?? 0;
       const isDoubleClick = (now - lastClickTime) < 350;
       if (isDoubleClick) {
-        (currentSlot as any).__lastClickTime = 0;
+        currentSlot.__lastClickTime = 0;
         if (currentSlot.sprite) this.moveToWarming(currentSlot, currentSlot.sprite);
       } else {
-        (currentSlot as any).__lastClickTime = now;
+        currentSlot.__lastClickTime = now;
         this.doFlipSlot(currentSlot);
       }
     });
@@ -2061,10 +2078,10 @@ export class GrillScene extends Phaser.Scene {
 
     slot.sausage = sausage;
     slot.sprite = sprite;
-    (slot as any).__carbonWarnShown = false;
-    (slot as any).__burntWarnShown = false;
-    (slot as any).__autoFlipped = false;
-    (slot as any).__flipPromptShown = false;
+    slot.__carbonWarnShown = false;
+    slot.__burntWarnShown = false;
+    slot.__autoFlipped = false;
+    slot.__flipPromptShown = false;
 
     // Reset selection and update inventory display
     this.selectedInventoryType = null;
@@ -2377,7 +2394,7 @@ export class GrillScene extends Phaser.Scene {
   private findMatchingCustomer(sausage: WarmingSausage): Customer | null {
     if (!this.customerQueue) return null;
 
-    const waiting = (this.customerQueue as any).getWaitingCustomers?.() as Customer[] || [];
+    const waiting = this.customerQueue.getWaitingCustomers();
 
     // Priority 1: customer whose order matches this sausage type
     const typeMatch = waiting.find((c: Customer) => c.order?.sausageType === sausage.sausageTypeId);
@@ -2554,7 +2571,7 @@ export class GrillScene extends Phaser.Scene {
 
     // Calculate patience ratio
     const patienceRatio = Math.max(0, Math.min(1,
-      (this.customerQueue as any).getCustomerPatienceRatio?.(customer.id) ?? 0.5
+      this.customerQueue.getCustomerPatienceRatio(customer.id) ?? 0.5
     ));
 
     // Base price
@@ -3352,7 +3369,7 @@ export class GrillScene extends Phaser.Scene {
     this.awayOverlay.add([banner, bannerText, returnBtn]);
 
     // Store reference for update loop
-    (this as any).__awayBannerText = bannerText;
+    this.__awayBannerText = bannerText;
 
     // Hide leave button while away
     if (this.leaveButton) this.leaveButton.setVisible(false);
@@ -3366,7 +3383,7 @@ export class GrillScene extends Phaser.Scene {
     // Clean up away overlay
     this.awayOverlay?.destroy();
     this.awayOverlay = null;
-    (this as any).__awayBannerText = null;
+    this.__awayBannerText = null;
 
     // Roll outcome
     const outcome = rollActivityOutcome(activity);
@@ -3475,7 +3492,7 @@ export class GrillScene extends Phaser.Scene {
       this.currentActivity = null;
       this.awayOverlay?.destroy();
       this.awayOverlay = null;
-      (this as any).__awayBannerText = null;
+      this.__awayBannerText = null;
 
       // Clean up any active combat panel
       if (this.currentCombatPanel) {
@@ -3730,7 +3747,7 @@ export class GrillScene extends Phaser.Scene {
       this.awayOverlay.destroy();
       this.awayOverlay = null;
     }
-    (this as any).__awayBannerText = null;
+    this.__awayBannerText = null;
 
     // Remove keyboard listeners (defensive: cameras/input may be torn down by Phaser already)
     try { this.input?.keyboard?.removeAllListeners?.(); } catch (_e) { /* ignore */ }
@@ -3852,10 +3869,7 @@ export class GrillScene extends Phaser.Scene {
     });
 
     // All nearby customers get +3s patience bonus
-    for (const display of (this.customerQueue as any).displays as Array<{ state: string; remainingPatience: number; initialPatience: number }>) {
-      if (display.state !== 'waiting') continue;
-      display.remainingPatience = Math.min(display.initialPatience, display.remainingPatience + 3);
-    }
+    this.customerQueue.addPatienceSeconds(3);
     this.customerQueue.multiplyAllPatience(1); // force redraw via existing method
     this.showFeedback('起司爆漿！附近客人+3s耐心', width / 2, height * 0.38, '#ffe033');
   }

@@ -290,6 +290,14 @@ export class CustomerQueue extends Phaser.GameObjects.Container {
     }
   }
 
+  // Add flat seconds to all waiting customers' remaining patience (capped at initial)
+  addPatienceSeconds(seconds: number): void {
+    for (const display of this.displays) {
+      if (display.state !== 'waiting') continue;
+      display.remainingPatience = Math.min(display.initialPatience, display.remainingPatience + seconds);
+    }
+  }
+
   // Multiply all waiting customers' remaining patience by a factor
   multiplyAllPatience(multiplier: number): void {
     for (const display of this.displays) {

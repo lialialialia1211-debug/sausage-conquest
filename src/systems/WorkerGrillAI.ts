@@ -3,6 +3,7 @@
 
 import { gameState } from '../state/GameState';
 import { WORKERS } from '../data/workers';
+import type { Worker } from '../types';
 import type { GrillingSausage, HeatLevel } from './GrillEngine';
 
 interface WorkerAction {
@@ -12,17 +13,17 @@ interface WorkerAction {
 }
 
 // Get all hired workers that can grill
-export function getGrillingWorkers(): Array<{ id: string; name: string; emoji: string; grillSkill: any }> {
+export function getGrillingWorkers(): Worker[] {
   return (gameState.hiredWorkers || [])
     .map(id => WORKERS.find(w => w.id === id))
-    .filter(w => w && (w as any).grillSkill?.canGrill) as any[];
+    .filter((w): w is Worker => !!w && w.grillSkill.canGrill);
 }
 
 // Get workers that help with serving (mei)
-export function getServingWorkers(): Array<{ id: string; name: string; emoji: string }> {
+export function getServingWorkers(): Worker[] {
   return (gameState.hiredWorkers || [])
     .map(id => WORKERS.find(w => w.id === id))
-    .filter(w => w && w.id === 'mei') as any[];
+    .filter((w): w is Worker => !!w && w.id === 'mei');
 }
 
 /**

@@ -10,6 +10,7 @@ interface SlotPrize {
   colorClass: string;
   effectDesc: string;         // shown after reveal
   applyEffect?: () => void;   // side-effect when drawn
+  __lastAmount?: number;      // runtime cache for 小金庫 prize amount
 }
 
 const FUNNY_NOTHING_TEXTS = [
@@ -51,7 +52,7 @@ const PRIZES: SlotPrize[] = [
       const amount = 30 + Math.floor(Math.random() * 51); // $30–$80
       addMoney(amount);
       // Patch effectDesc at runtime via a tag on the prize object
-      (PRIZES[1] as any).__lastAmount = amount;
+      PRIZES[1].__lastAmount = amount;
     },
   },
   {
@@ -61,7 +62,7 @@ const PRIZES: SlotPrize[] = [
     colorClass: 'prize-purple',
     effectDesc: '接下來 3 次出餐自動滿分！',
     applyEffect: () => {
-      (gameState as any).autoPerfectServes = ((gameState as any).autoPerfectServes ?? 0) + 3;
+      gameState.autoPerfectServes = (gameState.autoPerfectServes ?? 0) + 3;
     },
   },
   {
@@ -71,7 +72,7 @@ const PRIZES: SlotPrize[] = [
     colorClass: 'prize-red',
     effectDesc: '下次烤架熱度提升速率 +50%！',
     applyEffect: () => {
-      (gameState as any).heatRateBonus = ((gameState as any).heatRateBonus ?? 0) + 0.5;
+      gameState.heatRateBonus = (gameState.heatRateBonus ?? 0) + 0.5;
     },
   },
   {
@@ -425,7 +426,7 @@ export class SausageBoxPanel {
         try { prize.applyEffect(); } catch { /* ignore */ }
         // Resolve 小金庫 description after effect applied
         if (prize.label === '小金庫') {
-          const amount = (PRIZES[1] as any).__lastAmount ?? '?';
+          const amount = PRIZES[1].__lastAmount ?? '?';
           prize.resolvedEffectDesc = `獲得 $${amount} 現金！`;
         }
       }

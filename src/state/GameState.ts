@@ -94,6 +94,9 @@ export const gameState = {
   economyHintsShown: [] as string[],
   // Morning preparation choice for today: 'scout' | 'practice' | 'social' | '' (empty = not chosen)
   morningPrep: '' as string,
+  // Prize effects from SausageBoxPanel lucky draw
+  autoPerfectServes: 0,  // remaining auto-perfect serve count
+  heatRateBonus: 0,      // cumulative heat rate bonus multiplier
 };
 
 // Update state and notify UI via EventBus
