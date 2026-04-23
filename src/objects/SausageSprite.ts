@@ -1,12 +1,13 @@
 // SausageSprite — Phaser Container representing one sausage on the grill
 // Shows two separate doneness bars (top + bottom sides), grill marks, and serve/flip interactions
 import Phaser from 'phaser';
-import type { GrillingSausage } from '../systems/GrillEngine';
+import type { GrillingSausage, CookingStage } from '../systems/GrillEngine';
 import {
-  getSausageColor,
   getDonenessBarColor,
   judgeQuality,
   getAverageDoneness,
+  getCookingStage,
+  getStageDisplayInfo,
 } from '../systems/GrillEngine';
 import { SAUSAGE_MAP } from '../data/sausages';
 
@@ -43,6 +44,13 @@ export class SausageSprite extends Phaser.GameObjects.Container {
   // Pulsing tween for active bar
   private activePulseTween: Phaser.Tweens.Tween | null = null;
 
+  // Stage border glow graphics (drawn behind sausage body)
+  private borderGlowGfx: Phaser.GameObjects.Graphics;
+  // Track last rendered stage to trigger scale pulse animation
+  private _lastRenderedTopStage: CookingStage = 'raw';
+  private _lastRenderedBottomStage: CookingStage = 'raw';
+  private _stagePulseTween: Phaser.Tweens.Tween | null = null;
+
   // Variety-specific overlay graphics (cheese swell/glow)
   private varietyGfx: Phaser.GameObjects.Graphics;
   // Tracks last cheese burst to avoid repeated flashes
@@ -56,6 +64,10 @@ export class SausageSprite extends Phaser.GameObjects.Container {
     super(scene, x, y);
     this._data = sausage;
     scene.add.existing(this);
+
+    // Stage border glow (outermost layer, drawn first so it sits behind everything)
+    this.borderGlowGfx = scene.add.graphics();
+    this.add(this.borderGlowGfx);
 
     // Hover glow (white outline, hidden by default)
     this.hoverGlowGfx = scene.add.graphics();
@@ -360,8 +372,36 @@ export class SausageSprite extends Phaser.GameObjects.Container {
   private redraw(): void {
     const sausage = this._data;
     const avgDoneness = getAverageDoneness(sausage);
-    const color = getSausageColor(avgDoneness);
+    // Stage-based stepped color: use the active (heated) side's stage for body color
+    const activeDoneness = sausage.currentSide === 'bottom' ? sausage.bottomDoneness : sausage.topDoneness;
+    const activeStage = getCookingStage(activeDoneness);
+    const stageInfo = getStageDisplayInfo(activeStage);
+    const color = stageInfo.color;
     const quality = judgeQuality(sausage);
+
+    // ── Stage border glow ─────────────────────────────────────────────────────
+    this.borderGlowGfx.clear();
+    this.borderGlowGfx.lineStyle(4, stageInfo.borderGlow, 0.75);
+    this.borderGlowGfx.strokeRoundedRect(
+      -SAUSAGE_W / 2 - 4,
+      -SAUSAGE_H / 2 - 4,
+      SAUSAGE_W + 8,
+      SAUSAGE_H + 8,
+      SAUSAGE_H / 2 + 4,
+    );
+
+    // ── Stage change detection → scale pulse ─────────────────────────────────
+    const newTopStage = getCookingStage(sausage.topDoneness);
+    const newBottomStage = getCookingStage(sausage.bottomDoneness);
+    const stageChanged =
+      newTopStage !== this._lastRenderedTopStage ||
+      newBottomStage !== this._lastRenderedBottomStage;
+    if (stageChanged) {
+      this._lastRenderedTopStage = newTopStage;
+      this._lastRenderedBottomStage = newBottomStage;
+      this._triggerStagePulse();
+    }
+    // ─────────────────────────────────────────────────────────────────────────
 
     // Ready glow when both sides have been cooked (non-heated side >= 20)
     this.readyGlow.clear();
@@ -538,8 +578,36 @@ export class SausageSprite extends Phaser.GameObjects.Container {
     }
   }
 
+  /** Scale pulse animation (1.0 → 1.08 → 1.0, 150ms) triggered on stage change */
+  private _triggerStagePulse(): void {
+    if (!this.scene || !this.scene.tweens) return;
+    // Stop any ongoing stage pulse to avoid overlap
+    if (this._stagePulseTween) {
+      this._stagePulseTween.stop();
+      this._stagePulseTween = null;
+      this.setScale(1);
+    }
+    this._stagePulseTween = this.scene.tweens.add({
+      targets: this,
+      scaleX: 1.08,
+      scaleY: 1.08,
+      duration: 75,
+      ease: 'Power1',
+      yoyo: true,
+      onComplete: () => {
+        this.setScale(1);
+        this._stagePulseTween = null;
+      },
+    });
+  }
+
   override destroy(fromScene?: boolean): void {
     this.stopActivePulse();
+    if (this._stagePulseTween) {
+      this._stagePulseTween.stop();
+      this._stagePulseTween = null;
+    }
+    this.borderGlowGfx.clear();
     this.hoverGlowGfx.clear();
     this.smokeParticles.forEach(s => {
       if (s && s.active) s.destroy();

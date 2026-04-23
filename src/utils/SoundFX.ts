@@ -85,6 +85,31 @@ class SoundFX {
     this.playNoise(0.3, 800, 'lowpass', 0.15);
   }
 
+  /** Stage warning — urgent two-beep alert for "hot" stage (ascending 600→900 Hz, 80ms each) */
+  playStageHot(): void {
+    const ctx = this.ensureContext();
+    const now = ctx.currentTime;
+    const playBeep = (freq: number, t: number): void => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(freq, t);
+      gain.gain.setValueAtTime(0.07, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.08);
+      osc.connect(gain);
+      gain.connect(this.masterGain!);
+      osc.start(t);
+      osc.stop(t + 0.08);
+    };
+    playBeep(600, now);
+    playBeep(900, now + 0.09);
+  }
+
+  /** Stage burnt — low crackle for "burnt" stage (noise burst 200ms, lowpass 400 Hz) */
+  playStageBurnt(): void {
+    this.playNoise(0.2, 400, 'lowpass', 0.12);
+  }
+
   /** Cash register — double ding (C6 = 1047 Hz, two pings 50ms apart) */
   playCashRegister(): void {
     const ctx = this.ensureContext();

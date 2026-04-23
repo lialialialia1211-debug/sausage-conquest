@@ -4,13 +4,53 @@
 export type HeatLevel = 'low' | 'medium' | 'high';
 export type GrillQuality = 'perfect' | 'ok' | 'half-cooked' | 'raw' | 'slightly-burnt' | 'burnt' | 'carbonized';
 
+// ── Stage system ─────────────────────────────────────────────────────────────
+export type CookingStage = 'raw' | 'surface' | 'half' | 'golden' | 'hot' | 'burnt';
+
+export const STAGE_THRESHOLDS: Record<CookingStage, [number, number]> = {
+  raw:     [0,   20],
+  surface: [20,  45],
+  half:    [45,  65],
+  golden:  [65,  90],
+  hot:     [90,  100],
+  burnt:   [100, 9999],
+};
+
+export function getCookingStage(doneness: number): CookingStage {
+  if (doneness < 20)  return 'raw';
+  if (doneness < 45)  return 'surface';
+  if (doneness < 65)  return 'half';
+  if (doneness < 90)  return 'golden';
+  if (doneness < 100) return 'hot';
+  return 'burnt';
+}
+
+export function getStageDisplayInfo(stage: CookingStage): {
+  color: number;
+  label: string;
+  borderGlow: number;
+} {
+  switch (stage) {
+    case 'raw':     return { color: 0xffb6c1, label: '生肉',   borderGlow: 0x666666 };
+    case 'surface': return { color: 0xe8a070, label: '變色',   borderGlow: 0xaa8844 };
+    case 'half':    return { color: 0xd88840, label: '半熟',   borderGlow: 0xffaa33 };
+    case 'golden':  return { color: 0xdaa520, label: '金黃',   borderGlow: 0x00ff66 };
+    case 'hot':     return { color: 0x885522, label: '過熱！', borderGlow: 0xff8800 };
+    case 'burnt':   return { color: 0x221100, label: '焦黑',   borderGlow: 0x660000 };
+  }
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 export interface GrillingSausage {
   id: string;
   sausageTypeId: string;
-  topDoneness: number;    // 0-100
-  bottomDoneness: number; // 0-100
+  topDoneness: number;    // 0-120
+  bottomDoneness: number; // 0-120
   currentSide: 'top' | 'bottom'; // which side faces DOWN (toward heat)
   served: boolean;
+  topStage: CookingStage;
+  bottomStage: CookingStage;
+  lastStageChangeTime: number; // seconds, used for effect debounce
 }
 
 // Doneness units per second
@@ -30,6 +70,9 @@ export function createGrillingSausage(sausageTypeId: string): GrillingSausage {
     bottomDoneness: 0,
     currentSide: 'bottom', // bottom faces down first
     served: false,
+    topStage: 'raw',
+    bottomStage: 'raw',
+    lastStageChangeTime: 0,
   };
 }
 
@@ -45,17 +88,31 @@ export function updateSausage(
   const rate = HEAT_RATES[heatLevel] * deltaSeconds * simMultiplier;
 
   // The side facing DOWN gets heat; cap at 120 to allow carbonization range
+  let updated: GrillingSausage;
   if (sausage.currentSide === 'bottom') {
-    return {
+    updated = {
       ...sausage,
       bottomDoneness: Math.min(120, sausage.bottomDoneness + rate),
     };
   } else {
-    return {
+    updated = {
       ...sausage,
       topDoneness: Math.min(120, sausage.topDoneness + rate),
     };
   }
+
+  // Sync stage fields — caller can diff old vs new to detect transitions
+  const newTopStage = getCookingStage(updated.topDoneness);
+  const newBottomStage = getCookingStage(updated.bottomDoneness);
+  if (newTopStage !== updated.topStage || newBottomStage !== updated.bottomStage) {
+    updated = {
+      ...updated,
+      topStage: newTopStage,
+      bottomStage: newBottomStage,
+    };
+  }
+
+  return updated;
 }
 
 export function flipSausage(sausage: GrillingSausage): GrillingSausage {

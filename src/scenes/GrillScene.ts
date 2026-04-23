@@ -10,9 +10,12 @@ import {
   flipSausage,
   judgeQuality,
   getQualityScore,
+  getCookingStage,
+  getStageDisplayInfo,
   type HeatLevel,
   type GrillingSausage,
   type GrillQuality,
+  type CookingStage,
 } from '../systems/GrillEngine';
 import { generateCustomers } from '../systems/CustomerEngine';
 import { sellSausage } from '../systems/EconomyEngine';
@@ -75,6 +78,10 @@ interface GrillSlot {
   __burntWarnShown?: boolean;
   __autoFlipped?: boolean;
   __lastClickTime?: number;
+  // Stage tracking for visual/audio feedback (Wave 4a)
+  __prevTopStage?: CookingStage;
+  __prevBottomStage?: CookingStage;
+  __lastStageFeedbackTime?: number; // seconds, debounce
 }
 
 // Extended Graphics object that carries the associated hit zone
@@ -460,9 +467,35 @@ export class GrillScene extends Phaser.Scene {
       if (!slot.sausage || !slot.sprite || slot.sausage.served) continue;
 
       const isSimulation = gameState.gameMode === 'simulation';
+      const prevTopStage = slot.__prevTopStage ?? getCookingStage(slot.sausage.topDoneness);
+      const prevBottomStage = slot.__prevBottomStage ?? getCookingStage(slot.sausage.bottomDoneness);
       const updated = updateSausage(slot.sausage, this.heatLevel, dt, isSimulation);
       slot.sausage = updated;
       slot.sprite.updateData(updated);
+
+      // ── Stage change feedback (Wave 4a) ─────────────────────────────────────
+      const nowSec = this.timeLeft; // use session time as a monotonic counter
+      const debounceOk = (slot.__lastStageFeedbackTime ?? 0) - nowSec > 0.2 ||
+        slot.__lastStageFeedbackTime === undefined;
+      const newTopStage = updated.topStage;
+      const newBottomStage = updated.bottomStage;
+      const topChanged = newTopStage !== prevTopStage;
+      const bottomChanged = newBottomStage !== prevBottomStage;
+      if ((topChanged || bottomChanged) && debounceOk) {
+        const changedStage = topChanged ? newTopStage : newBottomStage;
+        const info = getStageDisplayInfo(changedStage);
+        this.showFeedback(info.label, slot.x, slot.y - 55, `#${info.borderGlow.toString(16).padStart(6, '0')}`);
+        slot.__lastStageFeedbackTime = nowSec;
+        // Audio: hot → warning beep, burnt → crackle
+        if (changedStage === 'hot') {
+          sfx.playStageHot();
+        } else if (changedStage === 'burnt') {
+          sfx.playStageBurnt();
+        }
+      }
+      slot.__prevTopStage = newTopStage;
+      slot.__prevBottomStage = newBottomStage;
+      // ────────────────────────────────────────────────────────────────────────
 
       // ── Contextual feedback ──
       const heatedSide = updated.currentSide === 'bottom' ? updated.bottomDoneness : updated.topDoneness;
