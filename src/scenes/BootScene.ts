@@ -63,8 +63,8 @@ export class BootScene extends Phaser.Scene {
     this.load.image('card-frame', 'card-frame.png');
     this.load.image('nightmarket-map', 'nightmarket-map.png');
 
-    // ── Sausage art (9 types) ──
-    const sausageIds = ['black-pig', 'flying-fish-roe', 'garlic-bomb', 'cheese', 'squidink', 'mala', 'big-taste', 'big-wrap-small', 'great-wall'];
+    // ── Sausage art (5 types) ──
+    const sausageIds = ['flying-fish-roe', 'cheese', 'big-taste', 'big-wrap-small', 'great-wall'];
     sausageIds.forEach(id => this.load.image(`sausage-${id}`, `sausage-${id}.png`));
 
     // ── Condiment art (8 types) ──

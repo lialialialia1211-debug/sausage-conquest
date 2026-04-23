@@ -2260,7 +2260,6 @@ export class GrillScene extends Phaser.Scene {
       this.shakeCamera(0.005, 100);
       // High-difficulty sausage special cutscenes
       if (sausageId === 'cheese') this.triggerCheeseExplosion(warmSlot.x, warmSlot.y);
-      else if (sausageId === 'squidink') this.triggerSquidinkReveal(warmSlot.x, warmSlot.y);
       else if (sausageId === 'great-wall') this.triggerGreatWallSpectacle(warmSlot.x, warmSlot.y);
     }
 
@@ -2656,7 +2655,6 @@ export class GrillScene extends Phaser.Scene {
       this.shakeCamera(0.005, 100);
       // High-difficulty sausage special cutscenes
       if (sausage.sausageTypeId === 'cheese') this.triggerCheeseExplosion(warmSlot.x, warmSlot.y);
-      else if (sausage.sausageTypeId === 'squidink') this.triggerSquidinkReveal(warmSlot.x, warmSlot.y);
       else if (sausage.sausageTypeId === 'great-wall') this.triggerGreatWallSpectacle(warmSlot.x, warmSlot.y);
     }
 
@@ -3767,7 +3765,7 @@ export class GrillScene extends Phaser.Scene {
       upgrades: {},
       prices: {},
       selectedSlot: 1,
-      unlockedSausages: ['black-pig', 'flying-fish-roe', 'garlic-bomb', 'big-taste'],
+      unlockedSausages: ['flying-fish-roe', 'cheese', 'big-taste', 'big-wrap-small', 'great-wall'],
       hiredWorkers: [],
       marketingPurchases: {},
       grillEventCooldowns: {},
@@ -3872,89 +3870,6 @@ export class GrillScene extends Phaser.Scene {
     this.customerQueue.addPatienceSeconds(3);
     this.customerQueue.multiplyAllPatience(1); // force redraw via existing method
     this.showFeedback('起司爆漿！附近客人+3s耐心', width / 2, height * 0.38, '#ffe033');
-  }
-
-  // ── Task 5.2: Squidink Perfect — 破暗 ────────────────────────────────────
-  private triggerSquidinkReveal(_x: number, _y: number): void {
-    const { width, height } = this.scale;
-
-    // Full-screen dark overlay
-    const overlay = this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0)
-      .setDepth(90);
-
-    this.tweens.add({
-      targets: overlay,
-      alpha: 0.7,
-      duration: 150,
-      ease: 'Power1',
-      onComplete: () => {
-        // Draw 3-5 golden crack lines from center outward
-        const crackCount = 3 + Math.floor(Math.random() * 3);
-        const cracks = this.add.graphics().setDepth(91);
-        cracks.lineStyle(2, 0xffd700, 1);
-        const cx = width / 2;
-        const cy = height / 2;
-        for (let i = 0; i < crackCount; i++) {
-          const angle = (Math.PI * 2 * i) / crackCount + (Math.random() * 0.5 - 0.25);
-          const len = 120 + Math.random() * 100;
-          // Jagged crack: two segments
-          const midLen = len * (0.4 + Math.random() * 0.2);
-          const jitterAngle = angle + (Math.random() * 0.4 - 0.2);
-          const mx = cx + Math.cos(jitterAngle) * midLen;
-          const my = cy + Math.sin(jitterAngle) * midLen;
-          const ex = cx + Math.cos(angle) * len;
-          const ey = cy + Math.sin(angle) * len;
-          cracks.beginPath();
-          cracks.moveTo(cx, cy);
-          cracks.lineTo(mx, my);
-          cracks.lineTo(ex, ey);
-          cracks.strokePath();
-        }
-
-        // Shatter: fade overlay and cracks out together
-        this.tweens.add({
-          targets: [overlay, cracks],
-          alpha: 0,
-          duration: 400,
-          delay: 300,
-          ease: 'Power2',
-          onComplete: () => {
-            if (overlay.active) overlay.destroy();
-            if (cracks.active) cracks.destroy();
-          },
-        });
-
-        // Reveal golden text
-        const label = this.add.text(width / 2, height / 2, '盲烤成功！', {
-          fontSize: '52px',
-          color: '#ffd700',
-          fontFamily: FONT,
-          stroke: '#5c3d00',
-          strokeThickness: 5,
-        }).setOrigin(0.5).setDepth(93).setAlpha(0);
-
-        this.tweens.add({
-          targets: label,
-          alpha: 1,
-          duration: 200,
-          delay: 150,
-          ease: 'Power1',
-          onComplete: () => {
-            // Glow pulse then fade
-            this.tweens.add({
-              targets: label,
-              alpha: 0,
-              scaleX: 1.15,
-              scaleY: 1.15,
-              duration: 1000,
-              delay: 500,
-              ease: 'Power2',
-              onComplete: () => { if (label.active) label.destroy(); },
-            });
-          },
-        });
-      },
-    });
   }
 
   // ── Task 5.3: Great Wall Perfect — 圍觀拍照 ──────────────────────────────

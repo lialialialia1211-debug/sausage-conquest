@@ -29,9 +29,9 @@ export function processAIDaily(): void {
 // Get AI battle team based on opponent difficulty (simplified for new map system)
 export function getAIBattleTeam(opponentId: string): string[] {
   const opp = OPPONENT_MAP[opponentId];
-  if (!opp) return ['black-pig', 'black-pig', 'black-pig'];
+  if (!opp) return ['big-taste', 'big-taste', 'big-taste'];
 
-  const pool = ['black-pig', 'flying-fish-roe', 'garlic-bomb', 'cheese', 'squidink', 'mala', 'big-taste', 'big-wrap-small', 'great-wall'];
+  const pool = ['flying-fish-roe', 'cheese', 'big-taste', 'big-wrap-small', 'great-wall'];
   const team: string[] = [];
   for (let i = 0; i < opp.unitCount; i++) {
     team.push(pool[i % Math.min(pool.length, opp.difficulty + 2)]);

@@ -10,11 +10,6 @@ import {
 } from '../systems/GrillEngine';
 import { SAUSAGE_MAP } from '../data/sausages';
 
-// Squidink: dark body color range regardless of doneness
-const SQUIDINK_COLOR_MIN = 0x2a1a3a;
-const SQUIDINK_COLOR_MAX = 0x3a2a4a;
-// Mala: base red tint overlay color
-const MALA_TINT_COLOR = 0x8b0000;
 
 const SAUSAGE_W = 85;
 const SAUSAGE_H = 35;
@@ -48,12 +43,10 @@ export class SausageSprite extends Phaser.GameObjects.Container {
   // Pulsing tween for active bar
   private activePulseTween: Phaser.Tweens.Tween | null = null;
 
-  // Variety-specific overlay graphics (cheese swell/glow, mala tint, squidink overlay)
+  // Variety-specific overlay graphics (cheese swell/glow)
   private varietyGfx: Phaser.GameObjects.Graphics;
   // Tracks last cheese burst to avoid repeated flashes
   private _cheeseExploded = false;
-  // Mala pulse tween
-  private _malaPulseTween: Phaser.Tweens.Tween | null = null;
   // Tracked sparkle text objects for cleanup
   private sparkleObjects: Phaser.GameObjects.Text[] = [];
   // Tracked cheese burst graphics for cleanup
@@ -456,17 +449,13 @@ export class SausageSprite extends Phaser.GameObjects.Container {
   /**
    * Dispatches to the appropriate per-variety effect method.
    * Called at the end of every redraw().
-   * Original varieties (black-pig, flying-fish-roe, garlic-bomb) hit the default
-   * branch and do nothing, so existing rendering is unaffected.
    */
   private applyVarietyVisuals(): void {
     const typeId = this._data.sausageTypeId;
     switch (typeId) {
       case 'cheese':    this.updateCheeseEffect();    break;
-      case 'squidink':  this.updateSquidinkEffect();  break;
-      case 'mala':      this.updateMalaEffect();      break;
       default:
-        // No extra visuals for base varieties
+        // No extra visuals for other varieties
         this.varietyGfx.clear();
         break;
     }
@@ -549,92 +538,8 @@ export class SausageSprite extends Phaser.GameObjects.Container {
     }
   }
 
-  /**
-   * Squidink (墨魚香腸):
-   * - Body is always dark purple/black regardless of doneness
-   * - Doneness bars are dimmed to make them harder to read
-   */
-  private updateSquidinkEffect(): void {
-    // Overwrite body color with a dark squid-ink hue that barely shifts with heat
-    const avgDoneness = getAverageDoneness(this._data);
-    // Interpolate between SQUIDINK_COLOR_MIN and SQUIDINK_COLOR_MAX based on doneness
-    const t = Math.min(1, avgDoneness / 100);
-    const r = Math.round(((SQUIDINK_COLOR_MIN >> 16) & 0xff) + (((SQUIDINK_COLOR_MAX >> 16) & 0xff) - ((SQUIDINK_COLOR_MIN >> 16) & 0xff)) * t);
-    const g = Math.round(((SQUIDINK_COLOR_MIN >> 8) & 0xff) + (((SQUIDINK_COLOR_MAX >> 8) & 0xff) - ((SQUIDINK_COLOR_MIN >> 8) & 0xff)) * t);
-    const b = Math.round((SQUIDINK_COLOR_MIN & 0xff) + ((SQUIDINK_COLOR_MAX & 0xff) - (SQUIDINK_COLOR_MIN & 0xff)) * t);
-    const darkColor = (r << 16) | (g << 8) | b;
-
-    // Draw a dark overlay that hides the normal golden/pink colour
-    this.varietyGfx.clear();
-    this.varietyGfx.fillStyle(darkColor, 0.88);
-    this.varietyGfx.fillRoundedRect(
-      -SAUSAGE_W / 2,
-      -SAUSAGE_H / 2,
-      SAUSAGE_W,
-      SAUSAGE_H,
-      SAUSAGE_H / 2,
-    );
-
-    // Redraw grill marks in slightly lighter ink so they are still visible
-    const grillAlpha = Math.min(0.5, avgDoneness / 100 * 0.6 + 0.05);
-    this.varietyGfx.fillStyle(0x000000, grillAlpha);
-    for (let i = 0; i < 3; i++) {
-      const markX = -SAUSAGE_W / 2 + 12 + i * 14;
-      this.varietyGfx.fillRect(markX, -SAUSAGE_H / 2 + 4, 3, SAUSAGE_H - 8);
-    }
-
-    // Dim the doneness bars to make them harder to read
-    this.topBarGfx.setAlpha(0.45);
-    this.bottomBarGfx.setAlpha(0.45);
-  }
-
-  /**
-   * Mala (麻辣螺螄):
-   * - Persistent red-ish tint blended over the body
-   * - Pulsing red glow aura to hint it affects neighbors
-   */
-  private updateMalaEffect(): void {
-    this.varietyGfx.clear();
-
-    // Red tint overlay (semi-transparent)
-    this.varietyGfx.fillStyle(MALA_TINT_COLOR, 0.28);
-    this.varietyGfx.fillRoundedRect(
-      -SAUSAGE_W / 2,
-      -SAUSAGE_H / 2,
-      SAUSAGE_W,
-      SAUSAGE_H,
-      SAUSAGE_H / 2,
-    );
-
-    // Outer red aura to signal it radiates heat to neighbors
-    this.varietyGfx.lineStyle(2, 0xff2200, 0.55);
-    this.varietyGfx.strokeRoundedRect(
-      -SAUSAGE_W / 2 - 3,
-      -SAUSAGE_H / 2 - 3,
-      SAUSAGE_W + 6,
-      SAUSAGE_H + 6,
-      SAUSAGE_H / 2 + 3,
-    );
-
-    // Start pulsing aura tween if not already running
-    if (!this._malaPulseTween || !this._malaPulseTween.isPlaying()) {
-      this._malaPulseTween = this.scene.tweens.add({
-        targets: this.varietyGfx,
-        alpha: 0.55,
-        duration: 500,
-        yoyo: true,
-        repeat: -1,
-        ease: 'Sine.easeInOut',
-      });
-    }
-  }
-
   override destroy(fromScene?: boolean): void {
     this.stopActivePulse();
-    if (this._malaPulseTween) {
-      this._malaPulseTween.stop();
-      this._malaPulseTween = null;
-    }
     this.hoverGlowGfx.clear();
     this.smokeParticles.forEach(s => {
       if (s && s.active) s.destroy();

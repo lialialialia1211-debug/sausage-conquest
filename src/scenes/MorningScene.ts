@@ -9,16 +9,6 @@ import { STORY_BEATS } from '../data/dialogue';
 import { checkAndUnlockBlackMarket } from '../systems/BlackMarketEngine';
 import { GRID_SLOTS } from '../data/map';
 
-// Slot-based unlock schedule: [requiredSlot, sausageId, name]
-// Player must reach the given tier to unlock the sausage variety
-const SLOT_UNLOCKS: [number, string, string][] = [
-  [1, 'big-taste', '大嚐莖'],        // available from start
-  [2, 'big-wrap-small', '大腸包小腸'], // slot 2
-  [3, 'cheese', '起司爆漿'],          // slot 3
-  [5, 'squidink', '墨魚香腸'],        // slot 5
-  [6, 'great-wall', '萬里腸城'],      // slot 6
-  [7, 'mala', '麻辣螺螄'],           // slot 7
-];
 
 export class MorningScene extends Phaser.Scene {
   private readyForNext = false;
@@ -105,16 +95,6 @@ export class MorningScene extends Phaser.Scene {
     const currentSlot = GRID_SLOTS.find(s => s.tier === gameState.playerSlot) || GRID_SLOTS[0];
     const currentSlotName = currentSlot.name;
     notifications.unshift(`目前位置：第 ${gameState.playerSlot} 層 — ${currentSlotName}`);
-
-    // Check slot-based sausage unlocks
-    for (const [requiredSlot, id, name] of SLOT_UNLOCKS) {
-      if (gameState.playerSlot >= requiredSlot && !gameState.unlockedSausages.includes(id)) {
-        updateGameState({
-          unlockedSausages: [...gameState.unlockedSausages, id],
-        });
-        notifications.push(`第 ${requiredSlot} 層解鎖：${name}！`);
-      }
-    }
 
     // Check black market unlock
     if (gameState.day >= 5 && gameState.undergroundRep >= 10 && !gameState.blackMarketUnlocked) {

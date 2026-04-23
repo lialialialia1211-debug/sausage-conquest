@@ -2,22 +2,6 @@ import type { SausageType } from '../types';
 
 export const SAUSAGE_TYPES: SausageType[] = [
   {
-    id: 'black-pig',
-    name: '原味黑豬',
-    emoji: '',
-    image: 'sausage-black-pig.png',
-    cost: 12,
-    suggestedPrice: 35,
-    grillDifficulty: 1,
-    description: '不敗的經典，從沒讓人失望過',
-    battle: {
-      hp: 100,
-      atk: 20,
-      spd: 10,
-      type: 'normal',
-    },
-  },
-  {
     id: 'flying-fish-roe',
     name: '飛魚卵腸',
     emoji: '',
@@ -34,22 +18,6 @@ export const SAUSAGE_TYPES: SausageType[] = [
     },
   },
   {
-    id: 'garlic-bomb',
-    name: '蒜味轟炸',
-    emoji: '',
-    image: 'sausage-garlic-bomb.png',
-    cost: 10,
-    suggestedPrice: 30,
-    grillDifficulty: 1,
-    description: '吃完嘴臭驅散隔壁攤客人，一石二鳥',
-    battle: {
-      hp: 80,
-      atk: 25,
-      spd: 12,
-      type: 'aoe',
-    },
-  },
-  {
     id: 'cheese',
     name: '起司爆漿',
     emoji: '',
@@ -59,28 +27,6 @@ export const SAUSAGE_TYPES: SausageType[] = [
     grillDifficulty: 3,
     description: '完美區間超窄，但爆漿瞬間客人會尖叫',
     battle: { hp: 60, atk: 40, spd: 8, type: 'tank' },
-  },
-  {
-    id: 'squidink',
-    name: '墨魚香腸',
-    emoji: '',
-    image: 'sausage-squidink.png',
-    cost: 35,
-    suggestedPrice: 65,
-    grillDifficulty: 3,
-    description: '黑到看不出熟度，考驗你的直覺',
-    battle: { hp: 90, atk: 30, spd: 5, type: 'assassin' },
-  },
-  {
-    id: 'mala',
-    name: '麻辣螺螄',
-    emoji: '',
-    image: 'sausage-mala.png',
-    cost: 28,
-    suggestedPrice: 55,
-    grillDifficulty: 2,
-    description: '辣氣會加速旁邊的香腸，雙面刃',
-    battle: { hp: 75, atk: 35, spd: 14, type: 'support' },
   },
   {
     id: 'big-taste',
@@ -142,4 +88,6 @@ export const SAUSAGE_MAP: Record<string, SausageType> = Object.fromEntries(
   SAUSAGE_TYPES.map((s) => [s.id, s])
 );
 
-export const INITIAL_SAUSAGES: string[] = ['black-pig', 'flying-fish-roe', 'garlic-bomb', 'big-taste'];
+export const INITIAL_SAUSAGES: string[] = [
+  'flying-fish-roe', 'cheese', 'big-taste', 'big-wrap-small', 'great-wall'
+];
