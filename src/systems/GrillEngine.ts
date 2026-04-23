@@ -15,9 +15,9 @@ export interface GrillingSausage {
 
 // Doneness units per second
 export const HEAT_RATES: Record<HeatLevel, number> = {
-  low: 10,
-  medium: 20,
-  high: 35,
+  low: 6,
+  medium: 12,
+  high: 22,
 };
 
 let sausageCounter = 0;
@@ -82,11 +82,11 @@ export function judgeQuality(sausage: GrillingSausage, isSimulation?: boolean): 
   }
 
   if (avg > 100)  return 'carbonized';
-  if (avg >= 96)  return 'burnt';
-  if (avg >= 91)  return 'slightly-burnt';
-  if (avg >= 71)  return 'perfect';
-  if (avg >= 51)  return 'ok';
-  if (avg >= 31)  return 'half-cooked';
+  if (avg >= 98)  return 'burnt';
+  if (avg >= 93)  return 'slightly-burnt';
+  if (avg >= 60)  return 'perfect';
+  if (avg >= 45)  return 'ok';
+  if (avg >= 25)  return 'half-cooked';
   return 'raw';
 }
 

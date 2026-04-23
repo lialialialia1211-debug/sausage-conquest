@@ -98,7 +98,7 @@ export function generateCustomers(gridFootTraffic: number, marketingBonus: numbe
 
     const returningCustomer: Customer = {
       id: `customer-${++customerIdCounter}`,
-      patience: (30 + Math.random() * 30) * patienceMult,
+      patience: (50 + Math.random() * 35) * patienceMult,
       maxPrice: Math.round(avgPrice * (1.2 + (record.badge === 'gold' ? 0.5 : record.badge === 'silver' ? 0.3 : 0.1))),
       personality: 'normal' as CustomerPersonality,
       order: generateOrder(gameState.day, 'normal'),
@@ -164,7 +164,7 @@ export function generateCustomers(gridFootTraffic: number, marketingBonus: numbe
     const tierPatienceBonus = 1 + (gameState.playerSlot - 1) * 0.05; // tier 1 = 1.0, tier 9 = 1.4
     customers.push({
       id: `customer-${++customerIdCounter}`,
-      patience: (30 + Math.random() * 30) * tierPatienceBonus,
+      patience: (50 + Math.random() * 35) * tierPatienceBonus,
       preferredType,
       maxPrice,
       personality,
@@ -198,7 +198,7 @@ export function generateCustomers(gridFootTraffic: number, marketingBonus: numbe
     const tierPatienceBonus = 1 + (gameState.playerSlot - 1) * 0.05; // tier 1 = 1.0, tier 9 = 1.4
     customers.push({
       id: `customer-${++customerIdCounter}`,
-      patience: (12 + Math.random() * 13) * tierPatienceBonus,
+      patience: (30 + Math.random() * 15) * tierPatienceBonus,
       preferredType,
       maxPrice,
       personality: 'normal',
