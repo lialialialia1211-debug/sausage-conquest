@@ -40,6 +40,7 @@ import type { AwayActivity } from '../data/activities';
 import { getSpecialEffect } from '../data/sausage-effects';
 import type { SpecialEffectResult } from '../data/sausage-effects';
 import { CUSTOMER_COMMENTS, COUNTER_ATTACKS } from '../data/customerComments';
+import { SpectatorCrowd } from '../objects/SpectatorCrowd';
 
 // ── Layout constants ────────────────────────────────────────────────────────
 // Tier-based session duration: early tiers are shorter and less demanding
@@ -214,6 +215,14 @@ export class GrillScene extends Phaser.Scene {
   private counterAttackPanel: Phaser.GameObjects.Container | null = null;
   private slowServiceTimer = 0; // how long grill+warming have been empty while customers wait
 
+  // ── Wave 4c: SpectatorCrowd ──────────────────────────────────────────────
+  private spectatorCrowd!: SpectatorCrowd;
+  private spectatorSpawnTimer = 0;
+  private spectatorNextSpawnInterval = 4; // seconds; randomized each spawn
+  private pressureLevelText: Phaser.GameObjects.Text | null = null;
+  private pressureUpdateTimer = 0; // 每 500ms 更新一次壓力顯示
+  private patienceCheckTimer = 0;  // 每秒檢查一次 patience
+
   constructor() {
     super({ key: 'GrillScene' });
   }
@@ -292,6 +301,11 @@ export class GrillScene extends Phaser.Scene {
     this.perfectCombo = 0;
     this.maxCombo = 0;
     this.comboText = null;
+    this.spectatorSpawnTimer = 0;
+    this.spectatorNextSpawnInterval = 4 + Math.random() * 4;
+    this.pressureLevelText = null;
+    this.pressureUpdateTimer = 0;
+    this.patienceCheckTimer = 0;
 
     // Worker: adi → extra grill slot
     let maxSlots = gameState.upgrades['grill-expand'] ? 6 : MAX_GRILL_SLOTS;
@@ -307,6 +321,7 @@ export class GrillScene extends Phaser.Scene {
     this.setupInventoryPanel(width, height);
     this.setupHUD(width, height);
     this.setupEndButton(width, height);
+    this.setupSpectatorCrowd(width, height);
 
     // Simulation mode HUD label
     if (gameState.gameMode === 'simulation') {
@@ -511,6 +526,14 @@ export class GrillScene extends Phaser.Scene {
         } else if (changedStage === 'burnt') {
           sfx.playStageBurnt();
         }
+        // Wave 4c: 通知圍觀者
+        if (changedStage === 'golden') {
+          this.spectatorCrowd.reactToStage('golden');
+        } else if (changedStage === 'hot') {
+          this.spectatorCrowd.reactToStage('hot');
+        } else if (changedStage === 'burnt') {
+          this.spectatorCrowd.reactToStage('burnt');
+        }
       }
       slot.__prevTopStage = newTopStage;
       slot.__prevBottomStage = newBottomStage;
@@ -690,6 +713,49 @@ export class GrillScene extends Phaser.Scene {
     }
 
     this.tickCustomerCommentary(dt);
+
+    // ── Wave 4c: SpectatorCrowd tick ────────────────────────────────────────
+    this.spectatorCrowd.tick(dt);
+
+    // Spawn timer：每 4–8 秒從 customerQueue 取 1 位 shallow-copy 加入圍觀
+    this.spectatorSpawnTimer += dt;
+    if (this.spectatorSpawnTimer >= this.spectatorNextSpawnInterval) {
+      this.spectatorSpawnTimer = 0;
+      this.spectatorNextSpawnInterval = 4 + Math.random() * 4;
+      const waiting = this.customerQueue.getWaitingCustomers();
+      if (waiting.length > 0) {
+        // shallow copy：複製 Customer 基礎資料，不搬動原始物件
+        const original = waiting[0];
+        const clone: import('../types').Customer = { ...original };
+        this.spectatorCrowd.addSpectator(clone);
+      }
+    }
+
+    // 每秒檢查：有耐心 < 30% 的等待客人 → 觸發 slow 反應
+    this.patienceCheckTimer += dt;
+    if (this.patienceCheckTimer >= 1.0) {
+      this.patienceCheckTimer = 0;
+      const waiting = this.customerQueue.getWaitingCustomers();
+      const ratios = waiting.map(c => this.customerQueue.getCustomerPatienceRatio(c.id));
+      // 更新壓力計算用比率
+      this.spectatorCrowd.updatePatienceRatios(ratios);
+      if (ratios.some(r => r < 0.3)) {
+        this.spectatorCrowd.reactToStage('slow');
+      }
+    }
+
+    // 每 500ms 更新注目度顯示
+    this.pressureUpdateTimer += dt;
+    if (this.pressureUpdateTimer >= 0.5) {
+      this.pressureUpdateTimer = 0;
+      if (this.pressureLevelText) {
+        const level = this.spectatorCrowd.getPressureLevel();
+        this.pressureLevelText.setText(`注目 ${level.toFixed(1)}`);
+        // 壓力高（>3）變紅，否則灰
+        this.pressureLevelText.setColor(level > 3 ? '#ff4444' : '#888888');
+      }
+    }
+    // ────────────────────────────────────────────────────────────────────────
   }
 
   // ── Draw helpers ─────────────────────────────────────────────────────────
@@ -1442,6 +1508,29 @@ export class GrillScene extends Phaser.Scene {
       this.resetFullGameState();
       this.scene.start('BootScene');
     });
+  }
+
+  // ── Wave 4c: SpectatorCrowd setup ────────────────────────────────────────
+
+  private setupSpectatorCrowd(width: number, height: number): void {
+    // 放在烤台下方、暖盤區上方；避開現有 UI（暖盤在 height*0.62，結束按鈕在 height*0.80）
+    // 選 height*0.76 作為中心，往下展開半圓形圍觀者
+    const crowdX = width / 2;
+    const crowdY = height * 0.76;
+
+    this.spectatorCrowd = new SpectatorCrowd(this, crowdX, crowdY);
+    this.spectatorCrowd.setDepth(5); // 在 HUD 下、香腸上
+
+    // 注目度數字：右上角（statsText 下方，避免重疊）
+    const pressX = width - 10;
+    const pressY = 90; // statsText 在 y=55，這裡往下放
+    this.pressureLevelText = this.add.text(pressX, pressY, '注目 0.0', {
+      fontSize: '13px',
+      fontFamily: FONT,
+      color: '#888888',
+      backgroundColor: '#000000aa',
+      padding: { x: 6, y: 3 },
+    }).setOrigin(1, 0).setDepth(15);
   }
 
   // ── Button factory ────────────────────────────────────────────────────────
@@ -2853,11 +2942,15 @@ export class GrillScene extends Phaser.Scene {
       // High-difficulty sausage special cutscenes
       if (sausage.sausageTypeId === 'cheese') this.triggerCheeseExplosion(warmSlot.x, warmSlot.y);
       else if (sausage.sausageTypeId === 'great-wall') this.triggerGreatWallSpectacle(warmSlot.x, warmSlot.y);
+      // Wave 4c: 通知圍觀者
+      this.spectatorCrowd.reactToStage('perfect-served');
     }
 
     // ── Carbonized serve visuals ─────────────────────────────────────────
     if (effectiveGrillQuality === 'carbonized') {
       this.flashScreenDark();
+      // Wave 4c: 通知圍觀者
+      this.spectatorCrowd.reactToStage('carbonized-served');
     }
 
     // Apply active tip multiplier from special sausage effect
@@ -3934,6 +4027,15 @@ export class GrillScene extends Phaser.Scene {
       this.condimentOverlay = null;
     }
     this.isShowingCondimentStation = false;
+
+    // Wave 4c: clean up spectator crowd
+    if (this.spectatorCrowd) {
+      this.spectatorCrowd.clear();
+    }
+    if (this.pressureLevelText?.active) {
+      this.pressureLevelText.destroy();
+      this.pressureLevelText = null;
+    }
 
     // Clean up away state
     this.isPlayerAway = false;
