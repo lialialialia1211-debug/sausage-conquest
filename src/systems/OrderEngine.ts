@@ -24,7 +24,17 @@ export function scoreOrder(
     'raw': 10,
     'carbonized': 0,
   };
-  const grillScore = grillScoreMap[warmingSausage.grillQuality] ?? 50;
+  let grillScore = grillScoreMap[warmingSausage.grillQuality] ?? 50;
+
+  // Wave 4b: 雙面熟度差 > 35 → grillScore 降一級
+  if (warmingSausage.unevenPenalty) {
+    const grillOrder = ['carbonized', 'raw', 'burnt', 'half-cooked', 'slightly-burnt', 'ok', 'perfect'];
+    const currentIdx = grillOrder.indexOf(warmingSausage.grillQuality);
+    if (currentIdx > 0) {
+      const demotedQuality = grillOrder[currentIdx - 1];
+      grillScore = grillScoreMap[demotedQuality] ?? grillScore;
+    }
+  }
 
   // 2. Warming Score (0-100): based on warmingState
   const warmingScoreMap: Record<string, number> = {
@@ -42,9 +52,14 @@ export function scoreOrder(
 
   // 5. Total Score: weighted average
   // Grill 30%, Condiment 30%, Warming 20%, Wait 20%
-  const totalScore = Math.round(
+  let totalScore = Math.round(
     grillScore * 0.3 + condimentScore * 0.3 + warmingScore * 0.2 + waitScore * 0.2
   );
+
+  // Wave 4b: 刷過油 → 最終分數 ×1.15（四捨五入），上限 100
+  if (warmingSausage.oilBrushed) {
+    totalScore = Math.min(100, Math.round(totalScore * 1.15));
+  }
 
   // 6. Stars (1-5)
   const stars = totalToStars(totalScore);

@@ -102,6 +102,9 @@ export interface WarmingSausage {
   timeInWarming: number; // seconds since placed in warming zone
   warmingState: 'perfect-warm' | 'ok-warm' | 'cold';
   isOvernight?: boolean; // true if carried over from previous day
+  // Wave 4b: grill interaction metrics, decided at moveToWarming time
+  unevenPenalty?: boolean; // 雙面熟度差 > 35 → 降一級
+  oilBrushed?: boolean;    // 刷過油 → 出餐加成 ×1.15
 }
 
 // ── Loan types ─────────────────────────────────────────────────────────────────

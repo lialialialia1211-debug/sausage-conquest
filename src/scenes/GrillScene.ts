@@ -12,6 +12,9 @@ import {
   getQualityScore,
   getCookingStage,
   getStageDisplayInfo,
+  tryFlipSausage,
+  pressSausage,
+  brushOil,
   type HeatLevel,
   type GrillingSausage,
   type GrillQuality,
@@ -82,6 +85,12 @@ interface GrillSlot {
   __prevTopStage?: CookingStage;
   __prevBottomStage?: CookingStage;
   __lastStageFeedbackTime?: number; // seconds, debounce
+  // Wave 4b: interaction buttons
+  flipBtn?: Phaser.GameObjects.Container | null;
+  pressBtn?: Phaser.GameObjects.Container | null;
+  oilBtn?: Phaser.GameObjects.Container | null;
+  __flipCooldownUntil?: number; // session-time seconds when cooldown ends
+  __isPressingBtn?: boolean;    // true while press button is held
 }
 
 // Extended Graphics object that carries the associated hit zone
@@ -469,7 +478,17 @@ export class GrillScene extends Phaser.Scene {
       const isSimulation = gameState.gameMode === 'simulation';
       const prevTopStage = slot.__prevTopStage ?? getCookingStage(slot.sausage.topDoneness);
       const prevBottomStage = slot.__prevBottomStage ?? getCookingStage(slot.sausage.bottomDoneness);
-      const updated = updateSausage(slot.sausage, this.heatLevel, dt, isSimulation);
+      let updated = updateSausage(slot.sausage, this.heatLevel, dt, isSimulation);
+
+      // Wave 4b: press tick — apply pressSausage while button is held
+      if (slot.__isPressingBtn) {
+        updated = pressSausage(updated, dt);
+        // Spawn oil splatter particle occasionally
+        if (Math.random() < dt * 8) {
+          this.spawnPressOilParticle(slot.x, slot.y);
+        }
+      }
+
       slot.sausage = updated;
       slot.sprite.updateData(updated);
 
@@ -1562,6 +1581,186 @@ export class GrillScene extends Phaser.Scene {
     this.showFeedback('翻面！', slot.x, slot.y + 35, '#ffcc44');
   }
 
+  // ── Wave 4b: interaction buttons ─────────────────────────────────────────
+
+  /** 建立 slot 的「翻」「壓」「油」三顆互動按鈕 */
+  private buildSlotInteractionBtns(slot: GrillSlot): void {
+    // Destroy any stale buttons first
+    this.destroySlotInteractionBtns(slot);
+
+    const btnY = slot.y + 58; // 按鈕在 slot 正下方
+    const depth = 20;
+
+    // ── 1. 翻面鈕（正下方）──────────────────────────────────────────────────
+    const flipCont = this.add.container(slot.x, btnY).setDepth(depth);
+    const flipBg = this.add.graphics();
+    flipBg.fillStyle(0x224422, 0.85);
+    flipBg.lineStyle(1, 0x44cc44, 0.7);
+    flipBg.fillRoundedRect(-16, -11, 32, 22, 4);
+    flipBg.strokeRoundedRect(-16, -11, 32, 22, 4);
+    const flipTxt = this.add.text(0, 0, '翻', {
+      fontSize: '13px', fontFamily: FONT, color: '#aaffaa',
+    }).setOrigin(0.5);
+    const flipZone = this.add.zone(0, 0, 32, 22).setInteractive({ cursor: 'pointer' });
+    flipZone.on('pointerdown', () => {
+      if (this.isDone || this.paused || this.isShowingGrillEvent || this.isShowingCondimentStation) return;
+      if (!slot.sausage || slot.sausage.served) return;
+      const nowSec = this.getSessionElapsedSec();
+      const result = tryFlipSausage(slot.sausage, nowSec);
+      if (result === null) {
+        // Cooldown: grey out briefly
+        flipTxt.setColor('#555555');
+        this.time.delayedCall(300, () => { if (flipTxt.active) flipTxt.setColor('#aaffaa'); });
+        this.showFeedback('冷卻中', slot.x, slot.y - 30, '#888888');
+      } else {
+        slot.sausage = result;
+        if (slot.sprite) {
+          slot.sprite.triggerFlip();
+          slot.sprite.updateData(result);
+        }
+        sfx.playFlip();
+        slot.__flipPromptShown = false;
+        this.showFeedback('翻面！', slot.x, slot.y - 30, '#ffcc44');
+      }
+    });
+    flipCont.add([flipBg, flipTxt, flipZone]);
+    slot.flipBtn = flipCont;
+
+    // ── 2. 按壓鈕（左下）──────────────────────────────────────────────────
+    const pressCont = this.add.container(slot.x - 32, btnY).setDepth(depth);
+    const pressBg = this.add.graphics();
+    pressBg.fillStyle(0x442200, 0.85);
+    pressBg.lineStyle(1, 0xff8844, 0.7);
+    pressBg.fillRoundedRect(-14, -11, 28, 22, 4);
+    pressBg.strokeRoundedRect(-14, -11, 28, 22, 4);
+    const pressTxt = this.add.text(0, 0, '壓', {
+      fontSize: '13px', fontFamily: FONT, color: '#ffcc88',
+    }).setOrigin(0.5);
+    const pressZone = this.add.zone(0, 0, 28, 22).setInteractive({ cursor: 'pointer' });
+    pressZone.on('pointerdown', () => {
+      if (this.isDone || this.paused || this.isShowingGrillEvent || this.isShowingCondimentStation) return;
+      if (!slot.sausage || slot.sausage.served) return;
+      slot.__isPressingBtn = true;
+      slot.sausage = { ...slot.sausage, isPressed: true };
+      // Scale down for visual feedback
+      pressCont.setScale(0.88);
+    });
+    pressZone.on('pointerup', () => {
+      slot.__isPressingBtn = false;
+      if (slot.sausage) slot.sausage = { ...slot.sausage, isPressed: false };
+      pressCont.setScale(1.0);
+    });
+    pressZone.on('pointerout', () => {
+      slot.__isPressingBtn = false;
+      if (slot.sausage) slot.sausage = { ...slot.sausage, isPressed: false };
+      pressCont.setScale(1.0);
+    });
+    pressCont.add([pressBg, pressTxt, pressZone]);
+    slot.pressBtn = pressCont;
+
+    // ── 3. 刷油鈕（右下）──────────────────────────────────────────────────
+    const oilCont = this.add.container(slot.x + 32, btnY).setDepth(depth);
+    const oilBg = this.add.graphics();
+    oilBg.fillStyle(0x443300, 0.85);
+    oilBg.lineStyle(1, 0xffcc00, 0.7);
+    oilBg.fillRoundedRect(-14, -11, 28, 22, 4);
+    oilBg.strokeRoundedRect(-14, -11, 28, 22, 4);
+    const oilTxt = this.add.text(0, 0, '油', {
+      fontSize: '13px', fontFamily: FONT, color: '#ffdd44',
+    }).setOrigin(0.5);
+    const oilZone = this.add.zone(0, 0, 28, 22).setInteractive({ cursor: 'pointer' });
+    oilZone.on('pointerdown', () => {
+      if (this.isDone || this.paused || this.isShowingGrillEvent || this.isShowingCondimentStation) return;
+      if (!slot.sausage || slot.sausage.served) return;
+      const result = brushOil(slot.sausage);
+      if (result === null) {
+        // 失敗 — 判斷原因
+        if (slot.sausage.oilBrushed) {
+          this.showFeedback('已刷過', slot.x, slot.y - 30, '#888888');
+        } else {
+          this.showFeedback('還沒熟', slot.x, slot.y - 30, '#ffaa44');
+        }
+      } else {
+        slot.sausage = result;
+        if (slot.sprite) slot.sprite.updateData(result);
+        // 成功 — 金色光暈 + 隱藏按鈕
+        this.flashOilGlow(slot.x, slot.y);
+        this.showFeedback('刷油！', slot.x, slot.y - 30, '#ffdd44');
+        oilCont.destroy();
+        slot.oilBtn = null;
+      }
+    });
+    oilCont.add([oilBg, oilTxt, oilZone]);
+    slot.oilBtn = oilCont;
+  }
+
+  /** 銷毀 slot 上所有 Wave 4b 互動按鈕 */
+  private destroySlotInteractionBtns(slot: GrillSlot): void {
+    if (slot.flipBtn) { slot.flipBtn.destroy(); slot.flipBtn = null; }
+    if (slot.pressBtn) { slot.pressBtn.destroy(); slot.pressBtn = null; }
+    if (slot.oilBtn) { slot.oilBtn.destroy(); slot.oilBtn = null; }
+    slot.__isPressingBtn = false;
+  }
+
+  /** 取得本次 session 已過秒數（用於 flip cooldown 計算） */
+  private getSessionElapsedSec(): number {
+    // timeLeft 倒數計時，用 sessionDuration - timeLeft 換算已過時間
+    // 但因為 timeLeft 可能被 speedMultiplier 影響，直接用 performance.now / 1000 更準確
+    return performance.now() / 1000;
+  }
+
+  /** 刷油成功的金色光暈特效 */
+  private flashOilGlow(x: number, y: number): void {
+    const glow = this.add.graphics().setDepth(50);
+    glow.fillStyle(0xffdd00, 0.5);
+    glow.fillCircle(x, y, 38);
+    this.tweens.add({
+      targets: glow,
+      alpha: 0,
+      scaleX: 1.6,
+      scaleY: 1.6,
+      duration: 400,
+      ease: 'Power2',
+      onComplete: () => { if (glow.active) glow.destroy(); },
+    });
+    // 油滴粒子（用 Text emoji 模擬）
+    for (let i = 0; i < 5; i++) {
+      const angle = (Math.PI * 2 * i) / 5;
+      const px = x + Math.cos(angle) * 20;
+      const py = y + Math.sin(angle) * 20;
+      const drop = this.add.text(px, py, '✦', {
+        fontSize: '11px', color: '#ffcc00',
+      }).setOrigin(0.5).setDepth(51);
+      this.tweens.add({
+        targets: drop,
+        x: px + Math.cos(angle) * 25,
+        y: py + Math.sin(angle) * 25 - 15,
+        alpha: 0,
+        duration: 500,
+        ease: 'Power2',
+        onComplete: () => { if (drop.active) drop.destroy(); },
+      });
+    }
+  }
+
+  /** 按壓時的油噴粒子特效 */
+  private spawnPressOilParticle(x: number, y: number): void {
+    const drop = this.add.text(
+      x + Phaser.Math.Between(-18, 18),
+      y + Phaser.Math.Between(-10, 5),
+      '•',
+      { fontSize: '10px', color: '#ffaa33' }
+    ).setOrigin(0.5).setDepth(52);
+    this.tweens.add({
+      targets: drop,
+      y: drop.y - Phaser.Math.Between(20, 40),
+      alpha: 0,
+      duration: 350,
+      ease: 'Power1',
+      onComplete: () => { if (drop.active) drop.destroy(); },
+    });
+  }
+
   // ── Worker effect ticks ───────────────────────────────────────────────────
 
   private tickWorkerEffects(dt: number): void {
@@ -2114,6 +2313,11 @@ export class GrillScene extends Phaser.Scene {
     slot.__burntWarnShown = false;
     slot.__autoFlipped = false;
     slot.__flipPromptShown = false;
+    slot.__flipCooldownUntil = 0;
+    slot.__isPressingBtn = false;
+
+    // Wave 4b: build interaction buttons for this slot
+    this.buildSlotInteractionBtns(slot);
 
     // Reset selection and update inventory display
     this.selectedInventoryType = null;
@@ -2144,14 +2348,27 @@ export class GrillScene extends Phaser.Scene {
       emptyWarmSlot = this.addWarmingSlot();
     }
 
+    // Wave 4b: compute interaction metrics before clearing slot.sausage
+    const grillingSausage = slot.sausage;
+    const diffAbs = Math.abs(grillingSausage.topDoneness - grillingSausage.bottomDoneness);
+    const unevenPenalty = diffAbs > 35;
+    const oilBrushedFlag = grillingSausage.oilBrushed;
+
+    // Flip-count warning (not a penalty — just feedback)
+    if (grillingSausage.flipCount < 2) {
+      this.showFeedback('翻面不足', slot.x, slot.y - 65, '#ffaa44');
+    }
+
     const warmingSausage: WarmingSausage = {
-      id: slot.sausage.id,
-      sausageTypeId: slot.sausage.sausageTypeId,
+      id: grillingSausage.id,
+      sausageTypeId: grillingSausage.sausageTypeId,
       grillQuality: quality,
       qualityScore: getQualityScore(quality),
       timeInWarming: 0,
       warmingState: 'perfect-warm',
       isOvernight: false,
+      unevenPenalty,
+      oilBrushed: oilBrushedFlag,
     };
 
     emptyWarmSlot.sausage = warmingSausage;
@@ -2166,6 +2383,9 @@ export class GrillScene extends Phaser.Scene {
       slot.serveHint.destroy();
       slot.serveHint = null;
     }
+
+    // Wave 4b: clean up interaction buttons
+    this.destroySlotInteractionBtns(slot);
 
     // Animate sausage sprite flying to warming zone
     slot.sausage = { ...slot.sausage, served: true };

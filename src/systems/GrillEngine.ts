@@ -51,6 +51,11 @@ export interface GrillingSausage {
   topStage: CookingStage;
   bottomStage: CookingStage;
   lastStageChangeTime: number; // seconds, used for effect debounce
+  // Wave 4b fields
+  flipCount: number;        // 翻面次數，初始 0
+  oilBrushed: boolean;      // 已刷油，初始 false
+  lastFlipTime: number;     // cooldown 用，秒，初始 0
+  isPressed: boolean;       // 是否正在按壓（互動期間短暫 true），初始 false
 }
 
 // Doneness units per second
@@ -73,6 +78,10 @@ export function createGrillingSausage(sausageTypeId: string): GrillingSausage {
     topStage: 'raw',
     bottomStage: 'raw',
     lastStageChangeTime: 0,
+    flipCount: 0,
+    oilBrushed: false,
+    lastFlipTime: 0,
+    isPressed: false,
   };
 }
 
@@ -223,4 +232,55 @@ export function getDonenessBarColor(doneness: number): number {
     // Dark red — carbonized zone
     return 0x880000;
   }
+}
+
+// ── Wave 4b: new interaction functions ───────────────────────────────────────
+
+/**
+ * tryFlipSausage — 帶 300ms cooldown 的翻面。
+ * 回傳 null 表示 cooldown 中，無法翻面。
+ */
+export function tryFlipSausage(s: GrillingSausage, nowSec: number): GrillingSausage | null {
+  if (s.served) return null;
+  if (nowSec - s.lastFlipTime < 0.3) return null; // 300ms cooldown
+  return {
+    ...s,
+    currentSide: s.currentSide === 'bottom' ? 'top' : 'bottom',
+    flipCount: s.flipCount + 1,
+    lastFlipTime: nowSec,
+  };
+}
+
+/**
+ * pressSausage — 按壓加熱當前面 +3/秒。
+ * 若處於 hot 階段按壓 → 直接設為 105（破裂、變 burnt）。
+ */
+export function pressSausage(s: GrillingSausage, deltaSec: number): GrillingSausage {
+  if (s.served) return s;
+  const currentDoneness = s.currentSide === 'bottom' ? s.bottomDoneness : s.topDoneness;
+  const stage = getCookingStage(currentDoneness);
+  if (stage === 'hot') {
+    // 破裂 — 直接進入 burnt
+    const field = s.currentSide === 'bottom' ? 'bottomDoneness' : 'topDoneness';
+    return { ...s, [field]: 105 };
+  }
+  const addition = 3 * deltaSec;
+  if (s.currentSide === 'bottom') {
+    return { ...s, bottomDoneness: Math.min(120, s.bottomDoneness + addition) };
+  }
+  return { ...s, topDoneness: Math.min(120, s.topDoneness + addition) };
+}
+
+/**
+ * brushOil — 刷油。
+ * 必須雙面都達 half 階段以上、且尚未刷過。
+ * 成功回傳新物件；不符合條件回傳 null。
+ */
+export function brushOil(s: GrillingSausage): GrillingSausage | null {
+  if (s.served || s.oilBrushed) return null;
+  const stageOrder: CookingStage[] = ['raw', 'surface', 'half', 'golden', 'hot', 'burnt'];
+  const topIdx = stageOrder.indexOf(getCookingStage(s.topDoneness));
+  const botIdx = stageOrder.indexOf(getCookingStage(s.bottomDoneness));
+  if (Math.min(topIdx, botIdx) < 2) return null; // 雙面都需達 half（index 2）
+  return { ...s, oilBrushed: true };
 }
