@@ -95,8 +95,9 @@ export class CustomerQueue extends Phaser.GameObjects.Container {
 
     if (customer.order) {
       const sausageInfo = SAUSAGE_MAP[customer.order.sausageType];
-      // Only show what sausage type they want, no condiments
-      const bubbleText = sausageInfo?.name ?? '香腸';
+      const baseName = sausageInfo?.name ?? '香腸';
+      // Append garlic emoji if customer wants garlic
+      const bubbleText = customer.order.wantGarlic ? `${baseName} 🧄` : baseName;
 
       orderBubble = this.scene.add.text(0, -60, bubbleText, {
         fontSize: '20px',

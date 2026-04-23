@@ -9,7 +9,7 @@ import type { OrderScore, CustomerOrder, LoyaltyBadge, WarmingSausage } from '..
 export function scoreOrder(
   warmingSausage: WarmingSausage,
   customerOrder: CustomerOrder,
-  appliedCondiments: string[],
+  appliedGarlic: boolean,
   remainingPatienceRatio: number,  // 0-1, how much patience is left
   loyaltyBadge: LoyaltyBadge,
   basePrice: number,
@@ -34,8 +34,8 @@ export function scoreOrder(
   };
   const warmingScore = warmingScoreMap[warmingSausage.warmingState] ?? 50;
 
-  // 3. Condiment Score (0-100): based on accuracy
-  const condimentScore = calculateCondimentScore(customerOrder.condiments, appliedCondiments);
+  // 3. Condiment Score (0-100): garlic match = 100, mismatch = 0
+  const condimentScore = calculateCondimentScore(customerOrder.wantGarlic, appliedGarlic);
 
   // 4. Wait Score (0-100): based on remaining patience
   const waitScore = Math.round(remainingPatienceRatio * 100);
@@ -56,38 +56,11 @@ export function scoreOrder(
 }
 
 /**
- * Calculate condiment accuracy score.
- * Perfect match (same items in same order) = 100
- * Same items wrong order = 70
- * Missing or extra condiments reduce score
+ * Calculate condiment accuracy score (garlic only).
+ * Exact boolean match = 100, mismatch = 0.
  */
-function calculateCondimentScore(wanted: string[], applied: string[]): number {
-  if (wanted.length === 0 && applied.length === 0) return 100;
-  if (wanted.length === 0 && applied.length > 0) return 60; // added unwanted stuff
-  if (wanted.length > 0 && applied.length === 0) return 10; // forgot condiments entirely
-
-  // Check how many wanted condiments are present
-  let matchCount = 0;
-  let orderBonus = 0;
-
-  for (let i = 0; i < wanted.length; i++) {
-    const idx = applied.indexOf(wanted[i]);
-    if (idx !== -1) {
-      matchCount++;
-      if (idx === i) orderBonus++; // correct position
-    }
-  }
-
-  // Extra condiments penalty
-  const extraCount = applied.filter(a => !wanted.includes(a)).length;
-
-  const matchRatio = matchCount / wanted.length; // 0-1
-  const orderRatio = wanted.length > 0 ? orderBonus / wanted.length : 1; // 0-1
-  const extraPenalty = extraCount * 15; // -15 per extra
-
-  // Score: 60% from having right condiments, 30% from correct order, 10% base
-  const score = Math.round(matchRatio * 60 + orderRatio * 30 + 10 - extraPenalty);
-  return Math.max(0, Math.min(100, score));
+function calculateCondimentScore(wantGarlic: boolean, appliedGarlic: boolean): number {
+  return wantGarlic === appliedGarlic ? 100 : 0;
 }
 
 /**

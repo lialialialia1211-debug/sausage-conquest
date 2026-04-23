@@ -67,9 +67,8 @@ export class BootScene extends Phaser.Scene {
     const sausageIds = ['flying-fish-roe', 'cheese', 'big-taste', 'big-wrap-small', 'great-wall'];
     sausageIds.forEach(id => this.load.image(`sausage-${id}`, `sausage-${id}.png`));
 
-    // ── Condiment art (8 types) ──
-    const condimentIds = ['garlic-paste', 'wasabi', 'chili-sauce', 'sauerkraut', 'onion-dice', 'basil', 'soy-paste', 'peanut'];
-    condimentIds.forEach(id => this.load.image(`condiment-${id}`, `condiment-${id}.png`));
+    // ── Condiment art (garlic only) ──
+    this.load.image('condiment-garlic-paste', 'condiment-garlic-paste.png');
 
     // ── Customer portraits (8 types) ──
     const customerTypes = ['normal-male', 'normal-female', 'karen', 'thug', 'beggar', 'inspector', 'fatcat', 'influencer'];

@@ -21,7 +21,6 @@ import { CustomerQueue } from '../objects/CustomerQueue';
 import type { SaleRecord, Customer, WarmingSausage, GrillEvent, GrillEventChoice, GrillEventOutcome, OrderScore } from '../types';
 import { scoreOrder, starsToString, getScoreColor } from '../systems/OrderEngine';
 import { recordVisit, getBadgeInfo } from '../systems/LoyaltyEngine';
-import { CONDIMENTS } from '../data/condiments';
 import { SAUSAGE_TYPES } from '../data/sausages';
 import { sfx } from '../utils/SoundFX';
 import { rollGrillEvent } from '../data/grill-events';
@@ -182,9 +181,9 @@ export class GrillScene extends Phaser.Scene {
   private meiServeTimer: number = 0;
   private __awayBannerText: Phaser.GameObjects.Text | null = null;
 
-  // ── Condiment station state ──────────────────────────────────────────────
+  // ── Garlic toggle state ───────────────────────────────────────────────────
   private condimentOverlay: Phaser.GameObjects.Container | null = null;
-  private selectedCondiments: string[] = [];
+  private appliedGarlic: boolean = false;
   private isShowingCondimentStation: boolean = false;
 
   // ── Special sausage effect state ─────────────────────────────────────────
@@ -264,7 +263,7 @@ export class GrillScene extends Phaser.Scene {
     this.awayOverlay = null;
     this.meiServeTimer = 0;
     this.condimentOverlay = null;
-    this.selectedCondiments = [];
+    this.appliedGarlic = false;
     this.isShowingCondimentStation = false;
     this.activeTipMultiplier = 1;
     this.tipMultiplierServesLeft = 0;
@@ -2163,12 +2162,6 @@ export class GrillScene extends Phaser.Scene {
       return;
     }
 
-    // If customer ordered no condiments, skip condiment station entirely
-    if (!nextCustomer.order?.condiments || nextCustomer.order.condiments.length === 0) {
-      this.selectedCondiments = [];
-      this.finalizeServe(warmSlot, warmSlot.sausage, nextCustomer);
-      return;
-    }
     this.openCondimentStation(warmSlot, warmSlot.sausage, nextCustomer);
   }
 
@@ -2358,10 +2351,10 @@ export class GrillScene extends Phaser.Scene {
     this.showFeedback(feedbackMsg, warmSlot.x, warmSlot.y - 40, feedbackColor);
     this.bounceRevenue();
 
-    // Score order + loyalty (Mei doesn't add condiments)
-    const order = nextCustomer.order || { sausageType: ws.sausageTypeId, condiments: [] };
+    // Score order + loyalty (Mei never adds garlic)
+    const order = nextCustomer.order || { sausageType: ws.sausageTypeId, wantGarlic: false };
     const patienceRatio = this.customerQueue.getCustomerPatienceRatio?.(nextCustomer.id) ?? 0.5;
-    const meiScore = scoreOrder(ws, order, [], patienceRatio, nextCustomer.loyaltyBadge || 'none', basePrice);
+    const meiScore = scoreOrder(ws, order, false, patienceRatio, nextCustomer.loyaltyBadge || 'none', basePrice);
     if (nextCustomer.loyaltyId) {
       recordVisit(nextCustomer.loyaltyId, meiScore.stars);
     }
@@ -2407,7 +2400,7 @@ export class GrillScene extends Phaser.Scene {
   private openCondimentStation(warmSlot: WarmingSlot, sausage: WarmingSausage, customer: Customer): void {
     this.isShowingCondimentStation = true;
     this.paused = true;
-    this.selectedCondiments = [];
+    this.appliedGarlic = false;
 
     const w = this.scale.width;
     const h = this.scale.height;
@@ -2418,7 +2411,7 @@ export class GrillScene extends Phaser.Scene {
     const bg = this.add.rectangle(w / 2, h / 2, w, h, 0x000000, 0.85).setInteractive();
     this.condimentOverlay.add(bg);
 
-    // Title — centered vertically on screen
+    // Title
     const title = this.add.text(w / 2, h * 0.28, '加料台', {
       fontSize: '22px', color: '#ffcc00', fontStyle: 'bold', fontFamily: FONT
     }).setOrigin(0.5);
@@ -2427,9 +2420,7 @@ export class GrillScene extends Phaser.Scene {
     // Customer order display
     const orderSausageName = SAUSAGE_TYPES?.find((s: any) => s.id === customer.order?.sausageType)?.name
       || customer.order?.sausageType || '?';
-    const wantedCondiments = (customer.order?.condiments || [])
-      .map((id: string) => { const c = CONDIMENTS.find(c => c.id === id); return c ? `${c.emoji} ${c.name}` : id; })
-      .join(' → ');
+    const wantsGarlic = customer.order?.wantGarlic ?? false;
 
     const orderLabel = this.add.text(w / 2, h * 0.33, `客人要：${orderSausageName}`, {
       fontSize: '14px', color: '#44aaff', fontFamily: FONT
@@ -2443,11 +2434,11 @@ export class GrillScene extends Phaser.Scene {
       this.condimentOverlay!.add(sausageImg);
     }
 
-    const condimentLabel = this.add.text(w / 2, h * 0.355,
-      wantedCondiments ? `配料：${wantedCondiments}` : '不加料', {
+    const garlicHint = this.add.text(w / 2, h * 0.355,
+      wantsGarlic ? '配料：🧄 蒜泥' : '不加料', {
         fontSize: '13px', color: '#88ff88', fontFamily: FONT
       }).setOrigin(0.5);
-    this.condimentOverlay.add(condimentLabel);
+    this.condimentOverlay.add(garlicHint);
 
     // Loyalty badge display
     if (customer.loyaltyBadge && customer.loyaltyBadge !== 'none') {
@@ -2458,107 +2449,60 @@ export class GrillScene extends Phaser.Scene {
       this.condimentOverlay.add(badgeText);
     }
 
-    // Selected condiments display
-    const selectedDisplay = this.add.text(w / 2, h * 0.395, '已加：（無）', {
-      fontSize: '13px', color: '#ffffff', fontFamily: FONT
-    }).setOrigin(0.5);
-    this.condimentOverlay.add(selectedDisplay);
+    // ── Garlic toggle button ──────────────────────────────────────────────────
+    const garlicBtnSize = 90;
+    const garlicBtnY = h * 0.48;
+    const garlicBtnX = w / 2;
 
-    // Condiment buttons — 2 rows of 4, centered
-    const btnW = 80;
-    const btnH = 60;
-    const gap = 8;
-    const cols = 4;
-    const startX = w / 2 - (cols * btnW + (cols - 1) * gap) / 2;
-    const startY = h * 0.43;
+    const garlicBtnBg = this.add.rectangle(garlicBtnX, garlicBtnY, garlicBtnSize, garlicBtnSize, 0x1a1a3e, 0.9)
+      .setStrokeStyle(2, 0x444466)
+      .setInteractive({ useHandCursor: true });
 
-    CONDIMENTS.forEach((condiment, i) => {
-      const col = i % cols;
-      const row = Math.floor(i / cols);
-      const x = startX + col * (btnW + gap) + btnW / 2;
-      const y = startY + row * (btnH + gap) + btnH / 2;
-
-      const isWanted = customer.order?.condiments?.includes(condiment.id);
-      const btnBg = this.add.rectangle(x, y, btnW, btnH, 0x1a1a3e, 0.9)
-        .setStrokeStyle(1, isWanted ? 0x44ff44 : 0x444466)
-        .setInteractive({ useHandCursor: true });
-
-      const condimentTexKey = `condiment-${condiment.id}`;
-      let condimentIcon: Phaser.GameObjects.Image | Phaser.GameObjects.Text;
-      if (this.textures.exists(condimentTexKey)) {
-        const condImg = this.add.image(x, y - 5, condimentTexKey);
-        const cScale = Math.min(40 / condImg.width, 40 / condImg.height);
-        condImg.setScale(cScale);
-        condimentIcon = condImg;
-      } else {
-        condimentIcon = this.add.text(x, y - 10, condiment.emoji, {
-          fontSize: '24px'
-        }).setOrigin(0.5);
-      }
-
-      const btnName = this.add.text(x, y + 20, condiment.name, {
-        fontSize: '10px', color: '#cccccc', fontFamily: FONT
+    const garlicTexKey = 'condiment-garlic-paste';
+    let garlicIcon: Phaser.GameObjects.Image | Phaser.GameObjects.Text;
+    if (this.textures.exists(garlicTexKey)) {
+      const gImg = this.add.image(garlicBtnX, garlicBtnY - 10, garlicTexKey);
+      gImg.setScale(Math.min(50 / gImg.width, 50 / gImg.height));
+      garlicIcon = gImg;
+    } else {
+      garlicIcon = this.add.text(garlicBtnX, garlicBtnY - 10, '🧄', {
+        fontSize: '36px'
       }).setOrigin(0.5);
+    }
 
-      btnBg.on('pointerdown', () => {
-        const idx = this.selectedCondiments.indexOf(condiment.id);
-        if (idx >= 0) {
-          this.selectedCondiments.splice(idx, 1);
-          btnBg.setFillStyle(0x1a1a3e, 0.9);
-        } else {
-          if (this.selectedCondiments.length < 4) {
-            this.selectedCondiments.push(condiment.id);
-            btnBg.setFillStyle(0x2a3a2a, 0.9);
-          }
-        }
-        const names = this.selectedCondiments.map(id => {
-          const c = CONDIMENTS.find(c => c.id === id);
-          return c ? `${c.emoji}${c.name}` : id;
-        });
-        selectedDisplay.setText(names.length > 0 ? `已加：${names.join(' ')}` : '已加：（無）');
-        updateServeBtn();
-      });
-
-      this.condimentOverlay!.add([btnBg, condimentIcon, btnName]);
-    });
-
-    const btnRowY = startY + 2 * (btnH + gap) + 30;
-
-    // Serve button — disabled until at least one condiment is selected
-    const serveBtn = this.add.text(w / 2 - 80, btnRowY, '加料出餐', {
-      fontSize: '18px', color: '#666666', backgroundColor: '#1a1a1a',
-      padding: { x: 16, y: 10 }, fontFamily: FONT
+    const garlicLabel = this.add.text(garlicBtnX, garlicBtnY + 28, '蒜泥', {
+      fontSize: '13px', color: '#cccccc', fontFamily: FONT
     }).setOrigin(0.5);
 
-    const updateServeBtn = () => {
-      if (this.selectedCondiments.length > 0) {
-        serveBtn.setColor('#44ff44').setBackgroundColor('#1a2a1a');
-        serveBtn.setInteractive({ useHandCursor: true });
-      } else {
-        serveBtn.setColor('#666666').setBackgroundColor('#1a1a1a');
-        serveBtn.disableInteractive();
-      }
-    };
+    const garlicStateText = this.add.text(garlicBtnX, garlicBtnY + 44, '（未選）', {
+      fontSize: '11px', color: '#888888', fontFamily: FONT
+    }).setOrigin(0.5);
 
-    serveBtn.on('pointerdown', () => {
-      if (this.selectedCondiments.length === 0) return;
-      this.finalizeServe(warmSlot, sausage, customer);
+    garlicBtnBg.on('pointerdown', () => {
+      this.appliedGarlic = !this.appliedGarlic;
+      if (this.appliedGarlic) {
+        garlicBtnBg.setFillStyle(0x2a4a2a, 0.9).setStrokeStyle(2, 0x44ff44);
+        garlicStateText.setText('✓ 已加蒜').setColor('#44ff44');
+      } else {
+        garlicBtnBg.setFillStyle(0x1a1a3e, 0.9).setStrokeStyle(2, 0x444466);
+        garlicStateText.setText('（未選）').setColor('#888888');
+      }
     });
 
-    updateServeBtn();
+    this.condimentOverlay.add([garlicBtnBg, garlicIcon, garlicLabel, garlicStateText]);
 
-    // Quick serve button — no condiments, lower score
-    const quickBtn = this.add.text(w / 2 + 80, btnRowY, '快速出餐（不加料）', {
-      fontSize: '14px', color: '#ff8844', backgroundColor: '#2a1a0a',
-      padding: { x: 16, y: 10 }, fontFamily: FONT
+    // ── Serve button ──────────────────────────────────────────────────────────
+    const serveBtnY = garlicBtnY + garlicBtnSize / 2 + 50;
+    const serveBtn = this.add.text(w / 2, serveBtnY, '出餐', {
+      fontSize: '20px', color: '#44ff44', backgroundColor: '#1a2a1a',
+      padding: { x: 24, y: 12 }, fontFamily: FONT
     }).setOrigin(0.5).setInteractive({ useHandCursor: true });
 
-    quickBtn.on('pointerdown', () => {
-      this.selectedCondiments = [];
+    serveBtn.on('pointerdown', () => {
       this.finalizeServe(warmSlot, sausage, customer);
     });
 
-    this.condimentOverlay.add([serveBtn, quickBtn]);
+    this.condimentOverlay.add(serveBtn);
   }
 
   private finalizeServe(warmSlot: WarmingSlot, sausage: WarmingSausage, customer: Customer): void {
@@ -2577,11 +2521,11 @@ export class GrillScene extends Phaser.Scene {
     const price = gameState.prices?.[sausage.sausageTypeId] ?? 35;
 
     // Score the order
-    const order = customer.order || { sausageType: sausage.sausageTypeId, condiments: [] };
+    const order = customer.order || { sausageType: sausage.sausageTypeId, wantGarlic: false };
     const score = scoreOrder(
       sausage,
       order,
-      this.selectedCondiments,
+      this.appliedGarlic,
       patienceRatio,
       customer.loyaltyBadge || 'none',
       price
@@ -2718,8 +2662,8 @@ export class GrillScene extends Phaser.Scene {
       this.applySpecialEffect(finalizeEffect, sausage.sausageTypeId);
     }
 
-    // Reset selected condiments for next serve
-    this.selectedCondiments = [];
+    // Reset garlic toggle for next serve
+    this.appliedGarlic = false;
   }
 
   private showScorePopup(score: OrderScore, typeMatch: boolean, isVIP?: boolean): void {

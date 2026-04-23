@@ -1,7 +1,6 @@
 // CustomerEngine — pure logic, no Phaser dependency, no UI code
 import type { Customer, BattleType, CustomerPersonality, CustomerOrder, LoyaltyBadge } from '../types';
 import { SAUSAGE_MAP, SAUSAGE_TYPES } from '../data/sausages';
-import { CONDIMENTS } from '../data/condiments';
 import { gameState } from '../state/GameState';
 import { getReturningCustomers, getOrCreateLoyalty, getLoyaltyPatienceMult } from './LoyaltyEngine';
 
@@ -13,7 +12,7 @@ export function resetCustomerEngine(): void {
 
 /**
  * Generate a random order for a customer based on the current day.
- * All 5 sausage types are available from the start; condiments are chosen at random.
+ * All 5 sausage types are available from the start; garlic is a 50/50 coin flip.
  */
 function generateOrder(_day: number, personality?: string): CustomerOrder {
   // All 5 sausage types are unlocked from the start — no slot-based gating.
@@ -53,13 +52,10 @@ function generateOrder(_day: number, personality?: string): CustomerOrder {
     sausageType = unlocked[Math.floor(Math.random() * unlocked.length)];
   }
 
-  // Pick 0-3 condiments
-  const condimentCount = Math.floor(Math.random() * 4); // 0, 1, 2, or 3
-  const availableCondiments = CONDIMENTS.map(c => c.id);
-  const shuffled = [...availableCondiments].sort(() => Math.random() - 0.5);
-  const condiments = shuffled.slice(0, condimentCount);
+  // 50/50 chance of wanting garlic
+  const wantGarlic = Math.random() < 0.5;
 
-  return { sausageType, condiments };
+  return { sausageType, wantGarlic };
 }
 
 /**

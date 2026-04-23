@@ -255,7 +255,7 @@ export type EventCategory =
 // ── 訂單系統 ──
 export interface CustomerOrder {
   sausageType: string;       // which sausage type they want (id from sausages.ts)
-  condiments: string[];      // condiment IDs they want, in preferred order (1-3 items)
+  wantGarlic: boolean;       // whether they want garlic paste
 }
 
 // ── 每單評分 ──
