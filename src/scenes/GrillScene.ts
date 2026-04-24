@@ -508,9 +508,8 @@ export class GrillScene extends Phaser.Scene {
       slot.sprite.updateData(updated);
 
       // ── Stage change feedback (Wave 4a) ─────────────────────────────────────
-      const nowSec = this.timeLeft; // use session time as a monotonic counter
-      const debounceOk = (slot.__lastStageFeedbackTime ?? 0) - nowSec > 0.2 ||
-        slot.__lastStageFeedbackTime === undefined;
+      const nowSec = performance.now() / 1000; // monotonic wall-clock, consistent with flip cooldown
+      const debounceOk = nowSec - (slot.__lastStageFeedbackTime ?? 0) > 0.2;
       const newTopStage = updated.topStage;
       const newBottomStage = updated.bottomStage;
       const topChanged = newTopStage !== prevTopStage;
@@ -519,7 +518,7 @@ export class GrillScene extends Phaser.Scene {
         const changedStage = topChanged ? newTopStage : newBottomStage;
         const info = getStageDisplayInfo(changedStage);
         this.showFeedback(info.label, slot.x, slot.y - 55, `#${info.borderGlow.toString(16).padStart(6, '0')}`);
-        slot.__lastStageFeedbackTime = nowSec;
+        slot.__lastStageFeedbackTime = performance.now() / 1000;
         // Audio: hot → warning beep, burnt → crackle
         if (changedStage === 'hot') {
           sfx.playStageHot();
