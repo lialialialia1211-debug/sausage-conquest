@@ -434,6 +434,78 @@ class SoundFX {
     osc.stop(now + duration);
   }
 
+  // ================================================================
+  // Wave 5c — Rhythm Combo sounds
+  // ================================================================
+
+  /**
+   * PERFECT hit — base version (public API backup).
+   * 1320 Hz sine + 1760 Hz triangle, simultaneous, 0.12 s.
+   */
+  playTimingPerfect(): void {
+    const ctx = this.ensureContext();
+    const now = ctx.currentTime;
+    this.playToneAt(ctx, now, 1320, 'sine', 0.35, 0.12);
+    this.playToneAt(ctx, now, 1760, 'triangle', 0.15, 0.12);
+  }
+
+  /**
+   * PERFECT hit with combo-scaled pitch.
+   * Frequencies scale by (1 + combo×0.03), capped at ×1.5.
+   * At combo=0 this is identical to playTimingPerfect().
+   * GrillScene should always call this version (passing timingCombo).
+   */
+  playTimingPerfectHigh(combo: number): void {
+    const ctx = this.ensureContext();
+    const now = ctx.currentTime;
+    const mult = Math.min(1 + combo * 0.03, 1.5);
+    this.playToneAt(ctx, now, 1320 * mult, 'sine', 0.35, 0.12);
+    this.playToneAt(ctx, now, 1760 * mult, 'triangle', 0.15, 0.12);
+  }
+
+  /**
+   * MISS fail — 220 Hz square descending to 110 Hz over 0.15 s.
+   * Square wave volume kept low (0.18) to avoid harshness.
+   */
+  playTimingMiss(): void {
+    const ctx = this.ensureContext();
+    const now = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(220, now);
+    osc.frequency.exponentialRampToValueAtTime(110, now + 0.15);
+    gain.gain.setValueAtTime(0.18, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+    osc.connect(gain);
+    gain.connect(this.masterGain!);
+    osc.start(now);
+    osc.stop(now + 0.15);
+  }
+
+  /**
+   * Combo milestone arpeggio.
+   * level 3  → CEG         (3 notes)
+   * level 5  → CEGC        (4 notes)
+   * level 10 → CEGCE       (5 notes)
+   * level 15 → CEGCEG      (6 notes)
+   * Any other level falls back to level-3 sequence.
+   */
+  playComboMilestone(level: number): void {
+    const sequences: Record<number, [number, number][]> = {
+      3:  [[523.25, 0], [659.25, 0.06], [783.99, 0.12]],
+      5:  [[523.25, 0], [659.25, 0.06], [783.99, 0.12], [1046.5, 0.18]],
+      10: [[523.25, 0], [659.25, 0.05], [783.99, 0.10], [1046.5, 0.15], [1318.5, 0.20]],
+      15: [[523.25, 0], [659.25, 0.05], [783.99, 0.10], [1046.5, 0.15], [1318.5, 0.20], [1568, 0.25]],
+    };
+    const notes = sequences[level] ?? sequences[3];
+    this.playArpeggio(notes, 0.12, 0.35);
+  }
+
+  // ================================================================
+  // Helper methods
+  // ================================================================
+
   /**
    * Play filtered white noise starting at ctx.currentTime.
    */
@@ -485,6 +557,30 @@ class SoundFX {
 
     source.start(startTime);
     source.stop(startTime + duration);
+  }
+
+  /**
+   * Play a simple oscillator tone at a precise AudioContext timestamp.
+   * Mirrors playNoiseAt so callers can schedule multiple tones in sync.
+   */
+  private playToneAt(
+    ctx: AudioContext,
+    startTime: number,
+    freq: number,
+    type: OscillatorType,
+    volume: number,
+    duration: number,
+  ): void {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, startTime);
+    gain.gain.setValueAtTime(volume, startTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
+    osc.connect(gain);
+    gain.connect(this.masterGain!);
+    osc.start(startTime);
+    osc.stop(startTime + duration);
   }
 
   /**

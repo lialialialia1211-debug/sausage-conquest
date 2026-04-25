@@ -1874,11 +1874,15 @@ export class GrillScene extends Phaser.Scene {
       this.maxTimingCombo = Math.max(this.maxTimingCombo, this.timingCombo);
       this.showTimingFloater(slot, 'PERFECT', '#ffd700');
       this.updateTimingComboText();
+      // Wave 5c: play pitch-scaled perfect sound (combo=0 equals base pitch)
+      sfx.playTimingPerfectHigh(this.timingCombo);
       if ([3, 5, 10, 15].includes(this.timingCombo)) {
         this.triggerTimingMilestone(this.timingCombo, slot);
       }
     } else {
       if (this.timingCombo > 0) {
+        // Only play MISS sound when actually breaking an active combo
+        sfx.playTimingMiss();
         this.showTimingFloater(slot, 'MISS', '#ff4444');
         this.shatterComboText();
       }
@@ -2062,12 +2066,17 @@ export class GrillScene extends Phaser.Scene {
     const flashColor = combo >= 15 ? 0xcc44ff : combo >= 10 ? 0xff8800 : 0xffd700;
     this.flashScreenEdge(flashColor, 0.35, 500);
 
-    // Wave 5c: TODO spectatorCrowd.celebrateCombo(combo) for combos >= 10
-    // Wave 5c: TODO sfx.playComboMilestone(combo)
+    // Wave 5c: milestone arpeggio
+    sfx.playComboMilestone(combo);
 
+    // Wave 5c: spectator celebration for combo >= 10
+    if (combo >= 10) {
+      this.spectatorCrowd?.celebrateCombo(combo);
+    }
+
+    // Wave 5c: boost all waiting customers' patience by ×1.2 at combo 15
     if (combo >= 15) {
-      // Wave 5c: TODO customerQueue.boostPatience(0.2) — full patience +20%
-      console.log('[Wave5b TODO] 15 連擊全場耐心 +20%，Wave 5c 接入');
+      this.customerQueue?.boostAllPatience(1.2);
     }
   }
 

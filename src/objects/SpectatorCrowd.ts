@@ -189,6 +189,48 @@ export class SpectatorCrowd extends Phaser.GameObjects.Container {
   }
 
   /**
+   * Wave 5c: trigger celebration floaters on all spectators.
+   * level >= 15 → purple heart; level >= 10 → orange heart; below 10 → no-op.
+   */
+  celebrateCombo(level: number): void {
+    if (level < 10) return;
+    const symbol = level >= 15 ? '💜' : '❤';
+
+    for (const sp of this.spectators) {
+      if (!sp.container?.active) continue;
+
+      const worldX = sp.container.x + this.x;
+      const worldY = sp.container.y + this.y - SPECTATOR_SIZE / 2 - 10;
+
+      const floater = this.scene.add.text(worldX, worldY, symbol, {
+        fontSize: '22px',
+      }).setOrigin(0.5).setDepth(210).setScale(0.5);
+
+      this.scene.tweens.add({
+        targets: floater,
+        y: worldY - 30,
+        scaleX: 1.2,
+        scaleY: 1.2,
+        duration: 250,
+        ease: 'Back.Out',
+        onComplete: () => {
+          if (!floater.active) return;
+          this.scene.tweens.add({
+            targets: floater,
+            y: floater.y - 10,
+            scaleX: 0,
+            scaleY: 0,
+            alpha: 0,
+            duration: 350,
+            ease: 'Power2',
+            onComplete: () => { if (floater.active) floater.destroy(); },
+          });
+        },
+      });
+    }
+  }
+
+  /**
    * 關燈用：清除所有圍觀者（scene shutdown 時呼叫）
    */
   clear(): void {
