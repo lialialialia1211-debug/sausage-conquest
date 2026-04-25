@@ -56,6 +56,8 @@ export interface GrillingSausage {
   oilBrushed: boolean;      // 已刷油，初始 false
   lastFlipTime: number;     // cooldown 用，秒，初始 0
   isPressed: boolean;       // 是否正在按壓（互動期間短暫 true），初始 false
+  // Wave 6c fields
+  rhythmAccuracy?: 'perfect' | 'great' | 'good'; // precision tag from rhythm hit
 }
 
 // Doneness units per second
@@ -283,4 +285,54 @@ export function brushOil(s: GrillingSausage): GrillingSausage | null {
   const botIdx = stageOrder.indexOf(getCookingStage(s.bottomDoneness));
   if (Math.min(topIdx, botIdx) < 2) return null; // 雙面都需達 half（index 2）
   return { ...s, oilBrushed: true };
+}
+
+// ── Wave 6c: Auto-grill for rhythm accuracy ───────────────────────────────
+
+/**
+ * Returns the target doneness average for a given rhythm accuracy.
+ * perfect → 80 (center of golden zone)
+ * great   → 72 (lower edge of golden)
+ * good    → 60 (half/golden boundary)
+ */
+export function getAutoGrillTarget(accuracy: 'perfect' | 'great' | 'good'): number {
+  switch (accuracy) {
+    case 'perfect': return 80;
+    case 'great':   return 72;
+    case 'good':    return 60;
+  }
+}
+
+/**
+ * Auto-grill tick: advances doneness based on rhythmAccuracy target.
+ * Auto-flips every 2 seconds (using Date.now() phase).
+ * Stops heating when average doneness reaches target to avoid burning.
+ */
+export function autoTickSausage(s: GrillingSausage, deltaSec: number): GrillingSausage {
+  if (s.served || !s.rhythmAccuracy) return s;
+  const target = getAutoGrillTarget(s.rhythmAccuracy);
+  const avg = (s.topDoneness + s.bottomDoneness) / 2;
+  if (avg >= target - 1) return s; // reached target, stop heating
+
+  const rate = 18 * deltaSec;
+  // Auto-flip: alternate side every 2 seconds (phase based on global time)
+  const flipPhase = Math.floor(Date.now() / 2000) % 2 === 0;
+
+  if (flipPhase) {
+    const newTop = Math.min(target, s.topDoneness + rate);
+    return {
+      ...s,
+      currentSide: 'top',
+      topDoneness: newTop,
+      topStage: getCookingStage(newTop),
+    };
+  } else {
+    const newBot = Math.min(target, s.bottomDoneness + rate);
+    return {
+      ...s,
+      currentSide: 'bottom',
+      bottomDoneness: newBot,
+      bottomStage: getCookingStage(newBot),
+    };
+  }
 }

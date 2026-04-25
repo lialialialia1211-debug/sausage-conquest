@@ -12,9 +12,8 @@ import {
   getQualityScore,
   getCookingStage,
   getStageDisplayInfo,
-  tryFlipSausage,
-  pressSausage,
-  brushOil,
+  getAutoGrillTarget,
+  autoTickSausage,
   type HeatLevel,
   type GrillingSausage,
   type GrillQuality,
@@ -26,8 +25,7 @@ import { SausageSprite } from '../objects/SausageSprite';
 import { CustomerQueue } from '../objects/CustomerQueue';
 import type { SaleRecord, Customer, WarmingSausage, GrillEvent, GrillEventChoice, GrillEventOutcome, OrderScore } from '../types';
 import { scoreOrder, starsToString, getScoreColor } from '../systems/OrderEngine';
-import { recordVisit, getBadgeInfo } from '../systems/LoyaltyEngine';
-import { SAUSAGE_TYPES } from '../data/sausages';
+import { recordVisit } from '../systems/LoyaltyEngine';
 import { sfx } from '../utils/SoundFX';
 import { rollGrillEvent } from '../data/grill-events';
 import { CombatPanel } from '../ui/panels/CombatPanel';
@@ -175,7 +173,6 @@ export class GrillScene extends Phaser.Scene {
   private timerText!: Phaser.GameObjects.Text;
   private revenueText!: Phaser.GameObjects.Text;
   private statsText!: Phaser.GameObjects.Text;
-  private heatButtons: Phaser.GameObjects.Container[] = [];
   private speedButtons: Phaser.GameObjects.Container[] = [];
   private feedbackTexts: Phaser.GameObjects.Text[] = [];
   // Fire emoji particles floating upward
@@ -231,7 +228,6 @@ export class GrillScene extends Phaser.Scene {
   // ── Wave 6a: Rhythm track state ──────────────────────────────────────────
   private chart: RhythmChart | null = null;
   private rhythmNotes: RhythmNote[] = [];
-  private rhythmStartTime = 0;       // performance.now()/1000 at scene create
   private nextNoteSpawnIdx = 0;      // pointer into chart.notes[]
   private readonly NOTE_LEAD_TIME = 1.8;  // seconds ahead of hit time for note to spawn
   private readonly NOTE_SPAWN_X = 1100;   // right edge spawn x
@@ -245,6 +241,10 @@ export class GrillScene extends Phaser.Scene {
   private maxRhythmCombo = 0;
   private hitStats = { perfect: 0, great: 0, good: 0, miss: 0 };
   private rhythmComboText: Phaser.GameObjects.Text | null = null;
+
+  // ── Wave 6cd: BGM sync + rhythm gate ──────────────────────────────────────
+  private rhythmStarted = false;
+  private bgmTheme: Phaser.Sound.BaseSound | null = null;
 
   constructor() {
     super({ key: 'GrillScene' });
@@ -284,7 +284,6 @@ export class GrillScene extends Phaser.Scene {
     this.customerArrivalInterval = Math.max(MIN_ARRIVAL_INTERVAL, BASE_ARRIVAL_INTERVAL - dayFactor * 4 - upgradeBonus);
     this.grillSlots = [];
     this.warmingSlots = [];
-    this.heatButtons = [];
     this.speedButtons = [];
     this.feedbackTexts = [];
     this.fireParticles = [];
@@ -333,7 +332,6 @@ export class GrillScene extends Phaser.Scene {
     // ── Wave 6a reset ──
     this.chart = null;
     this.rhythmNotes = [];
-    this.rhythmStartTime = 0;
     this.nextNoteSpawnIdx = 0;
     this.noteTrackY = 0;
 
@@ -342,6 +340,12 @@ export class GrillScene extends Phaser.Scene {
     this.maxRhythmCombo = 0;
     this.hitStats = { perfect: 0, great: 0, good: 0, miss: 0 };
     this.rhythmComboText = null;
+
+    // ── Wave 6cd reset ──
+    this.rhythmStarted = false;
+    this.bgmTheme = null;
+    // appliedGarlic fixed to true — condiment station removed in Wave 6c
+    this.appliedGarlic = true;
 
     // Worker: adi → extra grill slot
     let maxSlots = gameState.upgrades['grill-expand'] ? 6 : MAX_GRILL_SLOTS;
@@ -352,7 +356,6 @@ export class GrillScene extends Phaser.Scene {
     this.setupGrillSlots(width, height, maxSlots);
     this.setupWarmingZone(width, height);
     this.setupCustomerQueue(width, height);
-    this.setupHeatButtons(width, height);
     this.setupSpeedButtons(width, height);
     this.setupInventoryPanel(width, height);
     this.setupHUD(width, height);
@@ -461,8 +464,8 @@ export class GrillScene extends Phaser.Scene {
       });
     }
 
-    // Show ready overlay (paused until player clicks start)
-    this.showReadyOverlay(width, height);
+    // Show rhythm tutorial overlay (paused until player dismisses)
+    this.showRhythmTutorial(width, height);
   }
 
   update(_time: number, delta: number): void {
@@ -530,15 +533,13 @@ export class GrillScene extends Phaser.Scene {
       const isSimulation = gameState.gameMode === 'simulation';
       const prevTopStage = slot.__prevTopStage ?? getCookingStage(slot.sausage.topDoneness);
       const prevBottomStage = slot.__prevBottomStage ?? getCookingStage(slot.sausage.bottomDoneness);
-      let updated = updateSausage(slot.sausage, this.heatLevel, dt, isSimulation);
 
-      // Wave 4b: press tick — apply pressSausage while button is held
-      if (slot.__isPressingBtn) {
-        updated = pressSausage(updated, dt);
-        // Spawn oil splatter particle occasionally
-        if (Math.random() < dt * 8) {
-          this.spawnPressOilParticle(slot.x, slot.y);
-        }
+      // Wave 6c: rhythm-spawned sausages use auto-tick; manual sausages use legacy path
+      let updated: GrillingSausage;
+      if (slot.sausage.rhythmAccuracy) {
+        updated = autoTickSausage(slot.sausage, dt);
+      } else {
+        updated = updateSausage(slot.sausage, this.heatLevel, dt, isSimulation);
       }
 
       slot.sausage = updated;
@@ -795,6 +796,11 @@ export class GrillScene extends Phaser.Scene {
 
     // ── Wave 6a: Rhythm track tick ───────────────────────────────────────────
     this.updateRhythmTrack();
+
+    // ── Wave 6c: Auto-serve rhythm sausages that hit target doneness ──────────
+    if (this.rhythmStarted) {
+      this.autoServeReady();
+    }
   }
 
   // ── Wave 6a: Rhythm track ────────────────────────────────────────────────
@@ -810,13 +816,12 @@ export class GrillScene extends Phaser.Scene {
     this.chart = cachedChart ?? null;
 
     // Reset rhythm state
-    this.rhythmStartTime = performance.now() / 1000;
     this.nextNoteSpawnIdx = 0;
     this.rhythmNotes = [];
 
-    // NOTE_TRACK_Y: between warming zone bottom (~0.68) and spectator crowd (~0.76)
-    // Using 0.70 keeps the track clear of all existing UI elements.
-    this.noteTrackY = height * 0.70;
+    // NOTE_TRACK_Y: above grill rack (grill at 0.35), between customer queue (~0.17) and grill.
+    // 0.22 places the track in the gap between queue bottom and grill top.
+    this.noteTrackY = height * 0.22;
 
     // Debug: track line (semi-transparent dark grey)
     const trackLine = this.add.graphics();
@@ -911,8 +916,9 @@ export class GrillScene extends Phaser.Scene {
    */
   private updateRhythmTrack(): void {
     if (!this.chart) return;
+    if (this.isShowingGrillEvent || this.paused || !this.rhythmStarted) return;
 
-    const now = performance.now() / 1000 - this.rhythmStartTime;
+    const now = this.getRhythmTime();
 
     // Spawn notes whose hit time is within NOTE_LEAD_TIME from now
     while (this.nextNoteSpawnIdx < this.chart.notes.length) {
@@ -961,9 +967,9 @@ export class GrillScene extends Phaser.Scene {
    * judges it, plays audio, and updates state / visuals.
    */
   private handleRhythmPress(type: NoteType): void {
-    if (this.isDone || this.paused || this.isShowingGrillEvent) return;
+    if (this.isDone || this.paused || this.isShowingGrillEvent || !this.rhythmStarted) return;
 
-    const now = performance.now() / 1000 - this.rhythmStartTime;
+    const now = this.getRhythmTime();
 
     // Find the closest un-hit note of the correct type within the good window
     let bestNote: RhythmNote | null = null;
@@ -1034,18 +1040,38 @@ export class GrillScene extends Phaser.Scene {
       labelColor[judgement],
     );
 
-    // Hit note: fade-out + shrink then destroy (Wave 6c will replace with fly-into-grill)
+    // Wave 6c: fly hit note into grill slot, or treat as MISS if no slot available
+    const slot = this.grillSlots.find(s => !s.sausage);
+    if (!slot) {
+      // No empty slot — treat as MISS (don't count as hit)
+      this.hitStats[judgement] -= 1; // undo the stat increment above
+      this.hitStats.miss += 1;
+      this.rhythmCombo = 0;
+      this.updateRhythmComboText();
+      sfx.playRhythmMiss();
+      this.showFeedback('MISS（烤架滿）', this.NOTE_HIT_X, this.noteTrackY - 40, '#ff4444');
+      // Grey out the note and let it fly off
+      bestNote.setAlpha(0.35);
+      return;
+    }
+
+    // Capture for closures
+    const hitNote = bestNote;
+    const hitJudgement = judgement;
+
     this.tweens.add({
-      targets: bestNote,
-      alpha: 0,
-      scaleX: 0.3,
-      scaleY: 0.3,
-      duration: 200,
-      ease: 'Power2',
+      targets: hitNote,
+      x: slot.x,
+      y: slot.y,
+      scaleX: 0.7,
+      scaleY: 0.7,
+      duration: 280,
+      ease: 'Cubic.Out',
       onComplete: () => {
-        if (bestNote!.active) bestNote!.destroy();
-        const idx = this.rhythmNotes.indexOf(bestNote!);
+        if (hitNote.active) hitNote.destroy();
+        const idx = this.rhythmNotes.indexOf(hitNote);
         if (idx >= 0) this.rhythmNotes.splice(idx, 1);
+        this.spawnSausageOnSlot(slot, hitNote.note.sausage, hitJudgement as 'perfect' | 'great' | 'good');
       },
     });
   }
@@ -1074,6 +1100,120 @@ export class GrillScene extends Phaser.Scene {
       yoyo: true,
       ease: 'Back.Out',
     });
+  }
+
+  // ── Wave 6cd: BGM sync helpers ────────────────────────────────────────────
+
+  /** Returns current rhythm clock in seconds (tied to BGM seek). */
+  private getRhythmTime(): number {
+    // Phaser's BaseSound seek getter: works for Web Audio + HTML5 audio
+    return (this.bgmTheme as unknown as { seek?: number })?.seek ?? 0;
+  }
+
+  /**
+   * Called when the tutorial overlay is dismissed.
+   * Starts BGM, enables rhythm clock, resets spawn index.
+   */
+  private startRhythmGame(): void {
+    try {
+      this.bgmTheme = this.sound.add('bgm-grill-theme', { volume: 0.5, loop: false });
+      this.bgmTheme.once('complete', () => this.onChartComplete());
+      this.bgmTheme.play();
+    } catch (_e) {
+      console.warn('[GrillScene] bgm-grill-theme failed to play:', _e);
+    }
+    this.rhythmStarted = true;
+    this.nextNoteSpawnIdx = 0;
+    this.rhythmNotes.forEach(n => { if (n.active) n.destroy(); });
+    this.rhythmNotes = [];
+    this.paused = false;
+    EventBus.emit('scene-ready', 'GrillScene');
+  }
+
+  /**
+   * Called when BGM finishes playing (chart complete).
+   * Waits 1 second buffer then triggers end-of-day.
+   */
+  private onChartComplete(): void {
+    this.time.delayedCall(1000, () => {
+      if (this.isDone) return;
+      this.endGrilling();
+    });
+  }
+
+  /**
+   * Wave 6c: Spawn a GrillingSausage on a grill slot after a rhythm hit tween.
+   * The sausage gets a rhythmAccuracy tag that drives auto-cook logic.
+   */
+  private spawnSausageOnSlot(
+    slot: GrillSlot,
+    sausageTypeId: string,
+    accuracy: 'perfect' | 'great' | 'good',
+  ): void {
+    if (slot.sausage) return; // race condition guard
+
+    // Remove placeholder
+    this.clearSlotPlaceholder(slot);
+
+    const sausage = createGrillingSausage(sausageTypeId);
+    // Attach rhythm accuracy tag via direct property assignment
+    (sausage as GrillingSausage & { rhythmAccuracy?: string }).rhythmAccuracy = accuracy;
+
+    const sprite = new SausageSprite(this, slot.x, slot.y, sausage);
+    const slotIndex = this.grillSlots.indexOf(slot);
+
+    // Double-click still moves to warming zone (manual serve override)
+    sprite.onClick(() => {
+      const currentSlot = this.grillSlots.find(s => s.sprite === sprite);
+      if (!currentSlot) return;
+      const now = Date.now();
+      const lastClickTime = currentSlot.__lastClickTime ?? 0;
+      const isDoubleClick = (now - lastClickTime) < 350;
+      if (isDoubleClick) {
+        currentSlot.__lastClickTime = 0;
+        if (currentSlot.sprite) this.moveToWarming(currentSlot, currentSlot.sprite);
+      } else {
+        currentSlot.__lastClickTime = now;
+        // Single click on rhythm sausage: no manual flip (auto-managed)
+      }
+    });
+
+    sprite.on('pointerover', () => { this.hoveredSlotIndex = slotIndex; });
+    sprite.on('pointerout', () => { if (this.hoveredSlotIndex === slotIndex) this.hoveredSlotIndex = null; });
+
+    slot.sausage = sausage;
+    slot.sprite = sprite;
+    slot.__carbonWarnShown = false;
+    slot.__burntWarnShown = false;
+    slot.__autoFlipped = false;
+    slot.__flipPromptShown = false;
+    slot.__flipCooldownUntil = 0;
+    slot.__isPressingBtn = false;
+  }
+
+  /**
+   * Wave 6c: Auto-serve sausages that have reached their target doneness.
+   * Called every update() frame.
+   */
+  private autoServeReady(): void {
+    for (const slot of this.grillSlots) {
+      if (!slot.sausage || slot.sausage.served) continue;
+      const s = slot.sausage;
+      if (!s.rhythmAccuracy) continue;
+
+      const target = getAutoGrillTarget(s.rhythmAccuracy);
+      const avg = (s.topDoneness + s.bottomDoneness) / 2;
+      if (avg < target - 2) continue;
+
+      // Find waiting customer whose order matches
+      const waiting = this.customerQueue.getWaitingCustomers();
+      const matchedCustomer = waiting.find(c => c.order?.sausageType === s.sausageTypeId);
+      if (!matchedCustomer) continue;
+
+      // Auto-move to warming then immediately serve
+      if (!slot.sprite) continue;
+      this.moveToWarming(slot, slot.sprite);
+    }
   }
 
   // ── Draw helpers ─────────────────────────────────────────────────────────
@@ -1245,25 +1385,8 @@ export class GrillScene extends Phaser.Scene {
       g.strokePath();
     }
 
-    // Make the placeholder clickable so player can place a sausage here
-    const hitZone = this.add.zone(slot.x, slot.y, 64, 84).setInteractive({ cursor: 'pointer' });
-    hitZone.on('pointerdown', () => {
-      if (this.selectedInventoryType) {
-        this.placeOnGrill(slot, this.selectedInventoryType);
-      }
-    });
-    hitZone.on('pointerover', () => {
-      if (this.selectedInventoryType) {
-        g.clear();
-        g.lineStyle(2, 0xff9900, 0.7);
-        g.strokeRect(slot.x - 32, slot.y - 42, 64, 84);
-      }
-    });
-    hitZone.on('pointerout', () => {
-      g.clear();
-      g.lineStyle(2, 0xff6b00, 0.3);
-      g.strokeRect(slot.x - 32, slot.y - 42, 64, 84);
-    });
+    // Wave 6c: manual placement removed — grill slots filled by rhythm hits only
+    const hitZone = this.add.zone(slot.x, slot.y, 64, 84);
 
     // Store graphics in slot (zone needs to be tracked too — attach to graphics)
     const gfx = g as GrillSlotGraphics;
@@ -1503,47 +1626,6 @@ export class GrillScene extends Phaser.Scene {
       changeReputation(-1);
       this.showFeedback('趕走了客人 聲望-1', this.scale.width / 2, queueY - 30, '#ff6666');
     });
-  }
-
-  private setupHeatButtons(width: number, height: number): void {
-    // Heat buttons centered at fixed percentage — 55% of screen height
-    const btnY = height * 0.55;
-    const levels: { level: HeatLevel; label: string; icon: string }[] = [
-      { level: 'low',    label: '小火', icon: '' },
-      { level: 'medium', label: '中火', icon: '' },
-      { level: 'high',   label: '大火', icon: '' },
-    ];
-
-    const btnW = 48;
-    const btnH = 24;
-    const gap = 6;
-    const totalW = 3 * btnW + 2 * gap;
-    const startX = (width - totalW) / 2;
-
-    levels.forEach((item, i) => {
-      const bx = startX + i * (btnW + gap) + btnW / 2;
-      const btn = this.createButton(bx, btnY, btnW, btnH, item.label, () => {
-        this.heatLevel = item.level;
-        this.updateHeatButtonStyles();
-        // Update fire glow intensity
-        const { width: w, height: h } = this.scale;
-        const barStartX = w * 0.04;
-        const grillY = h * GRILL_Y_FRAC + 34;
-        this.redrawFireGlow(barStartX, grillY + 9 * 16, w * 0.61);
-      });
-      // Override font size to 11px
-      const txtObj = btn.list[1] as Phaser.GameObjects.Text;
-      txtObj.setFontSize('11px');
-      this.heatButtons.push(btn);
-    });
-
-    this.updateHeatButtonStyles();
-
-    this.add.text(startX + totalW / 2, btnY - 16, '火力控制', {
-      fontSize: '11px',
-      fontFamily: FONT,
-      color: COLOR_DIM,
-    }).setOrigin(0.5);
   }
 
   private setupSpeedButtons(width: number, height: number): void {
@@ -1892,31 +1974,6 @@ export class GrillScene extends Phaser.Scene {
     g.strokeRoundedRect(-w / 2, -h / 2, w, h, 4);
   }
 
-  private updateHeatButtonStyles(): void {
-    const levels: HeatLevel[] = ['low', 'medium', 'high'];
-    this.heatButtons.forEach((btn, i) => {
-      const isActive = levels[i] === this.heatLevel;
-      const bg = btn.list[0] as Phaser.GameObjects.Graphics;
-      const txt = btn.list[1] as Phaser.GameObjects.Text;
-      const btnW = 48;
-      const btnH = 24;
-      bg.clear();
-      if (isActive) {
-        bg.fillStyle(0xff6b00, 0.38);
-        bg.lineStyle(2, 0xff9900, 1);
-        bg.fillRoundedRect(-btnW / 2, -btnH / 2, btnW, btnH, 4);
-        bg.strokeRoundedRect(-btnW / 2, -btnH / 2, btnW, btnH, 4);
-        txt.setColor('#ffffff');
-      } else {
-        bg.fillStyle(0x100500, 0.92);
-        bg.lineStyle(1, 0xff6b00, 0.35);
-        bg.fillRoundedRect(-btnW / 2, -btnH / 2, btnW, btnH, 4);
-        bg.strokeRoundedRect(-btnW / 2, -btnH / 2, btnW, btnH, 4);
-        txt.setColor(COLOR_DIM);
-      }
-    });
-  }
-
   private updateSpeedButtonStyles(): void {
     const speeds = [1, 2, 3];
     const btnW = 36;
@@ -1990,115 +2047,9 @@ export class GrillScene extends Phaser.Scene {
 
   // ── Wave 4b: interaction buttons ─────────────────────────────────────────
 
-  /** 建立 slot 的「翻」「壓」「油」三顆互動按鈕 */
-  private buildSlotInteractionBtns(slot: GrillSlot): void {
-    // Destroy any stale buttons first
-    this.destroySlotInteractionBtns(slot);
-
-    const btnY = slot.y + 58; // 按鈕在 slot 正下方
-    const depth = 20;
-
-    // ── 1. 翻面鈕（正下方）──────────────────────────────────────────────────
-    const flipCont = this.add.container(slot.x, btnY).setDepth(depth);
-    const flipBg = this.add.graphics();
-    flipBg.fillStyle(0x224422, 0.85);
-    flipBg.lineStyle(1, 0x44cc44, 0.7);
-    flipBg.fillRoundedRect(-16, -11, 32, 22, 4);
-    flipBg.strokeRoundedRect(-16, -11, 32, 22, 4);
-    const flipTxt = this.add.text(0, 0, '翻', {
-      fontSize: '13px', fontFamily: FONT, color: '#aaffaa',
-    }).setOrigin(0.5);
-    const flipZone = this.add.zone(0, 0, 32, 22).setInteractive({ cursor: 'pointer' });
-    flipZone.on('pointerdown', () => {
-      if (this.isDone || this.paused || this.isShowingGrillEvent || this.isShowingCondimentStation) return;
-      if (!slot.sausage || slot.sausage.served) return;
-      const nowSec = this.getSessionElapsedSec();
-      const result = tryFlipSausage(slot.sausage, nowSec);
-      if (result === null) {
-        // Cooldown: grey out briefly
-        flipTxt.setColor('#555555');
-        this.time.delayedCall(300, () => { if (flipTxt.active) flipTxt.setColor('#aaffaa'); });
-        this.showFeedback('冷卻中', slot.x, slot.y - 30, '#888888');
-      } else {
-        slot.sausage = result;
-        if (slot.sprite) {
-          slot.sprite.triggerFlip();
-          slot.sprite.updateData(result);
-        }
-        sfx.playFlip();
-        slot.__flipPromptShown = false;
-        this.showFeedback('翻面！', slot.x, slot.y - 30, '#ffcc44');
-      }
-    });
-    flipCont.add([flipBg, flipTxt, flipZone]);
-    slot.flipBtn = flipCont;
-
-    // ── 2. 按壓鈕（左下）──────────────────────────────────────────────────
-    const pressCont = this.add.container(slot.x - 32, btnY).setDepth(depth);
-    const pressBg = this.add.graphics();
-    pressBg.fillStyle(0x442200, 0.85);
-    pressBg.lineStyle(1, 0xff8844, 0.7);
-    pressBg.fillRoundedRect(-14, -11, 28, 22, 4);
-    pressBg.strokeRoundedRect(-14, -11, 28, 22, 4);
-    const pressTxt = this.add.text(0, 0, '壓', {
-      fontSize: '13px', fontFamily: FONT, color: '#ffcc88',
-    }).setOrigin(0.5);
-    const pressZone = this.add.zone(0, 0, 28, 22).setInteractive({ cursor: 'pointer' });
-    pressZone.on('pointerdown', () => {
-      if (this.isDone || this.paused || this.isShowingGrillEvent || this.isShowingCondimentStation) return;
-      if (!slot.sausage || slot.sausage.served) return;
-      slot.__isPressingBtn = true;
-      slot.sausage = { ...slot.sausage, isPressed: true };
-      // Scale down for visual feedback
-      pressCont.setScale(0.88);
-    });
-    pressZone.on('pointerup', () => {
-      slot.__isPressingBtn = false;
-      if (slot.sausage) slot.sausage = { ...slot.sausage, isPressed: false };
-      pressCont.setScale(1.0);
-    });
-    pressZone.on('pointerout', () => {
-      slot.__isPressingBtn = false;
-      if (slot.sausage) slot.sausage = { ...slot.sausage, isPressed: false };
-      pressCont.setScale(1.0);
-    });
-    pressCont.add([pressBg, pressTxt, pressZone]);
-    slot.pressBtn = pressCont;
-
-    // ── 3. 刷油鈕（右下）──────────────────────────────────────────────────
-    const oilCont = this.add.container(slot.x + 32, btnY).setDepth(depth);
-    const oilBg = this.add.graphics();
-    oilBg.fillStyle(0x443300, 0.85);
-    oilBg.lineStyle(1, 0xffcc00, 0.7);
-    oilBg.fillRoundedRect(-14, -11, 28, 22, 4);
-    oilBg.strokeRoundedRect(-14, -11, 28, 22, 4);
-    const oilTxt = this.add.text(0, 0, '油', {
-      fontSize: '13px', fontFamily: FONT, color: '#ffdd44',
-    }).setOrigin(0.5);
-    const oilZone = this.add.zone(0, 0, 28, 22).setInteractive({ cursor: 'pointer' });
-    oilZone.on('pointerdown', () => {
-      if (this.isDone || this.paused || this.isShowingGrillEvent || this.isShowingCondimentStation) return;
-      if (!slot.sausage || slot.sausage.served) return;
-      const result = brushOil(slot.sausage);
-      if (result === null) {
-        // 失敗 — 判斷原因
-        if (slot.sausage.oilBrushed) {
-          this.showFeedback('已刷過', slot.x, slot.y - 30, '#888888');
-        } else {
-          this.showFeedback('還沒熟', slot.x, slot.y - 30, '#ffaa44');
-        }
-      } else {
-        slot.sausage = result;
-        if (slot.sprite) slot.sprite.updateData(result);
-        // 成功 — 金色光暈 + 隱藏按鈕
-        this.flashOilGlow(slot.x, slot.y);
-        this.showFeedback('刷油！', slot.x, slot.y - 30, '#ffdd44');
-        oilCont.destroy();
-        slot.oilBtn = null;
-      }
-    });
-    oilCont.add([oilBg, oilTxt, oilZone]);
-    slot.oilBtn = oilCont;
+  /** Wave 6c: flip/press/oil interaction buttons removed. This method is now a no-op. */
+  private buildSlotInteractionBtns(_slot: GrillSlot): void {
+    // Intentionally empty — manual interaction zones removed in Wave 6c
   }
 
   /** 銷毀 slot 上所有 Wave 4b 互動按鈕 */
@@ -2107,65 +2058,6 @@ export class GrillScene extends Phaser.Scene {
     if (slot.pressBtn) { slot.pressBtn.destroy(); slot.pressBtn = null; }
     if (slot.oilBtn) { slot.oilBtn.destroy(); slot.oilBtn = null; }
     slot.__isPressingBtn = false;
-  }
-
-  /** 取得本次 session 已過秒數（用於 flip cooldown 計算） */
-  private getSessionElapsedSec(): number {
-    // timeLeft 倒數計時，用 sessionDuration - timeLeft 換算已過時間
-    // 但因為 timeLeft 可能被 speedMultiplier 影響，直接用 performance.now / 1000 更準確
-    return performance.now() / 1000;
-  }
-
-  /** 刷油成功的金色光暈特效 */
-  private flashOilGlow(x: number, y: number): void {
-    const glow = this.add.graphics().setDepth(50);
-    glow.fillStyle(0xffdd00, 0.5);
-    glow.fillCircle(x, y, 38);
-    this.tweens.add({
-      targets: glow,
-      alpha: 0,
-      scaleX: 1.6,
-      scaleY: 1.6,
-      duration: 400,
-      ease: 'Power2',
-      onComplete: () => { if (glow.active) glow.destroy(); },
-    });
-    // 油滴粒子（用 Text emoji 模擬）
-    for (let i = 0; i < 5; i++) {
-      const angle = (Math.PI * 2 * i) / 5;
-      const px = x + Math.cos(angle) * 20;
-      const py = y + Math.sin(angle) * 20;
-      const drop = this.add.text(px, py, '✦', {
-        fontSize: '11px', color: '#ffcc00',
-      }).setOrigin(0.5).setDepth(51);
-      this.tweens.add({
-        targets: drop,
-        x: px + Math.cos(angle) * 25,
-        y: py + Math.sin(angle) * 25 - 15,
-        alpha: 0,
-        duration: 500,
-        ease: 'Power2',
-        onComplete: () => { if (drop.active) drop.destroy(); },
-      });
-    }
-  }
-
-  /** 按壓時的油噴粒子特效 */
-  private spawnPressOilParticle(x: number, y: number): void {
-    const drop = this.add.text(
-      x + Phaser.Math.Between(-18, 18),
-      y + Phaser.Math.Between(-10, 5),
-      '•',
-      { fontSize: '10px', color: '#ffaa33' }
-    ).setOrigin(0.5).setDepth(52);
-    this.tweens.add({
-      targets: drop,
-      y: drop.y - Phaser.Math.Between(20, 40),
-      alpha: 0,
-      duration: 350,
-      ease: 'Power1',
-      onComplete: () => { if (drop.active) drop.destroy(); },
-    });
   }
 
   // ── Worker effect ticks ───────────────────────────────────────────────────
@@ -2340,6 +2232,7 @@ export class GrillScene extends Phaser.Scene {
 
   private showGrillEventOverlay(event: GrillEvent): void {
     this.isShowingGrillEvent = true;
+    this.bgmTheme?.pause();
     const { width: w, height: h } = this.scale;
 
     const eventImageMap: Record<string, string> = {
@@ -2634,6 +2527,7 @@ export class GrillScene extends Phaser.Scene {
       container.destroy();
       this.grillEventOverlay = null;
       this.isShowingGrillEvent = false;
+      this.bgmTheme?.resume();
     };
 
     dismissZone.on('pointerdown', dismissGrillEvent);
@@ -2810,10 +2704,9 @@ export class GrillScene extends Phaser.Scene {
     this.showFeedback('起鍋！', slot.x, slot.y - 40, '#ffcc44');
   }
 
-  // Serve from warming zone — player click: open condiment station overlay
+  // Serve from warming zone — Wave 6c: condiment station removed, auto-serve directly
   private serveFromWarming(warmSlot: WarmingSlot): void {
     if (!warmSlot.sausage) return;
-    if (this.isShowingCondimentStation) return;
 
     // Find best matching customer
     const nextCustomer = this.findMatchingCustomer(warmSlot.sausage);
@@ -2822,7 +2715,9 @@ export class GrillScene extends Phaser.Scene {
       return;
     }
 
-    this.openCondimentStation(warmSlot, warmSlot.sausage, nextCustomer);
+    // appliedGarlic is always true (Wave 6c: condiment scoring simplified)
+    this.appliedGarlic = true;
+    this.finalizeServe(warmSlot, warmSlot.sausage, nextCustomer);
   }
 
   // Direct serve — used by Mei worker (bypasses condiment station)
@@ -3057,120 +2952,10 @@ export class GrillScene extends Phaser.Scene {
     return anyCustomer || null;
   }
 
-  private openCondimentStation(warmSlot: WarmingSlot, sausage: WarmingSausage, customer: Customer): void {
-    this.isShowingCondimentStation = true;
-    this.paused = true;
-    this.appliedGarlic = false;
-
-    const w = this.scale.width;
-    const h = this.scale.height;
-
-    this.condimentOverlay = this.add.container(0, 0).setDepth(20);
-
-    // Backdrop
-    const bg = this.add.rectangle(w / 2, h / 2, w, h, 0x000000, 0.85).setInteractive();
-    this.condimentOverlay.add(bg);
-
-    // Title
-    const title = this.add.text(w / 2, h * 0.28, '加料台', {
-      fontSize: '22px', color: '#ffcc00', fontStyle: 'bold', fontFamily: FONT
-    }).setOrigin(0.5);
-    this.condimentOverlay.add(title);
-
-    // Customer order display
-    const orderSausageName = SAUSAGE_TYPES?.find((s: any) => s.id === customer.order?.sausageType)?.name
-      || customer.order?.sausageType || '?';
-    const wantsGarlic = customer.order?.wantGarlic ?? false;
-
-    const orderLabel = this.add.text(w / 2, h * 0.33, `客人要：${orderSausageName}`, {
-      fontSize: '14px', color: '#44aaff', fontFamily: FONT
-    }).setOrigin(0.5);
-    this.condimentOverlay.add(orderLabel);
-
-    const sausageKey = `sausage-${customer.order?.sausageType || ''}`;
-    if (this.textures.exists(sausageKey)) {
-      const sausageImg = this.add.image(w / 2 - 100, h * 0.33, sausageKey);
-      sausageImg.setScale(Math.min(40 / sausageImg.width, 40 / sausageImg.height));
-      this.condimentOverlay!.add(sausageImg);
-    }
-
-    const garlicHint = this.add.text(w / 2, h * 0.355,
-      wantsGarlic ? '配料：🧄 蒜泥' : '不加料', {
-        fontSize: '13px', color: '#88ff88', fontFamily: FONT
-      }).setOrigin(0.5);
-    this.condimentOverlay.add(garlicHint);
-
-    // Loyalty badge display
-    if (customer.loyaltyBadge && customer.loyaltyBadge !== 'none') {
-      const badgeInfo = getBadgeInfo(customer.loyaltyBadge);
-      const badgeText = this.add.text(w / 2, h * 0.375, badgeInfo.name, {
-        fontSize: '12px', color: '#ffcc00', fontFamily: FONT
-      }).setOrigin(0.5);
-      this.condimentOverlay.add(badgeText);
-    }
-
-    // ── Garlic toggle button ──────────────────────────────────────────────────
-    const garlicBtnSize = 90;
-    const garlicBtnY = h * 0.48;
-    const garlicBtnX = w / 2;
-
-    const garlicBtnBg = this.add.rectangle(garlicBtnX, garlicBtnY, garlicBtnSize, garlicBtnSize, 0x1a1a3e, 0.9)
-      .setStrokeStyle(2, 0x444466)
-      .setInteractive({ useHandCursor: true });
-
-    const garlicTexKey = 'condiment-garlic-paste';
-    let garlicIcon: Phaser.GameObjects.Image | Phaser.GameObjects.Text;
-    if (this.textures.exists(garlicTexKey)) {
-      const gImg = this.add.image(garlicBtnX, garlicBtnY - 10, garlicTexKey);
-      gImg.setScale(Math.min(50 / gImg.width, 50 / gImg.height));
-      garlicIcon = gImg;
-    } else {
-      garlicIcon = this.add.text(garlicBtnX, garlicBtnY - 10, '🧄', {
-        fontSize: '36px'
-      }).setOrigin(0.5);
-    }
-
-    const garlicLabel = this.add.text(garlicBtnX, garlicBtnY + 28, '蒜泥', {
-      fontSize: '13px', color: '#cccccc', fontFamily: FONT
-    }).setOrigin(0.5);
-
-    const garlicStateText = this.add.text(garlicBtnX, garlicBtnY + 44, '（未選）', {
-      fontSize: '11px', color: '#888888', fontFamily: FONT
-    }).setOrigin(0.5);
-
-    garlicBtnBg.on('pointerdown', () => {
-      this.appliedGarlic = !this.appliedGarlic;
-      if (this.appliedGarlic) {
-        garlicBtnBg.setFillStyle(0x2a4a2a, 0.9).setStrokeStyle(2, 0x44ff44);
-        garlicStateText.setText('✓ 已加蒜').setColor('#44ff44');
-      } else {
-        garlicBtnBg.setFillStyle(0x1a1a3e, 0.9).setStrokeStyle(2, 0x444466);
-        garlicStateText.setText('（未選）').setColor('#888888');
-      }
-    });
-
-    this.condimentOverlay.add([garlicBtnBg, garlicIcon, garlicLabel, garlicStateText]);
-
-    // ── Serve button ──────────────────────────────────────────────────────────
-    const serveBtnY = garlicBtnY + garlicBtnSize / 2 + 50;
-    const serveBtn = this.add.text(w / 2, serveBtnY, '出餐', {
-      fontSize: '20px', color: '#44ff44', backgroundColor: '#1a2a1a',
-      padding: { x: 24, y: 12 }, fontFamily: FONT
-    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
-
-    serveBtn.on('pointerdown', () => {
-      this.finalizeServe(warmSlot, sausage, customer);
-    });
-
-    this.condimentOverlay.add(serveBtn);
-  }
+  // openCondimentStation removed in Wave 6c — condiment scoring fixed, garlic always applied
 
   private finalizeServe(warmSlot: WarmingSlot, sausage: WarmingSausage, customer: Customer): void {
-    // Close condiment overlay
-    this.condimentOverlay?.destroy();
-    this.condimentOverlay = null;
-    this.isShowingCondimentStation = false;
-    this.paused = false;
+    // Wave 6c: condiment overlay removed — nothing to close here
 
     // Calculate patience ratio
     const patienceRatio = Math.max(0, Math.min(1,
@@ -4074,15 +3859,19 @@ export class GrillScene extends Phaser.Scene {
     updateGameState({ inventory: { ...this.inventoryCopy } });
 
     try {
-      // Stop BGM
+      // Stop BGM (legacy bgm field kept for compat; bgmTheme is the Wave 6cd theme)
       if (this.bgm) {
         this.bgm.stop();
         this.bgm.destroy();
         this.bgm = null;
       }
+      if (this.bgmTheme) {
+        this.bgmTheme.stop();
+        this.bgmTheme.destroy();
+        this.bgmTheme = null;
+      }
 
-      // Clean up condiment station
-      this.condimentOverlay?.destroy();
+      // Wave 6c: condiment station removed; condimentOverlay field kept null for compat
       this.condimentOverlay = null;
       this.isShowingCondimentStation = false;
 
@@ -4173,125 +3962,99 @@ export class GrillScene extends Phaser.Scene {
     }
   }
 
-  // ── Ready / Tutorial overlay ──────────────────────────────────────────────
+  // ── Wave 6cd: Rhythm tutorial overlay ────────────────────────────────────
 
-  private showReadyOverlay(width: number, height: number): void {
-    const overlay = this.add.graphics();
-    overlay.fillStyle(0x000000, 0.8);
-    overlay.fillRect(0, 0, width, height);
-    overlay.setDepth(200);
+  private showRhythmTutorial(width: number, height: number): void {
+    const overlayContainer = this.add.container(0, 0).setDepth(9999);
 
-    const isFirstDay = gameState.day === 1;
-    const inventorySummary = Object.entries(this.inventoryCopy)
-      .filter(([, qty]) => qty > 0)
-      .map(([id, qty]) => {
-        const info = SAUSAGE_MAP[id];
-        return info ? `${info.name} x${qty}` : `${id} x${qty}`;
-      })
-      .join('   ');
+    // Full-screen semi-transparent black background
+    const bg = this.add.graphics();
+    bg.fillStyle(0x000000, 0.85);
+    bg.fillRect(0, 0, width, height);
+    overlayContainer.add(bg);
 
-    const playerSlotData = GRID_SLOTS.find(s => s.tier === gameState.playerSlot) ?? GRID_SLOTS[0];
+    const cx = width / 2;
 
-    const lines: string[] = [
-      `Day ${gameState.day} — 準備營業`,
-      '',
-      `今日庫存：${inventorySummary || '（空）'}`,
-      `營業時間：${this.timeLeft} 秒`,
-      `第 ${gameState.playerSlot} 層 — ${playerSlotData.name}（人流 ×${playerSlotData.trafficMultiplier}）`,
-      '',
-    ];
+    // Title
+    const title = this.add.text(cx, height * 0.12, '烤香腸節奏遊戲', {
+      fontSize: '32px',
+      fontFamily: FONT,
+      color: '#ffcc00',
+      fontStyle: 'bold',
+      stroke: '#000000',
+      strokeThickness: 4,
+    }).setOrigin(0.5);
+    overlayContainer.add(title);
 
-    if (isFirstDay) {
-      lines.push(
-        '── 基本操作 ──',
-        '',
-        '① 底部選香腸 → 點烤架空位放上去',
-        '② 點一下香腸 = 翻面（空白鍵也行）',
-        '③ 雙擊香腸 = 起鍋到保溫區',
-        '④ 點保溫區香腸 → 加配料 → 出餐',
-        '',
-        '── 熟度看顏色 ──',
-        '灰=生  藍=半熟  黃=普通  綠=完美',
-        '橘=微焦  紅=焦  暗紅=碳化',
-        '',
-        '── 客人點餐 ──',
-        '客人頭上會顯示想要的香腸和配料',
-        '出餐時選對配料 → 高分 → 高小費！',
-        '送錯種類或配料會扣分',
-        '',
-        '── 評分系統 ──',
-        '每單評分：烤功 + 配料 + 保溫 + 等待',
-        '★★★★★ = 大量小費！',
-        '常客會回來，忠誠度越高小費越多',
-        '',
-        '── 進階玩法 ──',
-        '僱用工讀生 → 他們自動烤，你可以離開攤位',
-        '離開攤位：招攬客人 / 搗亂對手 / 巡邏夜市',
-        '商店有自動翻面機、黑市、各種升級',
-        '',
-        '烤肉中會有突發事件，選擇決定後果！',
-        '',
-      );
-    }
+    // Subtitle
+    const sub = this.add.text(cx, height * 0.20, '跟著音樂節奏  打中飛來的香腸', {
+      fontSize: '18px',
+      fontFamily: FONT,
+      color: '#ffffff',
+    }).setOrigin(0.5);
+    overlayContainer.add(sub);
 
-    if (!isFirstDay) {
-      lines.push(
-        '點擊=翻面  雙擊=起鍋  保溫區=加料出餐',
-        '',
-      );
-    }
+    // Controls
+    const controlsText = this.add.text(cx, height * 0.32,
+      '【咚 紅】  鍵盤 F 或 J\n【喀 藍】  鍵盤 D 或 K', {
+        fontSize: '20px',
+        fontFamily: FONT,
+        color: '#ffaaaa',
+        align: 'center',
+        lineSpacing: 8,
+      }).setOrigin(0.5);
+    overlayContainer.add(controlsText);
 
-    // Start button text
-    const btnText = this.add.text(width / 2, height * 0.88, '[ 開始營業！ ]', {
-      fontSize: '22px',
-      fontFamily: 'Microsoft JhengHei, PingFang TC, sans-serif',
+    // Judgement explanation
+    const judgeText = this.add.text(cx, height * 0.52,
+      'PERFECT   ±50 ms   → 烤至完美金黃\n' +
+      'GREAT       ±100 ms  → 烤至略嫩\n' +
+      'GOOD        ±150 ms  → 烤至半熟\n' +
+      'MISS           超過範圍  → 香腸沒掉下來', {
+        fontSize: '16px',
+        fontFamily: FONT,
+        color: '#cccccc',
+        align: 'left',
+        lineSpacing: 10,
+      }).setOrigin(0.5);
+    overlayContainer.add(judgeText);
+
+    // Prompt
+    const prompt = this.add.text(cx, height * 0.80, '按任意鍵 或 點擊任意處 開始', {
+      fontSize: '20px',
+      fontFamily: FONT,
       color: '#39ff14',
       fontStyle: 'bold',
-    }).setOrigin(0.5).setDepth(202);
+    }).setOrigin(0.5);
+    overlayContainer.add(prompt);
 
-    // Pulse animation on the start button
+    // Pulse animation on the prompt
     this.tweens.add({
-      targets: btnText,
-      alpha: 0.5,
+      targets: prompt,
+      alpha: 0.4,
       duration: 600,
       yoyo: true,
       repeat: -1,
     });
 
-    const infoText = this.add.text(width / 2, isFirstDay ? height * 0.42 : height * 0.38, lines.join('\n'), {
-      fontSize: '14px',
-      fontFamily: 'Microsoft JhengHei, PingFang TC, sans-serif',
-      color: '#ffcc00',
-      align: 'center',
-      lineSpacing: 4,
-      wordWrap: { width: width * 0.85 },
-    }).setOrigin(0.5).setDepth(201);
+    let dismissed = false;
+    const dismiss = () => {
+      if (dismissed) return;
+      dismissed = true;
+      overlayContainer.destroy();
+      this.startRhythmGame();
+    };
 
-    overlay.setInteractive(
+    // Any pointer on the overlay background
+    bg.setInteractive(
       new Phaser.Geom.Rectangle(0, 0, width, height),
       Phaser.Geom.Rectangle.Contains
     );
-    overlay.once('pointerdown', () => {
-      overlay.destroy();
-      infoText.destroy();
-      btnText.destroy();
-      this.paused = false;
-      EventBus.emit('scene-ready', 'GrillScene');
+    bg.once('pointerdown', dismiss);
 
-      // Start BGM loop
-      try {
-        // Stop any existing instance
-        this.sound.stopByKey('bgm-grill');
-        this.sound.removeByKey('bgm-grill');
-        this.bgm = this.sound.add('bgm-grill', { loop: true, volume: 0.4 });
-        this.bgm.play();
-      } catch (_e) {
-        // Audio may not be available (e.g. not preloaded or blocked by browser)
-        console.warn('BGM failed to play:', _e);
-      }
-
-      // bg already at 0.12, no further adjustment needed
-    });
+    // Any keydown
+    const onKey = () => { dismiss(); };
+    this.input.keyboard?.once('keydown', onKey);
   }
 
   // ── Cleanup ──────────────────────────────────────────────────────────────
@@ -4305,6 +4068,11 @@ export class GrillScene extends Phaser.Scene {
       this.bgm.stop();
       this.bgm.destroy();
       this.bgm = null;
+    }
+    if (this.bgmTheme) {
+      this.bgmTheme.stop();
+      this.bgmTheme.destroy();
+      this.bgmTheme = null;
     }
 
     // Clean up combat panel if still active
