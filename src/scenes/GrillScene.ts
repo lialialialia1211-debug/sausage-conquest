@@ -986,36 +986,37 @@ export class GrillScene extends Phaser.Scene {
 
     const now = this.getRhythmTime();
 
-    // Find the closest un-hit note of the correct type within the good window
-    let bestNote: RhythmNote | null = null;
-    let bestDelta = Infinity;
-
+    // FIFO judgement: only the FRONTMOST un-hit note within the good window
+    // is eligible for scoring. Without this, a press could skip past an
+    // about-to-MISS note and score on a later same-color note within the same
+    // frame — the exact race that produces "PERFECT + MISS appearing together".
+    let frontNote: RhythmNote | null = null;
     for (const n of this.rhythmNotes) {
       if (n.isHit) continue;
-      if (n.note.type !== type) continue;
-      const delta = Math.abs(n.note.t - now);
-      if (delta <= JUDGE_WINDOWS.good && delta < bestDelta) {
-        bestDelta = delta;
-        bestNote = n;
-      }
+      // Notes still too far in the future haven't entered the press-eligible window
+      if (n.note.t - now > JUDGE_WINDOWS.good) continue;
+      frontNote = n;
+      break;
     }
 
-    if (!bestNote) {
-      // No candidate found within good window — empty press, no penalty, no feedback
-      // (avoids punishing players for pressing the wrong type or too early/late)
+    if (!frontNote) {
+      // No frontmost un-hit note in window — empty press, no penalty
       return;
     }
 
-    // Judge the hit
-    const judgement = judgeHit(bestNote.note.t, now);
+    if (frontNote.note.type !== type) {
+      // Wrong key for the frontmost note: don't reach past it to score on a
+      // later same-type note. No penalty, no feedback (no scolding).
+      return;
+    }
 
+    const judgement = judgeHit(frontNote.note.t, now);
     if (judgement === null) {
-      // Should not happen since we pre-filtered by JUDGE_WINDOWS.good, but guard anyway
+      // Outside even the good window — auto-MISS handler will deal with it
       return;
     }
 
-    // Mark note as judged
-    bestNote.markHit();
+    frontNote.markHit();
 
     // Update stats and combo
     this.hitStats[judgement] += 1;
@@ -1066,12 +1067,12 @@ export class GrillScene extends Phaser.Scene {
       sfx.playRhythmMiss();
       this.showFeedback('MISS（烤架滿）', this.NOTE_HIT_X, this.noteTrackY - 40, '#ff4444');
       // Grey out the note and let it fly off
-      bestNote.setAlpha(0.35);
+      frontNote.setAlpha(0.35);
       return;
     }
 
     // Capture for closures
-    const hitNote = bestNote;
+    const hitNote = frontNote;
     const hitJudgement = judgement;
 
     this.tweens.add({

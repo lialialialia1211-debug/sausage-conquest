@@ -70,7 +70,11 @@ def analyze(audio_path: str, output_path: str | None = None) -> dict:
 
 
 if __name__ == "__main__":
-    audio = sys.argv[1] if len(sys.argv) > 1 else "C:/Users/user/Downloads/腸爭天下主題曲.wav"
+    # CRITICAL: must analyse the SAME mp3 the game plays.
+    # Analysing the source WAV gives a different time axis (LAME encoder padding ~26ms)
+    # which causes the chart to be systematically out of sync with the played audio.
+    default_audio = "C:/Users/user/sausage-conquest/public/bgm-grill-theme.mp3"
+    audio = sys.argv[1] if len(sys.argv) > 1 else default_audio
     out = sys.argv[2] if len(sys.argv) > 2 else "C:/Users/user/sausage-conquest/scripts/bgm_analysis.json"
     summary = analyze(audio, out)
     print(json.dumps(summary, ensure_ascii=False, indent=2))

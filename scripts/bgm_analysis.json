@@ -1,9 +1,9 @@
 {
-  "audio_path": "C:/Users/user/Downloads/腸爭天下主題曲.wav",
+  "audio_path": "C:/Users/user/sausage-conquest/public/bgm-grill-theme.mp3",
   "duration_sec": 162.17,
   "tempo_bpm": 89.1,
   "n_beats": 222,
-  "n_onsets": 717,
+  "n_onsets": 716,
   "first_10_beats": [
     1.045,
     1.695,
@@ -40,7 +40,7 @@
       "section": 1,
       "t_start": 0.0,
       "t_end": 20.27,
-      "avg_energy": 0.3333,
+      "avg_energy": 0.3233,
       "n_beats": 29,
       "n_onsets": 90
     },
@@ -48,7 +48,7 @@
       "section": 2,
       "t_start": 20.27,
       "t_end": 40.54,
-      "avg_energy": 0.3172,
+      "avg_energy": 0.3078,
       "n_beats": 31,
       "n_onsets": 84
     },
@@ -56,7 +56,7 @@
       "section": 3,
       "t_start": 40.54,
       "t_end": 60.81,
-      "avg_energy": 0.2914,
+      "avg_energy": 0.2828,
       "n_beats": 30,
       "n_onsets": 81
     },
@@ -64,7 +64,7 @@
       "section": 4,
       "t_start": 60.81,
       "t_end": 81.08,
-      "avg_energy": 0.3364,
+      "avg_energy": 0.3264,
       "n_beats": 31,
       "n_onsets": 91
     },
@@ -72,15 +72,15 @@
       "section": 5,
       "t_start": 81.08,
       "t_end": 101.35,
-      "avg_energy": 0.2706,
+      "avg_energy": 0.2625,
       "n_beats": 30,
-      "n_onsets": 109
+      "n_onsets": 108
     },
     {
       "section": 6,
       "t_start": 101.35,
       "t_end": 121.62,
-      "avg_energy": 0.3227,
+      "avg_energy": 0.313,
       "n_beats": 30,
       "n_onsets": 111
     },
@@ -88,7 +88,7 @@
       "section": 7,
       "t_start": 121.62,
       "t_end": 141.9,
-      "avg_energy": 0.2754,
+      "avg_energy": 0.2672,
       "n_beats": 30,
       "n_onsets": 111
     },
@@ -96,7 +96,7 @@
       "section": 8,
       "t_start": 141.9,
       "t_end": 162.17,
-      "avg_energy": 0.0363,
+      "avg_energy": 0.0353,
       "n_beats": 11,
       "n_onsets": 40
     }
@@ -179,7 +179,7 @@
     50.387,
     51.037,
     51.711,
-    52.384,
+    52.361,
     53.034,
     53.708,
     54.381,
@@ -419,7 +419,7 @@
     20.364,
     20.55,
     20.712,
-    20.875,
+    20.898,
     21.037,
     21.386,
     21.711,
@@ -774,7 +774,6 @@
     99.358,
     99.544,
     99.706,
-    99.869,
     100.032,
     100.217,
     100.357,
