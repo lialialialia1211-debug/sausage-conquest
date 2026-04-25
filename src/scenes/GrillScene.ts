@@ -43,6 +43,9 @@ import { CUSTOMER_COMMENTS, COUNTER_ATTACKS } from '../data/customerComments';
 import { SpectatorCrowd } from '../objects/SpectatorCrowd';
 import { RhythmNote } from '../objects/RhythmNote';
 import type { RhythmChart } from '../data/chart';
+import { judgeHit, JUDGE_WINDOWS } from '../systems/RhythmEngine';
+import type { HitJudgement } from '../systems/RhythmEngine';
+import type { NoteType } from '../data/chart';
 
 // ── Layout constants ────────────────────────────────────────────────────────
 // Tier-based session duration: early tiers are shorter and less demanding
@@ -237,6 +240,12 @@ export class GrillScene extends Phaser.Scene {
   // (between warming zone bottom ~0.68 and spectator crowd ~0.76)
   private noteTrackY = 0;
 
+  // ── Wave 6b: Rhythm input / judgement state ───────────────────────────────
+  private rhythmCombo = 0;
+  private maxRhythmCombo = 0;
+  private hitStats = { perfect: 0, great: 0, good: 0, miss: 0 };
+  private rhythmComboText: Phaser.GameObjects.Text | null = null;
+
   constructor() {
     super({ key: 'GrillScene' });
   }
@@ -327,6 +336,12 @@ export class GrillScene extends Phaser.Scene {
     this.rhythmStartTime = 0;
     this.nextNoteSpawnIdx = 0;
     this.noteTrackY = 0;
+
+    // ── Wave 6b reset ──
+    this.rhythmCombo = 0;
+    this.maxRhythmCombo = 0;
+    this.hitStats = { perfect: 0, great: 0, good: 0, miss: 0 };
+    this.rhythmComboText = null;
 
     // Worker: adi → extra grill slot
     let maxSlots = gameState.upgrades['grill-expand'] ? 6 : MAX_GRILL_SLOTS;
@@ -824,6 +839,69 @@ export class GrillScene extends Phaser.Scene {
       fontFamily: FONT,
       color: '#888888',
     }).setOrigin(0.5).setDepth(10);
+
+    // ── Wave 6b: Keyboard input ──────────────────────────────────────────────
+    this.input.keyboard?.on('keydown-F', () => this.handleRhythmPress('don'));
+    this.input.keyboard?.on('keydown-J', () => this.handleRhythmPress('don'));
+    this.input.keyboard?.on('keydown-D', () => this.handleRhythmPress('ka'));
+    this.input.keyboard?.on('keydown-K', () => this.handleRhythmPress('ka'));
+
+    // ── Wave 6b: Touch buttons (Don = red left, Ka = blue right) ────────────
+    const btnY = height - 80;
+    const donX = width * 0.25;
+    const kaX  = width * 0.75;
+    const btnRadius = 60;
+
+    // Don button (red)
+    const donGfx = this.add.graphics();
+    donGfx.fillStyle(0xff3344, 0.85);
+    donGfx.fillCircle(donX, btnY, btnRadius);
+    donGfx.lineStyle(3, 0xffffff, 0.6);
+    donGfx.strokeCircle(donX, btnY, btnRadius);
+    donGfx.setDepth(50).setInteractive(
+      new Phaser.Geom.Circle(donX, btnY, btnRadius),
+      Phaser.Geom.Circle.Contains,
+    );
+    donGfx.on('pointerdown', () => this.handleRhythmPress('don'));
+
+    this.add.text(donX, btnY, '咚\nDon', {
+      fontSize: '18px',
+      fontFamily: FONT,
+      color: '#ffffff',
+      stroke: '#000000',
+      strokeThickness: 3,
+      align: 'center',
+    }).setOrigin(0.5).setDepth(51);
+
+    // Ka button (blue)
+    const kaGfx = this.add.graphics();
+    kaGfx.fillStyle(0x3388ff, 0.85);
+    kaGfx.fillCircle(kaX, btnY, btnRadius);
+    kaGfx.lineStyle(3, 0xffffff, 0.6);
+    kaGfx.strokeCircle(kaX, btnY, btnRadius);
+    kaGfx.setDepth(50).setInteractive(
+      new Phaser.Geom.Circle(kaX, btnY, btnRadius),
+      Phaser.Geom.Circle.Contains,
+    );
+    kaGfx.on('pointerdown', () => this.handleRhythmPress('ka'));
+
+    this.add.text(kaX, btnY, '喀\nKa', {
+      fontSize: '18px',
+      fontFamily: FONT,
+      color: '#ffffff',
+      stroke: '#000000',
+      strokeThickness: 3,
+      align: 'center',
+    }).setOrigin(0.5).setDepth(51);
+
+    // ── Wave 6b: Combo display text (top-left, hidden until combo >= 2) ──────
+    this.rhythmComboText = this.add.text(60, 100, '', {
+      fontSize: '32px',
+      fontFamily: FONT,
+      color: '#ffffff',
+      stroke: '#000000',
+      strokeThickness: 4,
+    }).setDepth(200).setAlpha(0);
   }
 
   /**
@@ -846,15 +924,156 @@ export class GrillScene extends Phaser.Scene {
       this.nextNoteSpawnIdx++;
     }
 
-    // Move existing notes; destroy notes that fly past the hit line
+    // Move existing notes; handle auto-MISS for notes that passed the judgement window;
+    // destroy notes that have flown well past the hit line.
     for (let i = this.rhythmNotes.length - 1; i >= 0; i--) {
       const n = this.rhythmNotes[i];
       n.setPositionByTime(now, n.note.t, this.NOTE_HIT_X, this.NOTE_SPAWN_X, this.NOTE_LEAD_TIME);
-      if (n.x < this.NOTE_HIT_X - 100) {
+
+      // Auto-MISS: note time passed the good window and still not hit
+      if (!n.isHit && n.note.t < now - JUDGE_WINDOWS.good) {
+        n.markHit();
+        this.hitStats.miss += 1;
+        this.rhythmCombo = 0;
+        this.updateRhythmComboText();
+        sfx.playRhythmMiss();
+        this.showFeedback('MISS', this.NOTE_HIT_X, this.noteTrackY - 40, '#ff4444');
+        // Visual: grey out + reduce alpha, note continues flying off-screen
+        n.setAlpha(0.4);
+        // Tint the note grey by overlaying a graphics rectangle — easiest approach
+        // without touching the internal Container children directly.
+        // (Full grey tint requires alpha; we keep it subtle so it's visible but faded.)
+      }
+
+      // Remove notes that have flown well past the hit line
+      if (n.x < this.NOTE_HIT_X - 120) {
         n.destroy();
         this.rhythmNotes.splice(i, 1);
       }
     }
+  }
+
+  // ── Wave 6b: Rhythm input handling ──────────────────────────────────────
+
+  /**
+   * Called when the player presses a don (F/J) or ka (D/K) key, or taps a touch button.
+   * Finds the nearest un-hit note of the matching type within the good window,
+   * judges it, plays audio, and updates state / visuals.
+   */
+  private handleRhythmPress(type: NoteType): void {
+    if (this.isDone || this.paused || this.isShowingGrillEvent) return;
+
+    const now = performance.now() / 1000 - this.rhythmStartTime;
+
+    // Find the closest un-hit note of the correct type within the good window
+    let bestNote: RhythmNote | null = null;
+    let bestDelta = Infinity;
+
+    for (const n of this.rhythmNotes) {
+      if (n.isHit) continue;
+      if (n.note.type !== type) continue;
+      const delta = Math.abs(n.note.t - now);
+      if (delta <= JUDGE_WINDOWS.good && delta < bestDelta) {
+        bestDelta = delta;
+        bestNote = n;
+      }
+    }
+
+    if (!bestNote) {
+      // No candidate found within good window — empty press, no penalty, no feedback
+      // (avoids punishing players for pressing the wrong type or too early/late)
+      return;
+    }
+
+    // Judge the hit
+    const judgement = judgeHit(bestNote.note.t, now);
+
+    if (judgement === null) {
+      // Should not happen since we pre-filtered by JUDGE_WINDOWS.good, but guard anyway
+      return;
+    }
+
+    // Mark note as judged
+    bestNote.markHit();
+
+    // Update stats and combo
+    this.hitStats[judgement] += 1;
+    this.rhythmCombo += 1;
+    if (this.rhythmCombo > this.maxRhythmCombo) {
+      this.maxRhythmCombo = this.rhythmCombo;
+    }
+    this.updateRhythmComboText();
+
+    // Play drum hit sound (don/ka) simultaneously with judgement tone
+    if (type === 'don') {
+      sfx.playDon();
+    } else {
+      sfx.playKa();
+    }
+
+    // Play judgement tone
+    if (judgement === 'perfect') {
+      sfx.playRhythmPerfect();
+    } else if (judgement === 'great') {
+      sfx.playRhythmGreat();
+    } else {
+      sfx.playRhythmGood();
+    }
+
+    // Floating judgement text
+    const labelColor: Record<HitJudgement, string> = {
+      perfect: '#ffd700',
+      great:   '#c0c0c0',
+      good:    '#cd7f32',
+      miss:    '#ff4444',
+    };
+    this.showFeedback(
+      judgement.toUpperCase(),
+      this.NOTE_HIT_X,
+      this.noteTrackY - 40,
+      labelColor[judgement],
+    );
+
+    // Hit note: fade-out + shrink then destroy (Wave 6c will replace with fly-into-grill)
+    this.tweens.add({
+      targets: bestNote,
+      alpha: 0,
+      scaleX: 0.3,
+      scaleY: 0.3,
+      duration: 200,
+      ease: 'Power2',
+      onComplete: () => {
+        if (bestNote!.active) bestNote!.destroy();
+        const idx = this.rhythmNotes.indexOf(bestNote!);
+        if (idx >= 0) this.rhythmNotes.splice(idx, 1);
+      },
+    });
+  }
+
+  /**
+   * Refreshes the combo counter display in the top-left corner.
+   * Hides the text when combo < 2; shows + bounces it otherwise.
+   */
+  private updateRhythmComboText(): void {
+    if (!this.rhythmComboText) return;
+    if (this.rhythmCombo < 2) {
+      this.rhythmComboText.setAlpha(0);
+      return;
+    }
+    this.rhythmComboText
+      .setText(`${this.rhythmCombo} COMBO`)
+      .setAlpha(1)
+      .setFontSize(Math.min(60, 32 + this.rhythmCombo));
+
+    // Bounce tween for feedback
+    this.tweens.add({
+      targets: this.rhythmComboText,
+      scaleX: 1.3,
+      scaleY: 1.3,
+      duration: 80,
+      yoyo: true,
+      ease: 'Back.Out',
+    });
   }
 
   // ── Draw helpers ─────────────────────────────────────────────────────────

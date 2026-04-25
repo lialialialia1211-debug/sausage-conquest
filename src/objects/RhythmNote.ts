@@ -14,6 +14,9 @@ export class RhythmNote extends Phaser.GameObjects.Container {
   /** The chart note data this object represents (readable by GrillScene). */
   public readonly note: ChartNote;
 
+  /** Whether this note has already been judged (hit or auto-missed). Prevents double-judging. */
+  private _hit = false;
+
   constructor(scene: Phaser.Scene, x: number, y: number, note: ChartNote) {
     super(scene, x, y);
     this.note = note;
@@ -64,6 +67,16 @@ export class RhythmNote extends Phaser.GameObjects.Container {
    * @param spawnX       X coordinate where the note spawns (right edge)
    * @param leadTime     Seconds before hit time when the note appears
    */
+  /** Mark this note as judged. After calling this, isHit returns true. */
+  markHit(): void {
+    this._hit = true;
+  }
+
+  /** True if this note has already been judged (hit or auto-missed). */
+  get isHit(): boolean {
+    return this._hit;
+  }
+
   setPositionByTime(
     currentTime: number,
     hitTime: number,

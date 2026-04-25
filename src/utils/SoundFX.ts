@@ -402,8 +402,129 @@ class SoundFX {
   }
 
   // ================================================================
+  // Taiko-style rhythm game sounds (Wave 6b+)
+  // ================================================================
+
+  /**
+   * Don hit sound — low sine pulse (100 Hz, 80ms) + mid bandpass noise burst (800 Hz, 40ms).
+   * Mimics a taiko drum centre hit (don / 咚).
+   */
+  playDon(): void {
+    const ctx = this.ensureContext();
+    const now = ctx.currentTime;
+    // Low-frequency sine pulse
+    this.playToneAt(ctx, now, 100, 'sine', 0.5, 0.08);
+    // Mid-frequency noise transient (drum skin resonance)
+    this.playNoiseAt(ctx, now, 0.04, 800, 'bandpass', 0.3);
+  }
+
+  /**
+   * Ka hit sound — high bandpass noise (1200 Hz, 40ms) + brief 200 Hz sine tail (20ms).
+   * Mimics a taiko drum rim hit (ka / 喀).
+   */
+  playKa(): void {
+    const ctx = this.ensureContext();
+    const now = ctx.currentTime;
+    // High-frequency rim noise
+    this.playNoiseAt(ctx, now, 0.04, 1200, 'bandpass', 0.35);
+    // Short low sine "body" tail
+    this.playToneAt(ctx, now, 200, 'sine', 0.2, 0.02);
+  }
+
+  /**
+   * PERFECT judgement chime — 1760 Hz sine + 2640 Hz triangle, both 80ms.
+   * Bright, sparkly, unmistakably excellent.
+   */
+  playRhythmPerfect(): void {
+    const ctx = this.ensureContext();
+    const now = ctx.currentTime;
+    this.playToneAt(ctx, now, 1760, 'sine', 0.3, 0.08);
+    this.playToneAt(ctx, now, 2640, 'triangle', 0.2, 0.08);
+  }
+
+  /**
+   * GREAT judgement tone — 1320 Hz sine, 80ms.
+   * Noticeably good but a step below perfect.
+   */
+  playRhythmGreat(): void {
+    const ctx = this.ensureContext();
+    const now = ctx.currentTime;
+    this.playToneAt(ctx, now, 1320, 'sine', 0.25, 0.08);
+  }
+
+  /**
+   * GOOD judgement tone — 880 Hz sine, 100ms.
+   * Modest positive feedback.
+   */
+  playRhythmGood(): void {
+    const ctx = this.ensureContext();
+    const now = ctx.currentTime;
+    this.playToneAt(ctx, now, 880, 'sine', 0.2, 0.10);
+  }
+
+  /**
+   * MISS sound — 200 Hz square wave, 120ms, with frequency slide down to 100 Hz.
+   * Clearly negative, low-pass filtered to avoid harshness.
+   */
+  playRhythmMiss(): void {
+    const ctx = this.ensureContext();
+    const now = ctx.currentTime;
+    const duration = 0.12;
+
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    const filter = ctx.createBiquadFilter();
+
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(200, now);
+    osc.frequency.linearRampToValueAtTime(100, now + duration);
+
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(600, now);
+    filter.frequency.linearRampToValueAtTime(200, now + duration);
+
+    gain.gain.setValueAtTime(0.12, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+
+    osc.connect(filter);
+    filter.connect(gain);
+    gain.connect(this.masterGain!);
+
+    osc.start(now);
+    osc.stop(now + duration);
+  }
+
+  // ================================================================
   // Helper methods
   // ================================================================
+
+  /**
+   * Schedule a simple oscillator tone at a specific AudioContext timestamp.
+   * Used by taiko-style sounds to precisely layer multiple tones.
+   */
+  private playToneAt(
+    ctx: AudioContext,
+    startTime: number,
+    freq: number,
+    type: OscillatorType,
+    volume: number,
+    duration: number,
+  ): void {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, startTime);
+
+    gain.gain.setValueAtTime(volume, startTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
+
+    osc.connect(gain);
+    gain.connect(this.masterGain!);
+
+    osc.start(startTime);
+    osc.stop(startTime + duration);
+  }
 
   /**
    * Play a simple oscillator tone.
