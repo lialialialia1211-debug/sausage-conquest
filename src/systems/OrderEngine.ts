@@ -13,7 +13,6 @@ export function scoreOrder(
   remainingPatienceRatio: number,  // 0-1, how much patience is left
   loyaltyBadge: LoyaltyBadge,
   basePrice: number,
-  timingComboMultiplier: number = 1.0,  // Wave 5b: timing combo bonus (1.0 / 1.1 / 1.2 / 1.3)
 ): OrderScore {
   // 1. Grill Score (0-100): based on grillQuality string
   const grillScoreMap: Record<string, number> = {
@@ -60,11 +59,6 @@ export function scoreOrder(
   // Wave 4b: 刷過油 → 最終分數 ×1.15（四捨五入），上限 100
   if (warmingSausage.oilBrushed) {
     totalScore = Math.min(100, Math.round(totalScore * 1.15));
-  }
-
-  // Wave 5b: timing combo bonus multiplier (×1.0 / 1.1 / 1.2 / 1.3)
-  if (timingComboMultiplier !== 1.0) {
-    totalScore = Math.min(100, Math.round(totalScore * timingComboMultiplier));
   }
 
   // 6. Stars (1-5)

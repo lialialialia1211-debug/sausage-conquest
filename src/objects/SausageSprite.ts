@@ -8,7 +8,6 @@ import {
   getAverageDoneness,
   getCookingStage,
   getStageDisplayInfo,
-  PERFECT_BANDS,
 } from '../systems/GrillEngine';
 import { SAUSAGE_MAP } from '../data/sausages';
 
@@ -61,10 +60,6 @@ export class SausageSprite extends Phaser.GameObjects.Container {
   // Tracked cheese burst graphics for cleanup
   private cheeseBurstGfx: Phaser.GameObjects.Graphics | null = null;
 
-  // Wave 5a: timing QTE band overlays (5 per bar, top + bottom)
-  private _topBandGfx: Phaser.GameObjects.Graphics[] = [];
-  private _bottomBandGfx: Phaser.GameObjects.Graphics[] = [];
-
   constructor(scene: Phaser.Scene, x: number, y: number, sausage: GrillingSausage) {
     super(scene, x, y);
     this._data = sausage;
@@ -96,16 +91,6 @@ export class SausageSprite extends Phaser.GameObjects.Container {
 
     this.bottomBarGfx = scene.add.graphics();
     this.add(this.bottomBarGfx);
-
-    // Wave 5a: timing QTE band overlays — drawn on top of doneness bars
-    for (let i = 0; i < PERFECT_BANDS.length; i++) {
-      const tg = scene.add.graphics();
-      this._topBandGfx.push(tg);
-      this.add(tg);
-      const bg = scene.add.graphics();
-      this._bottomBandGfx.push(bg);
-      this.add(bg);
-    }
 
     // Emoji label
     const sausageType = SAUSAGE_MAP[sausage.sausageTypeId];
@@ -614,73 +599,6 @@ export class SausageSprite extends Phaser.GameObjects.Container {
         this._stagePulseTween = null;
       },
     });
-  }
-
-  /**
-   * Wave 5a: updateBandVisuals
-   * Called every tick by GrillScene to refresh the 5 timing-band overlays on both doneness bars.
-   *
-   * @param topDoneness    current top-side doneness (0-120)
-   * @param bottomDoneness current bottom-side doneness (0-120)
-   * @param bandCooldowns  map of bandIndex → expiry timestamp (ms, from Date.now())
-   * @param nowMs          current timestamp in ms (Date.now())
-   */
-  updateBandVisuals(
-    topDoneness: number,
-    bottomDoneness: number,
-    bandCooldowns: Map<number, number>,
-    nowMs: number,
-  ): void {
-    const bx = -BAR_W / 2;
-
-    const drawBands = (
-      bandGfxList: Phaser.GameObjects.Graphics[],
-      doneness: number,
-      barY: number,
-    ) => {
-      for (let i = 0; i < PERFECT_BANDS.length; i++) {
-        const gfx = bandGfxList[i];
-        if (!gfx || !gfx.active) continue;
-        gfx.clear();
-
-        const [lo, hi] = PERFECT_BANDS[i];
-        const cappedHi = Math.min(hi, 100);
-        const xStart = bx + Math.round((lo / 100) * BAR_W);
-        const xEnd   = bx + Math.round((cappedHi / 100) * BAR_W);
-        const bandW  = Math.max(1, xEnd - xStart);
-
-        const cooldownExpiry = bandCooldowns.get(i) ?? 0;
-        const isOnCooldown = cooldownExpiry > nowMs;
-
-        if (isOnCooldown) {
-          // Cooled-down band: grey
-          gfx.fillStyle(0x555555, 0.6);
-          gfx.fillRect(xStart, barY, bandW, BAR_H);
-          continue;
-        }
-
-        const inBand = doneness >= lo && doneness <= hi;
-        const near   = Math.abs(doneness - (lo + hi) / 2) <= (hi - lo) / 2 + 3;
-
-        if (inBand) {
-          // Inside band: gold
-          gfx.fillStyle(0xffd700, 0.9);
-          gfx.fillRect(xStart, barY, bandW, BAR_H);
-        } else if (near) {
-          // Near band (±3): pulsing green — alpha driven by sine wave of nowMs
-          const pulse = 0.6 + 0.4 * Math.abs(Math.sin(nowMs / 220));
-          gfx.fillStyle(0x44ff88, pulse);
-          gfx.fillRect(xStart, barY, bandW, BAR_H);
-        } else {
-          // Default: dim green
-          gfx.fillStyle(0x226644, 0.55);
-          gfx.fillRect(xStart, barY, bandW, BAR_H);
-        }
-      }
-    };
-
-    drawBands(this._topBandGfx,    topDoneness,    TOP_BAR_Y);
-    drawBands(this._bottomBandGfx, bottomDoneness, BOTTOM_BAR_Y);
   }
 
   override destroy(fromScene?: boolean): void {

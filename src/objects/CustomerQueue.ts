@@ -308,22 +308,6 @@ export class CustomerQueue extends Phaser.GameObjects.Container {
     }
   }
 
-  /**
-   * Wave 5c: instant patience boost for all currently-waiting customers.
-   * Each customer's remaining patience is multiplied by `multiplier`.
-   * Visual patience bars are redrawn immediately.
-   */
-  boostAllPatience(multiplier: number): void {
-    for (const display of this.displays) {
-      if (display.state !== 'waiting') continue;
-      display.remainingPatience = Math.min(
-        display.initialPatience,
-        display.remainingPatience * multiplier,
-      );
-      this.redrawPatienceBar(display);
-    }
-  }
-
   private playLeaveAnimation(display: CustomerDisplay, dismissedByServe: boolean): void {
     if (!dismissedByServe) {
       display.emojiText.setText('✕');

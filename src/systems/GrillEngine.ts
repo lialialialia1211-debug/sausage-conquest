@@ -234,40 +234,6 @@ export function getDonenessBarColor(doneness: number): number {
   }
 }
 
-// ── Wave 5a: timing QTE ───────────────────────────────────────────────────────
-
-/**
- * PERFECT_BANDS — five doneness ranges where an action scores PERFECT.
- * Each entry is [low, high] (inclusive) corresponding to stage-boundary crossings.
- * The 5th band extends to 103 to cover the hot→burnt edge.
- */
-export const PERFECT_BANDS: readonly [number, number][] = [
-  [17, 23], [42, 48], [62, 68], [87, 93], [97, 103],
-];
-
-/**
- * getTimingComboBonus — returns the score multiplier for the current timing combo.
- * Used by OrderEngine.scoreOrder when serving a sausage.
- */
-export function getTimingComboBonus(combo: number): number {
-  if (combo >= 15) return 1.3;
-  if (combo >= 10) return 1.2;
-  if (combo >= 5)  return 1.1;
-  return 1.0;
-}
-
-/**
- * checkTimingHit — checks whether a doneness value falls within any PERFECT_BAND.
- * Returns { hit: true, bandIndex: n } on match, or { hit: false, bandIndex: -1 }.
- */
-export function checkTimingHit(doneness: number): { hit: boolean; bandIndex: number } {
-  for (let i = 0; i < PERFECT_BANDS.length; i++) {
-    const [lo, hi] = PERFECT_BANDS[i];
-    if (doneness >= lo && doneness <= hi) return { hit: true, bandIndex: i };
-  }
-  return { hit: false, bandIndex: -1 };
-}
-
 // ── Wave 4b: new interaction functions ───────────────────────────────────────
 
 /**

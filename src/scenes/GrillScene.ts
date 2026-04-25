@@ -15,8 +15,6 @@ import {
   tryFlipSausage,
   pressSausage,
   brushOil,
-  checkTimingHit,
-  getTimingComboBonus,
   type HeatLevel,
   type GrillingSausage,
   type GrillQuality,
@@ -136,14 +134,6 @@ export class GrillScene extends Phaser.Scene {
   private perfectCombo = 0;
   private maxCombo = 0;
   private comboText: Phaser.GameObjects.Text | null = null;
-
-  // ── Wave 5a: timing QTE state ─────────────────────────────────────────
-  private timingCombo = 0;
-  private maxTimingCombo = 0;
-  // bandCooldowns: bandIndex → expiry timestamp in ms (Date.now())
-  private bandCooldowns = new Map<number, number>();
-  // Wave 5b: timing combo display text (shown above grill, distinct from comboText at y=32)
-  private timingComboText: Phaser.GameObjects.Text | null = null;
 
   // ── Hover & keyboard state ──────────────────────────────────────────────
   private hoveredSlotIndex: number | null = null;
@@ -311,11 +301,6 @@ export class GrillScene extends Phaser.Scene {
     this.perfectCombo = 0;
     this.maxCombo = 0;
     this.comboText = null;
-    // Wave 5b: reset timing combo on scene entry (new business day)
-    this.timingCombo = 0;
-    this.maxTimingCombo = 0;
-    this.bandCooldowns.clear();
-    this.timingComboText = null;
     this.spectatorSpawnTimer = 0;
     this.spectatorNextSpawnInterval = 4 + Math.random() * 4;
     this.pressureLevelText = null;
@@ -521,14 +506,6 @@ export class GrillScene extends Phaser.Scene {
 
       slot.sausage = updated;
       slot.sprite.updateData(updated);
-
-      // Wave 5a: update timing band visuals on each tick
-      slot.sprite.updateBandVisuals(
-        updated.topDoneness,
-        updated.bottomDoneness,
-        this.bandCooldowns,
-        Date.now(),
-      );
 
       // ── Stage change feedback (Wave 4a) ─────────────────────────────────────
       const nowSec = performance.now() / 1000; // monotonic wall-clock, consistent with flip cooldown
@@ -1506,15 +1483,6 @@ export class GrillScene extends Phaser.Scene {
       stroke: '#000000',
       strokeThickness: 3,
     }).setOrigin(0.5, 0).setDepth(100).setAlpha(0);
-
-    // ── Wave 5b: timing combo text (above grill, y=80; comboText is at y=32) ──
-    this.timingComboText = this.add.text(width / 2, 80, '', {
-      fontSize: '24px',
-      fontFamily: FONT,
-      color: '#ffffff',
-      stroke: '#000000',
-      strokeThickness: 4,
-    }).setOrigin(0.5, 0.5).setDepth(100).setAlpha(0);
   }
 
   private setupEndButton(width: number, height: number): void {
@@ -1725,8 +1693,6 @@ export class GrillScene extends Phaser.Scene {
     flipZone.on('pointerdown', () => {
       if (this.isDone || this.paused || this.isShowingGrillEvent || this.isShowingCondimentStation) return;
       if (!slot.sausage || slot.sausage.served) return;
-      // Wave 5a: judge timing on flip press (regardless of flip cooldown)
-      this.judgeTimingHit(slot, 'flip');
       const nowSec = this.getSessionElapsedSec();
       const result = tryFlipSausage(slot.sausage, nowSec);
       if (result === null) {
@@ -1762,8 +1728,6 @@ export class GrillScene extends Phaser.Scene {
     pressZone.on('pointerdown', () => {
       if (this.isDone || this.paused || this.isShowingGrillEvent || this.isShowingCondimentStation) return;
       if (!slot.sausage || slot.sausage.served) return;
-      // Wave 5a: judge timing on press down (once per pointerdown, not per tick)
-      this.judgeTimingHit(slot, 'press');
       slot.__isPressingBtn = true;
       slot.sausage = { ...slot.sausage, isPressed: true };
       // Scale down for visual feedback
@@ -1796,8 +1760,6 @@ export class GrillScene extends Phaser.Scene {
     oilZone.on('pointerdown', () => {
       if (this.isDone || this.paused || this.isShowingGrillEvent || this.isShowingCondimentStation) return;
       if (!slot.sausage || slot.sausage.served) return;
-      // Wave 5a: judge timing on oil brush press
-      this.judgeTimingHit(slot, 'brush');
       const result = brushOil(slot.sausage);
       if (result === null) {
         // 失敗 — 判斷原因
@@ -1826,258 +1788,6 @@ export class GrillScene extends Phaser.Scene {
     if (slot.pressBtn) { slot.pressBtn.destroy(); slot.pressBtn = null; }
     if (slot.oilBtn) { slot.oilBtn.destroy(); slot.oilBtn = null; }
     slot.__isPressingBtn = false;
-  }
-
-  /**
-   * Wave 5a/5b: judgeTimingHit
-   * Judges whether the current doneness of the active cooking side is within a PERFECT_BAND.
-   * Applies 0.5s cooldown per band to prevent spam scoring.
-   * Wave 5b: calls handleTimingHit to accumulate combo + show floaters.
-   *
-   * @param slot   the grill slot where the action occurred
-   * @param action 'flip' | 'press' | 'brush'
-   * @returns 'perfect' | 'miss'
-   */
-  private judgeTimingHit(slot: GrillSlot, _action: 'flip' | 'press' | 'brush'): 'perfect' | 'miss' {
-    if (!slot.sausage) return 'miss';
-    const doneness = slot.sausage.currentSide === 'bottom'
-      ? slot.sausage.bottomDoneness
-      : slot.sausage.topDoneness;
-
-    const { hit, bandIndex } = checkTimingHit(doneness);
-    const nowMs = Date.now();
-
-    if (hit) {
-      const expiry = this.bandCooldowns.get(bandIndex) ?? 0;
-      if (expiry > nowMs) {
-        // Band is on cooldown — treat as MISS (do NOT reset cooldown)
-        this.handleTimingHit(slot, 'miss');
-        return 'miss';
-      }
-      // PERFECT — set 0.5s cooldown
-      this.bandCooldowns.set(bandIndex, nowMs + 500);
-      this.handleTimingHit(slot, 'perfect');
-      return 'perfect';
-    }
-
-    this.handleTimingHit(slot, 'miss');
-    return 'miss';
-  }
-
-  /**
-   * Wave 5b: handleTimingHit
-   * Centralises combo counting, floater display, text update, and milestones.
-   */
-  private handleTimingHit(slot: GrillSlot, result: 'perfect' | 'miss'): void {
-    if (result === 'perfect') {
-      this.timingCombo += 1;
-      this.maxTimingCombo = Math.max(this.maxTimingCombo, this.timingCombo);
-      this.showTimingFloater(slot, 'PERFECT', '#ffd700');
-      this.updateTimingComboText();
-      // Wave 5c: play pitch-scaled perfect sound (combo=0 equals base pitch)
-      sfx.playTimingPerfectHigh(this.timingCombo);
-      if ([3, 5, 10, 15].includes(this.timingCombo)) {
-        this.triggerTimingMilestone(this.timingCombo, slot);
-      }
-    } else {
-      if (this.timingCombo > 0) {
-        // Only play MISS sound when actually breaking an active combo
-        sfx.playTimingMiss();
-        this.showTimingFloater(slot, 'MISS', '#ff4444');
-        this.shatterComboText();
-      }
-      this.timingCombo = 0;
-      this.updateTimingComboText();
-    }
-  }
-
-  /**
-   * Wave 5b: showTimingFloater
-   * PERFECT: gold text rises and fades over 0.3s.
-   * MISS: red text shakes left-right over 0.2s then fades.
-   */
-  private showTimingFloater(slot: GrillSlot, text: string, color: string): void {
-    const x = slot.x;
-    const y = slot.y - 50;
-    const txt = this.add.text(x, y, text, {
-      fontSize: '16px',
-      fontFamily: FONT,
-      color,
-      stroke: '#000000',
-      strokeThickness: 3,
-    }).setOrigin(0.5).setDepth(110);
-
-    if (text === 'PERFECT') {
-      // Rise and fade
-      this.tweens.add({
-        targets: txt,
-        y: y - 40,
-        alpha: 0,
-        duration: 300,
-        ease: 'Power2',
-        onComplete: () => { if (txt.active) txt.destroy(); },
-      });
-    } else {
-      // Shake left-right then fade
-      this.tweens.add({
-        targets: txt,
-        x: { from: x - 6, to: x + 6 },
-        alpha: { from: 1, to: 0 },
-        duration: 200,
-        ease: 'Linear',
-        yoyo: false,
-        repeat: 0,
-        onComplete: () => { if (txt.active) txt.destroy(); },
-      });
-    }
-  }
-
-  /**
-   * Wave 5b: updateTimingComboText
-   * Updates the timingComboText position, size, color, and visibility.
-   * combo 0 → hidden; 1+ → visible with escalating style.
-   */
-  private updateTimingComboText(): void {
-    if (!this.timingComboText) return;
-
-    if (this.timingCombo <= 0) {
-      this.timingComboText.setAlpha(0);
-      return;
-    }
-
-    // Font size scales with combo, capped at 56
-    const fontSize = Math.min(56, 24 + this.timingCombo * 2);
-
-    // Color ladder
-    let color = '#ffffff';
-    if (this.timingCombo >= 15) {
-      color = '#cc44ff'; // purple
-    } else if (this.timingCombo >= 10) {
-      color = '#ff3333'; // red
-    } else if (this.timingCombo >= 5) {
-      color = '#ff8800'; // orange
-    } else if (this.timingCombo >= 3) {
-      color = '#ffdd00'; // yellow
-    }
-
-    const label = `x${this.timingCombo}`;
-    this.timingComboText
-      .setText(label)
-      .setFontSize(fontSize)
-      .setColor(color)
-      .setAlpha(1);
-
-    // Bounce scale: 1 → 1.4 → 1
-    this.tweens.add({
-      targets: this.timingComboText,
-      scaleX: 1.4,
-      scaleY: 1.4,
-      duration: 80,
-      yoyo: true,
-      ease: 'Back.Out',
-    });
-  }
-
-  /**
-   * Wave 5b: shatterComboText
-   * Splits the current timingComboText into individual character sprites that
-   * scatter downward and fade, then rebuilds a fresh hidden text object.
-   */
-  private shatterComboText(): void {
-    if (!this.timingComboText) return;
-    const txt = this.timingComboText;
-    const chars = txt.text.split('');
-    const baseX = txt.x;
-    const baseY = txt.y;
-    const fontSize = txt.style.fontSize as string;
-    const { width } = this.scale;
-
-    // Create individual char texts and animate them falling
-    chars.forEach((ch, i) => {
-      const offsetX = (i - (chars.length - 1) / 2) * 14;
-      const piece = this.add.text(baseX + offsetX, baseY, ch, {
-        fontSize,
-        fontFamily: FONT,
-        color: txt.style.color as string,
-        stroke: '#000000',
-        strokeThickness: 3,
-      }).setOrigin(0.5).setDepth(110);
-
-      this.tweens.add({
-        targets: piece,
-        y: baseY + 60 + Math.random() * 40,
-        x: baseX + offsetX + (Math.random() - 0.5) * 40,
-        alpha: 0,
-        angle: (Math.random() - 0.5) * 90,
-        duration: 500,
-        ease: 'Power2',
-        onComplete: () => { if (piece.active) piece.destroy(); },
-      });
-    });
-
-    // Hide the original text and rebuild it fresh (empty, hidden)
-    txt.destroy();
-    this.timingComboText = this.add.text(width / 2, 80, '', {
-      fontSize: '24px',
-      fontFamily: FONT,
-      color: '#ffffff',
-      stroke: '#000000',
-      strokeThickness: 4,
-    }).setOrigin(0.5, 0.5).setDepth(100).setAlpha(0);
-  }
-
-  /**
-   * Wave 5b: triggerTimingMilestone
-   * Shows milestone gold text for combo 3 / 5 / 10 / 15.
-   * SpectatorCrowd.celebrateCombo and full patience boost are Wave 5c.
-   */
-  private triggerTimingMilestone(combo: number, _slot: GrillSlot): void {
-    const { width, height } = this.scale;
-
-    const messages: Record<number, string> = {
-      3:  'FIRE!',
-      5:  '神之手 5 連擊!',
-      10: '神之手 10 連擊!',
-      15: '神之手 15 連擊!',
-    };
-    const msg = messages[combo] ?? `連擊 ${combo}!`;
-
-    // Large milestone text that scales up and fades
-    const milestoneColor = combo >= 15 ? '#cc44ff' : combo >= 10 ? '#ff8800' : '#ffd700';
-    const mt = this.add.text(width / 2, height * 0.35, msg, {
-      fontSize: '32px',
-      fontFamily: FONT,
-      color: milestoneColor,
-      stroke: '#000000',
-      strokeThickness: 5,
-    }).setOrigin(0.5).setDepth(150).setScale(0.5);
-
-    this.tweens.add({
-      targets: mt,
-      scaleX: 1.3,
-      scaleY: 1.3,
-      alpha: 0,
-      duration: 800,
-      ease: 'Power2',
-      onComplete: () => { if (mt.active) mt.destroy(); },
-    });
-
-    // Screen edge flash
-    const flashColor = combo >= 15 ? 0xcc44ff : combo >= 10 ? 0xff8800 : 0xffd700;
-    this.flashScreenEdge(flashColor, 0.35, 500);
-
-    // Wave 5c: milestone arpeggio
-    sfx.playComboMilestone(combo);
-
-    // Wave 5c: spectator celebration for combo >= 10
-    if (combo >= 10) {
-      this.spectatorCrowd?.celebrateCombo(combo);
-    }
-
-    // Wave 5c: boost all waiting customers' patience by ×1.2 at combo 15
-    if (combo >= 15) {
-      this.customerQueue?.boostAllPatience(1.2);
-    }
   }
 
   /** 取得本次 session 已過秒數（用於 flip cooldown 計算） */
@@ -3159,8 +2869,7 @@ export class GrillScene extends Phaser.Scene {
       this.appliedGarlic,
       patienceRatio,
       customer.loyaltyBadge || 'none',
-      price,
-      getTimingComboBonus(this.timingCombo),  // Wave 5b: timing combo score multiplier
+      price
     );
 
     // Type match check
@@ -4321,15 +4030,6 @@ export class GrillScene extends Phaser.Scene {
     // Wave 4c: clean up spectator crowd
     if (this.spectatorCrowd) {
       this.spectatorCrowd.clear();
-    }
-
-    // Wave 5b: reset timing combo state on session end
-    this.timingCombo = 0;
-    this.maxTimingCombo = 0;
-    this.bandCooldowns.clear();
-    if (this.timingComboText?.active) {
-      this.timingComboText.destroy();
-      this.timingComboText = null;
     }
     if (this.pressureLevelText?.active) {
       this.pressureLevelText.destroy();
