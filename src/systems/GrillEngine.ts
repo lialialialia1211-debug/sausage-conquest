@@ -246,6 +246,17 @@ export const PERFECT_BANDS: readonly [number, number][] = [
 ];
 
 /**
+ * getTimingComboBonus — returns the score multiplier for the current timing combo.
+ * Used by OrderEngine.scoreOrder when serving a sausage.
+ */
+export function getTimingComboBonus(combo: number): number {
+  if (combo >= 15) return 1.3;
+  if (combo >= 10) return 1.2;
+  if (combo >= 5)  return 1.1;
+  return 1.0;
+}
+
+/**
  * checkTimingHit — checks whether a doneness value falls within any PERFECT_BAND.
  * Returns { hit: true, bandIndex: n } on match, or { hit: false, bandIndex: -1 }.
  */
