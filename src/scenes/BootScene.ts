@@ -101,6 +101,12 @@ export class BootScene extends Phaser.Scene {
 
     // ── BGM ──
     this.load.audio('bgm-grill', 'bgm-grill.mp3');
+
+    // ── Wave 6a: Rhythm chart + theme BGM ──
+    // chart-grill-theme.json is loaded into Phaser cache under key 'chart-grill-theme'
+    this.load.json('chart-grill-theme', 'chart-grill-theme.json');
+    // BGM preloaded here so Wave 6d doesn't need to touch BootScene again
+    this.load.audio('bgm-grill-theme', 'bgm-grill-theme.mp3');
   }
 
   create(): void {

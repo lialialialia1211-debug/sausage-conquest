@@ -41,6 +41,8 @@ import { getSpecialEffect } from '../data/sausage-effects';
 import type { SpecialEffectResult } from '../data/sausage-effects';
 import { CUSTOMER_COMMENTS, COUNTER_ATTACKS } from '../data/customerComments';
 import { SpectatorCrowd } from '../objects/SpectatorCrowd';
+import { RhythmNote } from '../objects/RhythmNote';
+import type { RhythmChart } from '../data/chart';
 
 // ── Layout constants ────────────────────────────────────────────────────────
 // Tier-based session duration: early tiers are shorter and less demanding
@@ -223,6 +225,18 @@ export class GrillScene extends Phaser.Scene {
   private pressureUpdateTimer = 0; // 每 500ms 更新一次壓力顯示
   private patienceCheckTimer = 0;  // 每秒檢查一次 patience
 
+  // ── Wave 6a: Rhythm track state ──────────────────────────────────────────
+  private chart: RhythmChart | null = null;
+  private rhythmNotes: RhythmNote[] = [];
+  private rhythmStartTime = 0;       // performance.now()/1000 at scene create
+  private nextNoteSpawnIdx = 0;      // pointer into chart.notes[]
+  private readonly NOTE_LEAD_TIME = 1.8;  // seconds ahead of hit time for note to spawn
+  private readonly NOTE_SPAWN_X = 1100;   // right edge spawn x
+  private readonly NOTE_HIT_X = 280;      // judgement circle x
+  // NOTE_TRACK_Y is computed in create() relative to this.scale.height
+  // (between warming zone bottom ~0.68 and spectator crowd ~0.76)
+  private noteTrackY = 0;
+
   constructor() {
     super({ key: 'GrillScene' });
   }
@@ -307,6 +321,13 @@ export class GrillScene extends Phaser.Scene {
     this.pressureUpdateTimer = 0;
     this.patienceCheckTimer = 0;
 
+    // ── Wave 6a reset ──
+    this.chart = null;
+    this.rhythmNotes = [];
+    this.rhythmStartTime = 0;
+    this.nextNoteSpawnIdx = 0;
+    this.noteTrackY = 0;
+
     // Worker: adi → extra grill slot
     let maxSlots = gameState.upgrades['grill-expand'] ? 6 : MAX_GRILL_SLOTS;
     if (gameState.hiredWorkers.includes('adi')) maxSlots += 1;
@@ -322,6 +343,7 @@ export class GrillScene extends Phaser.Scene {
     this.setupHUD(width, height);
     this.setupEndButton(width, height);
     this.setupSpectatorCrowd(width, height);
+    this.setupRhythmTrack(width, height);
 
     // Simulation mode HUD label
     if (gameState.gameMode === 'simulation') {
@@ -755,6 +777,84 @@ export class GrillScene extends Phaser.Scene {
       }
     }
     // ────────────────────────────────────────────────────────────────────────
+
+    // ── Wave 6a: Rhythm track tick ───────────────────────────────────────────
+    this.updateRhythmTrack();
+  }
+
+  // ── Wave 6a: Rhythm track ────────────────────────────────────────────────
+
+  /**
+   * Called once in create().
+   * Loads the chart from Phaser cache, draws the track line and judgement circle,
+   * and resets all rhythm state for this session.
+   */
+  private setupRhythmTrack(width: number, height: number): void {
+    // Load chart from Phaser JSON cache (preloaded in BootScene)
+    const cachedChart = this.cache.json.get('chart-grill-theme') as RhythmChart | undefined;
+    this.chart = cachedChart ?? null;
+
+    // Reset rhythm state
+    this.rhythmStartTime = performance.now() / 1000;
+    this.nextNoteSpawnIdx = 0;
+    this.rhythmNotes = [];
+
+    // NOTE_TRACK_Y: between warming zone bottom (~0.68) and spectator crowd (~0.76)
+    // Using 0.70 keeps the track clear of all existing UI elements.
+    this.noteTrackY = height * 0.70;
+
+    // Debug: track line (semi-transparent dark grey)
+    const trackLine = this.add.graphics();
+    trackLine.lineStyle(2, 0x444444, 0.5);
+    trackLine.beginPath();
+    trackLine.moveTo(0, this.noteTrackY);
+    trackLine.lineTo(width, this.noteTrackY);
+    trackLine.strokePath();
+    trackLine.setDepth(10);
+
+    // Judgement circle (white stroke only, no fill)
+    const judgeCircle = this.add.graphics();
+    judgeCircle.lineStyle(3, 0xffffff, 0.8);
+    judgeCircle.strokeCircle(this.NOTE_HIT_X, this.noteTrackY, 36);
+    judgeCircle.setDepth(10);
+
+    // Debug label below judgement circle
+    this.add.text(this.NOTE_HIT_X, this.noteTrackY + 44, 'Don=F/J  Ka=D/K', {
+      fontSize: '11px',
+      fontFamily: FONT,
+      color: '#888888',
+    }).setOrigin(0.5).setDepth(10);
+  }
+
+  /**
+   * Called every update() tick.
+   * Spawns notes whose time window has entered NOTE_LEAD_TIME,
+   * moves existing notes, and removes notes that pass the hit line.
+   */
+  private updateRhythmTrack(): void {
+    if (!this.chart) return;
+
+    const now = performance.now() / 1000 - this.rhythmStartTime;
+
+    // Spawn notes whose hit time is within NOTE_LEAD_TIME from now
+    while (this.nextNoteSpawnIdx < this.chart.notes.length) {
+      const next = this.chart.notes[this.nextNoteSpawnIdx];
+      if (next.t - now > this.NOTE_LEAD_TIME) break;
+      const note = new RhythmNote(this, this.NOTE_SPAWN_X, this.noteTrackY, next);
+      note.setDepth(15);
+      this.rhythmNotes.push(note);
+      this.nextNoteSpawnIdx++;
+    }
+
+    // Move existing notes; destroy notes that fly past the hit line
+    for (let i = this.rhythmNotes.length - 1; i >= 0; i--) {
+      const n = this.rhythmNotes[i];
+      n.setPositionByTime(now, n.note.t, this.NOTE_HIT_X, this.NOTE_SPAWN_X, this.NOTE_LEAD_TIME);
+      if (n.x < this.NOTE_HIT_X - 100) {
+        n.destroy();
+        this.rhythmNotes.splice(i, 1);
+      }
+    }
   }
 
   // ── Draw helpers ─────────────────────────────────────────────────────────
