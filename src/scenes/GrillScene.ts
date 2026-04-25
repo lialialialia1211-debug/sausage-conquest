@@ -244,7 +244,15 @@ export class GrillScene extends Phaser.Scene {
 
   // ── Wave 6cd: BGM sync + rhythm gate ──────────────────────────────────────
   private rhythmStarted = false;
-  private bgmTheme: Phaser.Sound.BaseSound | null = null;
+  // Wave 6cd-fix: BGM 直接用 Web Audio API 控制（避開 Phaser sound.seek 的時鐘漂移）
+  private bgmCtx: AudioContext | null = null;
+  private bgmAudioBuffer: AudioBuffer | null = null;
+  private bgmSource: AudioBufferSourceNode | null = null;
+  private bgmGain: GainNode | null = null;
+  private bgmStartCtxTime = 0;     // ctx.currentTime when source started, adjusted for offset
+  private bgmElapsedAtPause = 0;   // elapsed seconds at pause
+  private bgmPaused = false;
+  private bgmFinished = false;
 
   constructor() {
     super({ key: 'GrillScene' });
@@ -343,7 +351,14 @@ export class GrillScene extends Phaser.Scene {
 
     // ── Wave 6cd reset ──
     this.rhythmStarted = false;
-    this.bgmTheme = null;
+    this.bgmCtx = null;
+    this.bgmAudioBuffer = null;
+    this.bgmSource = null;
+    this.bgmGain = null;
+    this.bgmStartCtxTime = 0;
+    this.bgmElapsedAtPause = 0;
+    this.bgmPaused = false;
+    this.bgmFinished = false;
     // appliedGarlic fixed to true — condiment station removed in Wave 6c
     this.appliedGarlic = true;
 
@@ -1104,30 +1119,84 @@ export class GrillScene extends Phaser.Scene {
 
   // ── Wave 6cd: BGM sync helpers ────────────────────────────────────────────
 
-  /** Returns current rhythm clock in seconds (tied to BGM seek). */
+  /** Returns current rhythm clock in seconds (Web Audio API, μs precision). */
   private getRhythmTime(): number {
-    // Phaser's BaseSound seek getter: works for Web Audio + HTML5 audio
-    return (this.bgmTheme as unknown as { seek?: number })?.seek ?? 0;
+    if (!this.bgmCtx) return 0;
+    if (this.bgmFinished) return this.bgmAudioBuffer?.duration ?? 0;
+    if (this.bgmPaused) return this.bgmElapsedAtPause;
+    return this.bgmCtx.currentTime - this.bgmStartCtxTime;
   }
 
   /**
    * Called when the tutorial overlay is dismissed.
-   * Starts BGM, enables rhythm clock, resets spawn index.
+   * Starts BGM via Web Audio API, enables rhythm clock, resets spawn index.
    */
   private startRhythmGame(): void {
     try {
-      this.bgmTheme = this.sound.add('bgm-grill-theme', { volume: 0.5, loop: false });
-      this.bgmTheme.once('complete', () => this.onChartComplete());
-      this.bgmTheme.play();
+      const sm = this.sound as unknown as { context?: AudioContext };
+      if (!sm.context) {
+        console.warn('[GrillScene] WebAudio context unavailable');
+        return;
+      }
+      this.bgmCtx = sm.context;
+
+      const cached = this.cache.audio.get('bgm-grill-theme') as unknown;
+      if (!(cached instanceof AudioBuffer)) {
+        console.warn('[GrillScene] bgm-grill-theme AudioBuffer not in cache');
+        return;
+      }
+      this.bgmAudioBuffer = cached;
+
+      this.bgmGain = this.bgmCtx.createGain();
+      this.bgmGain.gain.value = 0.5;
+      this.bgmGain.connect(this.bgmCtx.destination);
+
+      this.bgmFinished = false;
+      this.playBgmFromOffset(0);
     } catch (_e) {
-      console.warn('[GrillScene] bgm-grill-theme failed to play:', _e);
+      console.warn('[GrillScene] bgm start failed:', _e);
     }
+
     this.rhythmStarted = true;
     this.nextNoteSpawnIdx = 0;
     this.rhythmNotes.forEach(n => { if (n.active) n.destroy(); });
     this.rhythmNotes = [];
     this.paused = false;
     EventBus.emit('scene-ready', 'GrillScene');
+  }
+
+  /** Play BGM from given offset (seconds). Creates a fresh AudioBufferSourceNode. */
+  private playBgmFromOffset(offset: number): void {
+    if (!this.bgmCtx || !this.bgmAudioBuffer || !this.bgmGain) return;
+    this.bgmSource = this.bgmCtx.createBufferSource();
+    this.bgmSource.buffer = this.bgmAudioBuffer;
+    this.bgmSource.connect(this.bgmGain);
+    this.bgmSource.onended = () => {
+      if (this.bgmPaused) return; // pause-induced stop, ignore
+      this.bgmFinished = true;
+      this.onChartComplete();
+    };
+    this.bgmStartCtxTime = this.bgmCtx.currentTime - offset;
+    this.bgmElapsedAtPause = offset;
+    this.bgmSource.start(0, offset);
+    this.bgmPaused = false;
+  }
+
+  /** Pause BGM: record elapsed time, stop source. */
+  private pauseBgm(): void {
+    if (!this.bgmSource || this.bgmPaused) return;
+    this.bgmElapsedAtPause = this.getRhythmTime();
+    this.bgmPaused = true;
+    // Detach onended so the natural stop doesn't fire onChartComplete
+    this.bgmSource.onended = null;
+    try { this.bgmSource.stop(); } catch (_e) { /* already stopped */ }
+    this.bgmSource = null;
+  }
+
+  /** Resume BGM from where it was paused. */
+  private resumeBgm(): void {
+    if (!this.bgmPaused || this.bgmFinished) return;
+    this.playBgmFromOffset(this.bgmElapsedAtPause);
   }
 
   /**
@@ -2242,7 +2311,7 @@ export class GrillScene extends Phaser.Scene {
 
   private showGrillEventOverlay(event: GrillEvent): void {
     this.isShowingGrillEvent = true;
-    this.bgmTheme?.pause();
+    this.pauseBgm();
     const { width: w, height: h } = this.scale;
 
     const eventImageMap: Record<string, string> = {
@@ -2537,7 +2606,7 @@ export class GrillScene extends Phaser.Scene {
       container.destroy();
       this.grillEventOverlay = null;
       this.isShowingGrillEvent = false;
-      this.bgmTheme?.resume();
+      this.resumeBgm();
     };
 
     dismissZone.on('pointerdown', dismissGrillEvent);
@@ -3869,17 +3938,16 @@ export class GrillScene extends Phaser.Scene {
     updateGameState({ inventory: { ...this.inventoryCopy } });
 
     try {
-      // Stop BGM (legacy bgm field kept for compat; bgmTheme is the Wave 6cd theme)
+      // Stop BGM (legacy bgm field kept for compat; Wave 6cd-fix uses Web Audio API)
       if (this.bgm) {
         this.bgm.stop();
         this.bgm.destroy();
         this.bgm = null;
       }
-      if (this.bgmTheme) {
-        this.bgmTheme.stop();
-        this.bgmTheme.destroy();
-        this.bgmTheme = null;
-      }
+      try { this.bgmSource?.stop(); } catch (_e) { /* already stopped */ }
+      this.bgmSource = null;
+      this.bgmGain?.disconnect();
+      this.bgmGain = null;
 
       // Wave 6c: condiment station removed; condimentOverlay field kept null for compat
       this.condimentOverlay = null;
@@ -4073,17 +4141,16 @@ export class GrillScene extends Phaser.Scene {
     this.tweens.killAll();
     this.time.removeAllEvents();
 
-    // Stop BGM
+    // Stop BGM (Wave 6cd-fix: Web Audio API)
     if (this.bgm) {
       this.bgm.stop();
       this.bgm.destroy();
       this.bgm = null;
     }
-    if (this.bgmTheme) {
-      this.bgmTheme.stop();
-      this.bgmTheme.destroy();
-      this.bgmTheme = null;
-    }
+    try { this.bgmSource?.stop(); } catch (_e) { /* already stopped */ }
+    this.bgmSource = null;
+    this.bgmGain?.disconnect();
+    this.bgmGain = null;
 
     // Clean up combat panel if still active
     if (this.currentCombatPanel) {
