@@ -15,6 +15,7 @@ import {
   tryFlipSausage,
   pressSausage,
   brushOil,
+  checkTimingHit,
   type HeatLevel,
   type GrillingSausage,
   type GrillQuality,
@@ -134,6 +135,12 @@ export class GrillScene extends Phaser.Scene {
   private perfectCombo = 0;
   private maxCombo = 0;
   private comboText: Phaser.GameObjects.Text | null = null;
+
+  // ── Wave 5a: timing QTE state ─────────────────────────────────────────
+  private timingCombo = 0;
+  private maxTimingCombo = 0;
+  // bandCooldowns: bandIndex → expiry timestamp in ms (Date.now())
+  private bandCooldowns = new Map<number, number>();
 
   // ── Hover & keyboard state ──────────────────────────────────────────────
   private hoveredSlotIndex: number | null = null;
@@ -506,6 +513,14 @@ export class GrillScene extends Phaser.Scene {
 
       slot.sausage = updated;
       slot.sprite.updateData(updated);
+
+      // Wave 5a: update timing band visuals on each tick
+      slot.sprite.updateBandVisuals(
+        updated.topDoneness,
+        updated.bottomDoneness,
+        this.bandCooldowns,
+        Date.now(),
+      );
 
       // ── Stage change feedback (Wave 4a) ─────────────────────────────────────
       const nowSec = performance.now() / 1000; // monotonic wall-clock, consistent with flip cooldown
@@ -1693,6 +1708,8 @@ export class GrillScene extends Phaser.Scene {
     flipZone.on('pointerdown', () => {
       if (this.isDone || this.paused || this.isShowingGrillEvent || this.isShowingCondimentStation) return;
       if (!slot.sausage || slot.sausage.served) return;
+      // Wave 5a: judge timing on flip press (regardless of flip cooldown)
+      this.judgeTimingHit(slot, 'flip');
       const nowSec = this.getSessionElapsedSec();
       const result = tryFlipSausage(slot.sausage, nowSec);
       if (result === null) {
@@ -1728,6 +1745,8 @@ export class GrillScene extends Phaser.Scene {
     pressZone.on('pointerdown', () => {
       if (this.isDone || this.paused || this.isShowingGrillEvent || this.isShowingCondimentStation) return;
       if (!slot.sausage || slot.sausage.served) return;
+      // Wave 5a: judge timing on press down (once per pointerdown, not per tick)
+      this.judgeTimingHit(slot, 'press');
       slot.__isPressingBtn = true;
       slot.sausage = { ...slot.sausage, isPressed: true };
       // Scale down for visual feedback
@@ -1760,6 +1779,8 @@ export class GrillScene extends Phaser.Scene {
     oilZone.on('pointerdown', () => {
       if (this.isDone || this.paused || this.isShowingGrillEvent || this.isShowingCondimentStation) return;
       if (!slot.sausage || slot.sausage.served) return;
+      // Wave 5a: judge timing on oil brush press
+      this.judgeTimingHit(slot, 'brush');
       const result = brushOil(slot.sausage);
       if (result === null) {
         // 失敗 — 判斷原因
@@ -1788,6 +1809,43 @@ export class GrillScene extends Phaser.Scene {
     if (slot.pressBtn) { slot.pressBtn.destroy(); slot.pressBtn = null; }
     if (slot.oilBtn) { slot.oilBtn.destroy(); slot.oilBtn = null; }
     slot.__isPressingBtn = false;
+  }
+
+  /**
+   * Wave 5a: judgeTimingHit
+   * Judges whether the current doneness of the active cooking side is within a PERFECT_BAND.
+   * Applies 0.5s cooldown per band to prevent spam scoring.
+   * Only logs to console this wave; combo accumulation is Wave 5b.
+   *
+   * @param slot   the grill slot where the action occurred
+   * @param action 'flip' | 'press' | 'brush'
+   * @returns 'perfect' | 'miss'
+   */
+  private judgeTimingHit(slot: GrillSlot, action: 'flip' | 'press' | 'brush'): 'perfect' | 'miss' {
+    if (!slot.sausage) return 'miss';
+    const doneness = slot.sausage.currentSide === 'bottom'
+      ? slot.sausage.bottomDoneness
+      : slot.sausage.topDoneness;
+
+    const { hit, bandIndex } = checkTimingHit(doneness);
+    const nowMs = Date.now();
+
+    if (hit) {
+      const expiry = this.bandCooldowns.get(bandIndex) ?? 0;
+      if (expiry > nowMs) {
+        // Band is on cooldown — treat as MISS (do NOT reset cooldown)
+        console.log(`[timing] MISS (cooldown) action=${action} band=${bandIndex} doneness=${doneness.toFixed(1)} combo=${this.timingCombo}`);
+        return 'miss';
+      }
+      // PERFECT — set 0.5s cooldown
+      this.bandCooldowns.set(bandIndex, nowMs + 500);
+      // timingCombo accumulation is Wave 5b; log current value for reference
+      console.log(`[timing] PERFECT band ${bandIndex} action=${action} doneness=${doneness.toFixed(1)} combo=${this.timingCombo} maxCombo=${this.maxTimingCombo}`);
+      return 'perfect';
+    }
+
+    console.log(`[timing] MISS action=${action} doneness=${doneness.toFixed(1)} combo=${this.timingCombo}`);
+    return 'miss';
   }
 
   /** 取得本次 session 已過秒數（用於 flip cooldown 計算） */
