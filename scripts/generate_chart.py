@@ -31,19 +31,22 @@ SAUSAGES_COMMON = ["flying-fish-roe", "cheese", "big-taste", "big-wrap-small"]
 # Rare bonus (great-wall): only in chorus, low probability
 RARE_SAUSAGE = "great-wall"
 
-# Section-aware density rules (from bgm_analysis.json sections)
-# Drop ratio: how many beats to skip
+# Section-aware density rules
 DENSITY_RULES = [
-    # (t_start, t_end, keep_every_n_beats, label)
-    (0.0,    20.27,  2, "intro"),    # every 2nd beat
-    (20.27,  81.08,  1, "verse"),    # every beat (will sub-sample below)
-    (81.08, 141.90,  1, "chorus"),   # every beat (full density)
-    (141.90, 999.0,  4, "outro"),    # every 4th beat
+    # (t_start, t_end, label)
+    (0.0,    20.27,  "intro"),
+    (20.27,  81.08,  "verse"),
+    (81.08, 141.90,  "chorus"),
+    (141.90, 999.0,  "outro"),
 ]
+
+# Difficulty: how aggressively to spawn notes
+# "hard" = every beat in verse + chorus, plus syncopation in chorus
+DIFFICULTY = "hard"
 
 
 def get_section(t: float) -> tuple[int, str]:
-    for i, (s, e, _, label) in enumerate(DENSITY_RULES):
+    for i, (s, e, label) in enumerate(DENSITY_RULES):
         if s <= t < e:
             return i, label
     return -1, "unknown"
@@ -60,33 +63,27 @@ def main() -> None:
     tempo: float = data["tempo_bpm"]
 
     notes = []
-    verse_counter = 0  # for sub-sampling verse section
 
+    # 1) Place a note on every beat for verse/chorus, every 2nd for intro, every 3rd for outro
     for i, t in enumerate(beats):
         sec_idx, label = get_section(t)
 
-        # Skip beats per section density
         if label == "intro":
             if i % 2 != 0:
                 continue
         elif label == "verse":
-            # Keep 2 out of every 3 beats (more dynamic than every 1.5)
-            verse_counter += 1
-            if verse_counter % 3 == 0:
-                continue
+            pass  # every beat
         elif label == "chorus":
-            pass  # keep all
+            pass  # every beat
         elif label == "outro":
-            if i % 4 != 0:
+            if i % 3 != 0:
                 continue
         else:
             continue
 
-        # Note type: alternate by index within kept notes
         note_type = "don" if (len(notes) % 4) in (0, 2) else "ka"
 
-        # Sausage type: chorus gets 5% great-wall bonus
-        if label == "chorus" and random.random() < 0.05:
+        if label == "chorus" and random.random() < 0.06:
             sausage = RARE_SAUSAGE
         else:
             sausage = random.choice(SAUSAGES_COMMON)
@@ -97,6 +94,29 @@ def main() -> None:
             "sausage": sausage,
         })
 
+    # 2) Add syncopation (off-beat half-notes) in chorus only — every 4 beats insert one mid-point
+    if DIFFICULTY == "hard":
+        chorus_beats = [(i, t) for i, t in enumerate(beats) if 81.08 <= t < 141.90]
+        # Group by every 4 beats; insert ka at the midpoint between beat 2 and 3 of each group
+        for k in range(0, len(chorus_beats) - 1, 4):
+            if k + 2 >= len(chorus_beats):
+                break
+            _, t1 = chorus_beats[k + 1]
+            _, t2 = chorus_beats[k + 2]
+            mid_t = (t1 + t2) / 2
+            notes.append({
+                "t": round(float(mid_t), 3),
+                "type": "ka",
+                "sausage": random.choice(SAUSAGES_COMMON),
+            })
+
+        # Sort by time again after insertion
+        notes.sort(key=lambda n: n["t"])
+
+    # 3) Re-balance don/ka after sort (alternate for visual rhythm)
+    for idx, n in enumerate(notes):
+        n["type"] = "don" if (idx % 4) in (0, 2) else "ka"
+
     chart = {
         "audioFile": "bgm-grill-theme.mp3",
         "duration": round(duration, 2),
@@ -104,7 +124,7 @@ def main() -> None:
         "totalNotes": len(notes),
         "sections": [
             {"label": label, "t_start": round(s, 2), "t_end": round(e, 2)}
-            for s, e, _, label in DENSITY_RULES if s < duration
+            for s, e, label in DENSITY_RULES if s < duration
         ],
         "notes": notes,
     }
