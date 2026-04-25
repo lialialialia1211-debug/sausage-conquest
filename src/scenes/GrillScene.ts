@@ -1210,9 +1210,19 @@ export class GrillScene extends Phaser.Scene {
       const matchedCustomer = waiting.find(c => c.order?.sausageType === s.sausageTypeId);
       if (!matchedCustomer) continue;
 
-      // Auto-move to warming then immediately serve
+      // Auto-move to warming zone, then immediately auto-serve without waiting for player click
       if (!slot.sprite) continue;
+      // Pre-grab the warming slot that moveToWarming will fill,
+      // so we can reference it in the delayed callback.
+      const targetWarmSlot =
+        this.warmingSlots.find(ws => !ws.sausage) ?? this.addWarmingSlot();
       this.moveToWarming(slot, slot.sprite);
+      // Trigger auto-serve after the fly animation finishes (~580 ms)
+      this.time.delayedCall(620, () => {
+        if (this.isDone || !this.scene.isActive()) return;
+        if (!targetWarmSlot.sausage) return; // already served or cleared
+        this.serveFromWarming(targetWarmSlot);
+      });
     }
   }
 
