@@ -20,10 +20,10 @@ export class EveningScene extends Phaser.Scene {
     this.twinkleDots = [];
     this.lightTweens = [];
 
-    // If skipDay is set, bypass the grill entirely and jump to EventScene
+    // If skipDay is set, bypass the grill entirely and jump to MorningScene
     if (gameState.skipDay) {
       updateGameState({ skipDay: false });
-      this.scene.start('EventScene');
+      this.scene.start('MorningScene');
       return;
     }
 

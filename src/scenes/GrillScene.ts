@@ -4345,7 +4345,7 @@ export class GrillScene extends Phaser.Scene {
     const doTransition = () => {
       if (transitioned) return;
       transitioned = true;
-      this.scene.start('EventScene');
+      this.scene.start('EveningScene');
     };
 
     try {
