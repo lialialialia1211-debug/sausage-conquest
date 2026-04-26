@@ -2,7 +2,7 @@
 // 最多 6 位圍觀者，依烤制事件浮出反應氣泡，給玩家心理壓力感
 import Phaser from 'phaser';
 import type { Customer } from '../types';
-import { SPECTATOR_QUOTES } from '../data/spectatorQuotes';
+import { pickRandomQuote } from '../data/spectatorQuotes';
 
 // 每個圍觀者的顯示資料
 interface SpectatorDisplay {
@@ -144,7 +144,7 @@ export class SpectatorCrowd extends Phaser.GameObjects.Container {
   public showRandomQuote(): void {
     if (this.spectators.length === 0) return;
     const sp = this.spectators[Math.floor(Math.random() * this.spectators.length)];
-    const quote = SPECTATOR_QUOTES[Math.floor(Math.random() * SPECTATOR_QUOTES.length)];
+    const quote = pickRandomQuote();
     this.showLongBubble(sp, quote);
   }
 
