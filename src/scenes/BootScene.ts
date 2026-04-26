@@ -11,7 +11,7 @@ import { resetCasinoEngine } from '../systems/CasinoEngine';
 import { resetAchievements } from '../systems/AchievementEngine';
 
 // Bump this string whenever chart-grill-theme.json changes so browsers pick up the new chart
-const CHART_VERSION = '2026042602';
+const CHART_VERSION = '2026042603';
 
 // Page background tints for each prologue page
 const PAGE_TINTS = [
