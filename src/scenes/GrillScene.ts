@@ -138,7 +138,6 @@ export class GrillScene extends Phaser.Scene {
   // ── Grill event state ───────────────────────────────────────────────────
   private grillEventTimer = 0;
   private grillEventNextTrigger = 0; // randomized interval in seconds
-  private grillEventTriggered = 0;   // how many events fired this session (max 3, no repeats)
   private isShowingGrillEvent = false;
   private triggeredEventIds: string[] = [];
   // UI containers for event overlay (destroyed after dismissal)
@@ -247,9 +246,16 @@ export class GrillScene extends Phaser.Scene {
   // Track which groups have already fired triggerBatchServe (prevent double-fire)
   private serviceComboBatchFired = new Set<number>();
 
-  // ── Auto-pack timer (5s baseline, 0 delay with auto-grill upgrade) ──────────
+  // ── Auto-pack timer (3s baseline, 0 delay with auto-grill upgrade) ──────────
   private autoServeTimer = 0;
-  private readonly AUTO_SERVE_INTERVAL = 5; // seconds
+  private readonly AUTO_SERVE_INTERVAL = 3; // seconds (was 5)
+
+  // ── Unified session event counter (replaces grillEventTriggered) ─────────────
+  private totalSessionEvents = 0;
+  private readonly MAX_SESSION_EVENTS = 3;
+
+  // ── Chart completion guard (prevents double end-of-day) ──────────────────────
+  private chartCompleteFired = false;
 
   // ── Wave 6cd: BGM sync + rhythm gate ──────────────────────────────────────
   private rhythmStarted = false;
@@ -309,7 +315,8 @@ export class GrillScene extends Phaser.Scene {
     this.hoveredSlotIndex = null;
     this.grillEventTimer = 0;
     this.grillEventNextTrigger = Phaser.Math.Between(25, 40);
-    this.grillEventTriggered = 0;
+    this.totalSessionEvents = 0;
+    this.chartCompleteFired = false;
     this.isShowingGrillEvent = false;
     this.triggeredEventIds = [];
     this.grillEventOverlay = null;
@@ -495,12 +502,31 @@ export class GrillScene extends Phaser.Scene {
     this.showRhythmTutorial(width, height);
   }
 
+  /** Returns true when ANY modal/overlay is active — used as master pause gate. */
+  private isGloballyPaused(): boolean {
+    return this.isShowingGrillEvent
+      || this.paused
+      || this.isShowingCondimentStation
+      || this.isPlayerAway
+      || this.currentCombatPanel !== null;
+  }
+
   update(_time: number, delta: number): void {
     if (this.isDone || this.paused) return;
     // Freeze all game logic while a grill event overlay is shown
     if (this.isShowingGrillEvent) return;
     // Freeze while condiment station is open
     if (this.isShowingCondimentStation) return;
+
+    // Reconcile BGM pause state with global pause flags
+    if (this.rhythmStarted) {
+      const shouldPause = this.isGloballyPaused();
+      if (shouldPause && !this.bgmPaused && !this.bgmFinished) {
+        this.pauseBgm();
+      } else if (!shouldPause && this.bgmPaused && !this.bgmFinished) {
+        this.resumeBgm();
+      }
+    }
 
     const dt = (delta / 1000) * this.speedMultiplier;
 
@@ -735,11 +761,11 @@ export class GrillScene extends Phaser.Scene {
       }
     }
 
-    // Wave 6 rhythm mode: scene end is driven by BGM completion (onChartComplete),
+    // Wave 6 rhythm mode: scene end is driven by chart completion (last note + buffer),
     // NOT by timeLeft countdown or "no customer" auto-end.
-    // timeLeft is kept as a display-only counter (HUD) synced to BGM remaining time.
-    if (this.rhythmStarted && this.bgmAudioBuffer && this.bgmAudioBuffer.duration > 0) {
-      this.timeLeft = Math.max(0, this.bgmAudioBuffer.duration - this.getRhythmTime());
+    // timeLeft is kept as a display-only counter (HUD) synced to chart total duration.
+    if (this.rhythmStarted && this.chart && this.chart.duration > 0) {
+      this.timeLeft = Math.max(0, this.chart.duration - this.getRhythmTime());
     } else {
       this.timeLeft -= dt;
       if (this.timeLeft < 0) this.timeLeft = 0;
@@ -794,19 +820,35 @@ export class GrillScene extends Phaser.Scene {
     // ── Wave 6a: Rhythm track tick ───────────────────────────────────────────
     this.updateRhythmTrack();
 
+    // ── D: Chart-end detection — trigger onChartComplete 3s after last note ──
+    if (this.rhythmStarted && this.chart && !this.isDone) {
+      const lastNoteTime = this.chart.notes.length > 0
+        ? this.chart.notes[this.chart.notes.length - 1].t
+        : 0;
+      if (this.getRhythmTime() > lastNoteTime + 3) {
+        this.onChartComplete();
+      }
+    }
+
     // ── Wave 6c: Auto-serve rhythm sausages that hit target doneness ──────────
     if (this.rhythmStarted) {
       this.tickOverflowSausages(dt);
       this.autoServeReady();
     }
 
-    // ── Auto-pack timer: serve 1 sausage from warming zone every AUTO_SERVE_INTERVAL ──
-    if (this.rhythmStarted && !this.paused) {
+    // ── Auto-pack timer: serve 1-2 sausages from warming zone every AUTO_SERVE_INTERVAL ──
+    if (this.rhythmStarted && !this.isGloballyPaused()) {
       this.autoServeTimer += dt;
       const interval = gameState.upgrades['auto-grill'] ? 0.0001 : this.AUTO_SERVE_INTERVAL;
       if (this.autoServeTimer >= interval) {
         this.autoServeTimer = 0;
-        this.tryAutoPackOne();
+        this.tryAutoPack();
+      }
+      // Pressure release: warming zone nearly full → immediate extra pack
+      const occupied = this.warmingSlots.filter(ws => ws.sausage !== null).length;
+      if (occupied >= 14) {
+        this.tryAutoPack();
+        this.autoServeTimer = 0;
       }
     }
   }
@@ -923,7 +965,7 @@ export class GrillScene extends Phaser.Scene {
    */
   private updateRhythmTrack(): void {
     if (!this.chart) return;
-    if (this.isShowingGrillEvent || this.paused || !this.rhythmStarted) return;
+    if (this.isGloballyPaused() || !this.rhythmStarted) return;
 
     const now = this.getRhythmTime();
 
@@ -983,7 +1025,7 @@ export class GrillScene extends Phaser.Scene {
    * judges it, plays audio, and updates state / visuals.
    */
   private handleRhythmPress(type: NoteType): void {
-    if (this.isDone || this.paused || this.isShowingGrillEvent || !this.rhythmStarted) return;
+    if (this.isDone || this.isGloballyPaused() || !this.rhythmStarted) return;
 
     const now = this.getRhythmTime();
 
@@ -1213,11 +1255,14 @@ export class GrillScene extends Phaser.Scene {
 
   // ── Wave 6cd: BGM sync helpers ────────────────────────────────────────────
 
-  /** Returns current rhythm clock in seconds (Web Audio API, μs precision). */
+  /** Returns current rhythm clock in seconds (Web Audio API, μs precision).
+   *  After BGM ends, audioContext.currentTime keeps running — used to advance
+   *  past BGM into the chart's extended tail (chart.duration > bgm.duration).
+   */
   private getRhythmTime(): number {
     if (!this.bgmCtx) return 0;
-    if (this.bgmFinished) return this.bgmAudioBuffer?.duration ?? 0;
     if (this.bgmPaused) return this.bgmElapsedAtPause;
+    // bgmFinished: BGM source stopped but clock is still valid via bgmStartCtxTime
     return this.bgmCtx.currentTime - this.bgmStartCtxTime;
   }
 
@@ -1340,7 +1385,8 @@ export class GrillScene extends Phaser.Scene {
     this.bgmSource.onended = () => {
       if (this.bgmPaused) return; // pause-induced stop, ignore
       this.bgmFinished = true;
-      this.onChartComplete();
+      // Do NOT call onChartComplete here — chart may extend past BGM duration.
+      // onChartComplete is triggered by update() when last note + 3s buffer has passed.
     };
     this.bgmStartCtxTime = this.bgmCtx.currentTime - offset;
     this.bgmElapsedAtPause = offset;
@@ -1366,10 +1412,12 @@ export class GrillScene extends Phaser.Scene {
   }
 
   /**
-   * Called when BGM finishes playing (chart complete).
-   * Waits 1 second buffer then triggers end-of-day.
+   * Called when chart is complete (last note + 3s buffer has passed, or fallback on BGM end).
+   * Guards against double-invocation — only the first call triggers end-of-day.
    */
   private onChartComplete(): void {
+    if (this.chartCompleteFired || this.isDone) return;
+    this.chartCompleteFired = true;
     console.debug(
       `[GrillScene] Chart complete — serviceComboGroups: ${this.totalServiceComboGroupCount}`,
     );
@@ -1452,12 +1500,17 @@ export class GrillScene extends Phaser.Scene {
   }
 
   /**
-   * Auto-pack: serve 1 sausage from the first occupied warming slot.
-   * Called every AUTO_SERVE_INTERVAL seconds (or near-instant when auto-grill upgrade active).
+   * Auto-pack: serve 1-2 sausages from warming slots per tick.
+   * With auto-grill upgrade, serves 3 at once (near-instant burst).
+   * Called every AUTO_SERVE_INTERVAL seconds (3s baseline).
    */
-  private tryAutoPackOne(): void {
-    const slot = this.warmingSlots.find(ws => ws.sausage !== null);
-    if (slot) {
+  private tryAutoPack(): void {
+    const count = gameState.upgrades['auto-grill']
+      ? 3
+      : (1 + Math.floor(Math.random() * 2)); // 1 or 2
+    for (let n = 0; n < count; n++) {
+      const slot = this.warmingSlots.find(ws => ws.sausage !== null);
+      if (!slot) break;
       this.serveFromWarming(slot);
     }
   }
@@ -2499,7 +2552,7 @@ export class GrillScene extends Phaser.Scene {
   // ── Grill event tick ──────────────────────────────────────────────────────
 
   private tickGrillEvents(dt: number): void {
-    if (this.grillEventTriggered >= 3) return;
+    if (this.totalSessionEvents >= this.MAX_SESSION_EVENTS) return;
 
     this.grillEventTimer += dt;
     if (this.grillEventTimer < this.grillEventNextTrigger) return;
@@ -2522,12 +2575,12 @@ export class GrillScene extends Phaser.Scene {
     ) {
       this.showFeedback('旺財衝出去把他們嚇跑了！', this.scale.width / 2, this.scale.height * 0.35, '#ffcc44');
       this.triggeredEventIds.push(event.id);
-      this.grillEventTriggered++;
+      this.totalSessionEvents++;
       return;
     }
 
     this.triggeredEventIds.push(event.id);
-    this.grillEventTriggered++;
+    this.totalSessionEvents++;
     this.showGrillEventOverlay(event);
   }
 

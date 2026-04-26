@@ -14,6 +14,7 @@ export interface ChartNote {
 export interface RhythmChart {
   audioFile: string;
   duration: number;
+  bgmDuration?: number;  // optional: BGM ends before chart ends (chart extends past BGM)
   tempo: number;
   totalNotes: number;
   sections: { label: string; t_start: number; t_end: number }[];
