@@ -1,4 +1,5 @@
 // MorningPanel — 早上進貨備料 HTML panel (pure DOM, no Phaser)
+// Layout: 左欄 4 大按鈕 | 右欄上方香腸選擇格 + 下方總成本與烤起來按鈕
 import { EventBus } from '../../utils/EventBus';
 import { gameState, updateGameState } from '../../state/GameState';
 import { buyStock } from '../../systems/EconomyEngine';
@@ -13,38 +14,24 @@ export interface SpoilageInfo {
   spoilage: Record<string, number>;
 }
 
-const PREP_CHOICES = [
-  {
-    id: 'scout',
-    label: '偵查對手',
-    desc: '「觀察隔壁攤的弱點」',
-    effect: '戰鬥武器加成 +15%',
-  },
-  {
-    id: 'practice',
-    label: '練習烤功',
-    desc: '「早起練翻香腸」',
-    effect: '今日普通品質有 50% 機率升為完美',
-  },
-  {
-    id: 'social',
-    label: '串門子',
-    desc: '「跟鄰居攤販聊天」',
-    effect: '多一次事件機會，客流量 +10%',
-  },
+const LEFT_ACTIONS = [
+  { id: 'strategy', label: '策略' },
+  { id: 'scout',    label: '偵查' },
+  { id: 'practice', label: '練烤功' },
+  { id: 'social',   label: '拜碼頭' },
 ] as const;
 
 export class MorningPanel {
   private panel: HTMLElement;
   private quantities: Record<string, number> = {};
-  private summarySpend: HTMLElement;
-  private summaryRemain: HTMLElement;
+  private totalCostEl: HTMLElement;
   private rentWarning: HTMLElement;
   private confirmBtn: HTMLButtonElement;
   private qtyDisplays: Map<string, HTMLElement> = new Map();
   private subtotalEls: Map<string, HTMLElement> = new Map();
   private cardRefs: Map<string, { sausage: SausageType }> = new Map();
   private selectedPrep: string = '';
+  private leftBtns: Map<string, HTMLButtonElement> = new Map();
 
   constructor(spoilageInfo?: SpoilageInfo) {
     // Init quantities to 0 for each sausage type
@@ -54,160 +41,215 @@ export class MorningPanel {
 
     this.panel = document.createElement('div');
     this.panel.className = 'game-panel ui-interactive morning-panel';
+    this.panel.style.cssText = [
+      'display:grid;',
+      'grid-template-columns:25% 75%;',
+      'grid-template-rows:auto 1fr;',
+      'gap:0;',
+      'height:100%;',
+      'max-height:100%;',
+      'overflow:hidden;',
+      'box-sizing:border-box;',
+      'padding:0;',
+    ].join('');
 
-    // Title
+    // ── 頂部標題列（跨兩欄）────────────────────────────────────────────
+    const headerRow = document.createElement('div');
+    headerRow.style.cssText = [
+      'grid-column:1/3;',
+      'background:#0a0a14;',
+      'border-bottom:1px solid #333;',
+      'padding:10px 16px;',
+      'display:flex;align-items:center;justify-content:space-between;',
+    ].join('');
+
     const titleEl = document.createElement('div');
     titleEl.className = 'panel-title neon-flicker';
+    titleEl.style.margin = '0';
     titleEl.textContent = '早上 — 進貨備料';
-    this.panel.appendChild(titleEl);
+    headerRow.appendChild(titleEl);
 
-    // Stats / suggestion section
-    const statsSection = document.createElement('div');
-    statsSection.className = 'morning-stats';
-    statsSection.style.cssText = 'background:#111;border:1px solid #333;border-radius:6px;padding:10px 14px;margin-bottom:12px;font-size:13px;color:#ccc;line-height:1.8;';
-
+    // 建議進貨提示（右側）
+    const suggestEl = document.createElement('div');
+    suggestEl.style.cssText = 'font-size:12px;color:#888;';
     if (gameState.day === 1) {
-      statsSection.textContent = '新手建議：先買 15~20 根試試水溫';
+      suggestEl.textContent = '新手建議：先買 15~20 根試試水溫';
     } else {
       const lastSlot = gameState.selectedSlot;
       const slotInfo = lastSlot >= 0 ? GRID_SLOTS.find(s => s.id === lastSlot) : null;
       const traffic = slotInfo ? slotInfo.baseTraffic : 40;
       const suggestMin = Math.round(traffic * 0.6);
       const suggestMax = Math.round(traffic * 0.9);
-      statsSection.textContent = `建議今日進貨：${suggestMin}~${suggestMax} 根（依攤位地段估算）`;
+      suggestEl.textContent = `建議今日進貨：${suggestMin}~${suggestMax} 根`;
     }
-    this.panel.appendChild(statsSection);
+    headerRow.appendChild(suggestEl);
+    this.panel.appendChild(headerRow);
 
-    // ── Morning prep section ────────────────────────────────────────────────
-    const prepSection = document.createElement('div');
-    prepSection.style.cssText = 'margin-bottom:14px;';
+    // ── 左欄：4 大動作按鈕 ───────────────────────────────────────────
+    const leftCol = document.createElement('div');
+    leftCol.style.cssText = [
+      'background:#0a0a12;',
+      'border-right:1px solid #222;',
+      'display:flex;flex-direction:column;',
+      'justify-content:center;',
+      'gap:12px;',
+      'padding:16px 10px;',
+      'overflow-y:auto;',
+    ].join('');
 
-    const prepTitle = document.createElement('div');
-    prepTitle.style.cssText = 'font-size:13px;color:#aaa;margin-bottom:8px;letter-spacing:1px;text-transform:uppercase;';
-    prepTitle.textContent = '今天的準備（選一項）';
-    prepSection.appendChild(prepTitle);
-
-    const prepBtns: HTMLButtonElement[] = [];
-    for (const choice of PREP_CHOICES) {
+    for (const action of LEFT_ACTIONS) {
       const btn = document.createElement('button');
       btn.style.cssText = [
-        'display:block;width:100%;text-align:left;',
-        'background:#0d0d1a;border:1px solid #333;border-radius:6px;',
-        'padding:10px 14px;margin-bottom:6px;cursor:pointer;',
-        'transition:border-color 0.15s,background 0.15s;',
+        'display:block;width:100%;',
+        'background:#111827;',
+        'border:2px solid #333;',
+        'border-radius:8px;',
+        'padding:18px 8px;',
+        'cursor:pointer;',
+        'font-size:20px;',
+        'font-weight:bold;',
+        'font-family:Microsoft JhengHei, PingFang TC, sans-serif;',
+        'color:#ffffff;',
+        'letter-spacing:2px;',
+        'transition:border-color 0.15s, background 0.15s, transform 0.1s;',
+        'text-align:center;',
       ].join('');
+      btn.textContent = action.label;
 
-      const labelEl = document.createElement('span');
-      labelEl.style.cssText = 'font-size:14px;font-weight:bold;color:#e0e0ff;display:block;';
-      labelEl.textContent = `${choice.label} — ${choice.desc}`;
-
-      const effectEl = document.createElement('span');
-      effectEl.style.cssText = 'font-size:11px;color:#666;display:block;margin-top:3px;';
-      effectEl.textContent = choice.effect;
-
-      btn.appendChild(labelEl);
-      btn.appendChild(effectEl);
+      btn.addEventListener('pointerover', () => {
+        if (this.selectedPrep !== action.id) {
+          btn.style.borderColor = '#ff6b00';
+          btn.style.background = '#1a0e00';
+        }
+      });
+      btn.addEventListener('pointerout', () => {
+        if (this.selectedPrep !== action.id) {
+          btn.style.borderColor = '#333';
+          btn.style.background = '#111827';
+        }
+      });
 
       btn.addEventListener('click', () => {
-        this.selectedPrep = choice.id;
-        updateGameState({ morningPrep: choice.id });
-        // Update button visuals
-        for (const b of prepBtns) {
-          b.style.borderColor = '#333';
-          b.style.background = '#0d0d1a';
+        this.selectedPrep = action.id;
+        updateGameState({ morningPrep: action.id });
+        // 更新所有按鈕視覺
+        for (const [id, b] of this.leftBtns) {
+          if (id === action.id) {
+            b.style.borderColor = '#ff6b00';
+            b.style.background = '#1a0e00';
+            b.style.color = '#ff6b00';
+          } else {
+            b.style.borderColor = '#333';
+            b.style.background = '#111827';
+            b.style.color = '#ffffff';
+          }
         }
-        btn.style.borderColor = '#7b44ff';
-        btn.style.background = '#1a0f33';
         this.updateSummary();
       });
 
-      prepBtns.push(btn);
-      prepSection.appendChild(btn);
+      this.leftBtns.set(action.id, btn);
+      leftCol.appendChild(btn);
     }
 
-    // Skip link
-    const skipWrap = document.createElement('div');
-    skipWrap.style.cssText = 'text-align:right;margin-top:2px;';
-    const skipLink = document.createElement('a');
-    skipLink.href = '#';
-    skipLink.textContent = '跳過';
-    skipLink.style.cssText = 'font-size:11px;color:#555;text-decoration:underline;';
-    skipLink.addEventListener('click', (e) => {
-      e.preventDefault();
-      this.selectedPrep = 'skip';
-      updateGameState({ morningPrep: 'skip' });
-      for (const b of prepBtns) {
-        b.style.borderColor = '#333';
-        b.style.background = '#0d0d1a';
-      }
-      this.updateSummary();
-    });
-    skipWrap.appendChild(skipLink);
-    prepSection.appendChild(skipWrap);
+    this.panel.appendChild(leftCol);
 
-    this.panel.appendChild(prepSection);
+    // ── 右欄容器 ────────────────────────────────────────────────────
+    const rightCol = document.createElement('div');
+    rightCol.style.cssText = [
+      'display:flex;flex-direction:column;',
+      'background:#0d0d18;',
+      'overflow:hidden;',
+    ].join('');
 
-    // Sausage cards container (only show unlocked types)
-    const cardsEl = document.createElement('div');
-    cardsEl.className = 'sausage-cards';
+    // ── 右上：香腸選擇格橫排 ──────────────────────────────────────────
+    const sausageRow = document.createElement('div');
+    sausageRow.style.cssText = [
+      'display:flex;',
+      'flex-direction:row;',
+      'gap:8px;',
+      'padding:12px 12px 8px;',
+      'overflow-x:auto;',
+      'flex-shrink:0;',
+      'border-bottom:1px solid #222;',
+    ].join('');
+
     const unlockedTypes = SAUSAGE_TYPES.filter(s => gameState.unlockedSausages.includes(s.id));
+    // 決定哪個是「總公司推薦」（第一個解鎖類型，或第二個）
+    const recommendedId = unlockedTypes.length >= 2 ? unlockedTypes[1].id : (unlockedTypes[0]?.id ?? '');
+
     for (const sausage of unlockedTypes) {
-      const card = this.buildSausageCard(sausage, spoilageInfo);
-      cardsEl.appendChild(card);
+      const cell = this.buildSausageCell(sausage, spoilageInfo, sausage.id === recommendedId);
+      sausageRow.appendChild(cell);
     }
-    this.panel.appendChild(cardsEl);
+    rightCol.appendChild(sausageRow);
 
-    // Purchase summary
-    const summaryEl = document.createElement('div');
-    summaryEl.className = 'purchase-summary';
+    // ── 右下：總成本 + 烤起來按鈕 ────────────────────────────────────
+    const bottomBar = document.createElement('div');
+    bottomBar.style.cssText = [
+      'display:flex;',
+      'align-items:center;',
+      'justify-content:space-between;',
+      'padding:12px 16px;',
+      'background:#080810;',
+      'border-top:1px solid #222;',
+      'flex-shrink:0;',
+      'margin-top:auto;',
+    ].join('');
 
-    const spendRow = document.createElement('div');
-    spendRow.className = 'summary-row';
-    const spendLabel = document.createElement('span');
-    spendLabel.className = 'summary-label';
-    spendLabel.textContent = '本次花費';
-    this.summarySpend = document.createElement('span');
-    this.summarySpend.className = 'summary-value neon-yellow';
-    this.summarySpend.textContent = '$0';
-    spendRow.appendChild(spendLabel);
-    spendRow.appendChild(this.summarySpend);
+    // 左側：總成本 + 租金警告
+    const bottomLeft = document.createElement('div');
+    bottomLeft.style.cssText = 'display:flex;flex-direction:column;gap:4px;';
 
-    const remainRow = document.createElement('div');
-    remainRow.className = 'summary-row';
-    const remainLabel = document.createElement('span');
-    remainLabel.className = 'summary-label';
-    remainLabel.textContent = '剩餘資金';
-    this.summaryRemain = document.createElement('span');
-    this.summaryRemain.className = 'summary-value neon-green';
-    this.summaryRemain.textContent = `$${gameState.money}`;
-    remainRow.appendChild(remainLabel);
-    remainRow.appendChild(this.summaryRemain);
+    this.totalCostEl = document.createElement('div');
+    this.totalCostEl.style.cssText = [
+      'font-size:22px;font-weight:bold;',
+      'font-family:Microsoft JhengHei, PingFang TC, sans-serif;',
+      'color:#ffffff;',
+      'background:#000;',
+      'padding:8px 16px;',
+      'border-radius:6px;',
+      'border:1px solid #333;',
+      'letter-spacing:1px;',
+    ].join('');
+    this.totalCostEl.textContent = '總成本: ¥ 0';
+    bottomLeft.appendChild(this.totalCostEl);
 
-    summaryEl.appendChild(spendRow);
-    summaryEl.appendChild(remainRow);
-    this.panel.appendChild(summaryEl);
-
-    // Rent reserve warning
     this.rentWarning = document.createElement('div');
-    this.rentWarning.className = 'rent-warning';
+    this.rentWarning.style.cssText = 'font-size:12px;color:#ff4444;display:none;';
     this.rentWarning.textContent = `至少保留 $${MIN_RENT_RESERVE_FLOOR} 租金，否則傍晚無法擺攤！`;
-    this.rentWarning.style.display = 'none';
-    this.rentWarning.style.color = 'var(--neon-red, #ff4444)';
-    this.rentWarning.style.fontSize = '13px';
-    this.rentWarning.style.marginTop = '6px';
-    this.rentWarning.style.textAlign = 'center';
-    this.panel.appendChild(this.rentWarning);
+    bottomLeft.appendChild(this.rentWarning);
 
-    // Confirm button
-    const btnCenter = document.createElement('div');
-    btnCenter.className = 'btn-center';
-    btnCenter.style.marginTop = '16px';
+    bottomBar.appendChild(bottomLeft);
 
+    // 右側：烤起來大按鈕
     this.confirmBtn = document.createElement('button');
-    this.confirmBtn.className = 'btn-neon';
+    this.confirmBtn.style.cssText = [
+      'background:#ffffff;',
+      'color:#1a1a1a;',
+      'border:none;',
+      'border-radius:10px;',
+      'padding:14px 36px;',
+      'font-size:22px;',
+      'font-weight:bold;',
+      'font-family:Microsoft JhengHei, PingFang TC, sans-serif;',
+      'cursor:pointer;',
+      'box-shadow:0 4px 0 #aaaaaa, 0 6px 12px rgba(0,0,0,0.4);',
+      'transition:transform 0.1s, box-shadow 0.1s;',
+      'letter-spacing:2px;',
+    ].join('');
+    this.confirmBtn.addEventListener('pointerdown', () => {
+      this.confirmBtn.style.transform = 'translateY(3px)';
+      this.confirmBtn.style.boxShadow = '0 1px 0 #aaaaaa, 0 2px 6px rgba(0,0,0,0.4)';
+    });
+    this.confirmBtn.addEventListener('pointerup', () => {
+      this.confirmBtn.style.transform = '';
+      this.confirmBtn.style.boxShadow = '0 4px 0 #aaaaaa, 0 6px 12px rgba(0,0,0,0.4)';
+    });
     this.confirmBtn.addEventListener('click', this.onConfirm);
-    btnCenter.appendChild(this.confirmBtn);
-    this.panel.appendChild(btnCenter);
+    bottomBar.appendChild(this.confirmBtn);
+
+    rightCol.appendChild(bottomBar);
+    this.panel.appendChild(rightCol);
 
     // Set initial button state
     this.updateSummary();
@@ -219,174 +261,144 @@ export class MorningPanel {
     return Math.max(MIN_RENT_RESERVE_FLOOR, slot?.rent ?? 0);
   }
 
-  private buildSausageCard(sausage: SausageType, spoilageInfo?: SpoilageInfo): HTMLElement {
-    const card = document.createElement('div');
-    card.className = 'sausage-card';
+  private buildSausageCell(sausage: SausageType, spoilageInfo: SpoilageInfo | undefined, isRecommended: boolean): HTMLElement {
+    const cell = document.createElement('div');
+    cell.style.cssText = [
+      'display:flex;flex-direction:column;align-items:center;',
+      'min-width:130px;',
+      'background:#111827;',
+      'border-radius:10px;',
+      `border:2px solid ${isRecommended ? '#ff6b00' : '#2a2a3a'};`,
+      'padding:10px 8px 8px;',
+      'flex-shrink:0;',
+      'position:relative;',
+    ].join('');
 
-    // Header row: emoji + name + cost
-    const headerEl = document.createElement('div');
-    headerEl.className = 'sausage-card-header';
+    // 總公司推薦標籤
+    if (isRecommended) {
+      const badge = document.createElement('div');
+      badge.style.cssText = [
+        'position:absolute;top:-10px;left:50%;transform:translateX(-50%);',
+        'background:#ff6b00;color:#fff;',
+        'font-size:10px;font-weight:bold;',
+        'font-family:Microsoft JhengHei, PingFang TC, sans-serif;',
+        'padding:2px 8px;border-radius:10px;white-space:nowrap;',
+      ].join('');
+      badge.textContent = '總公司推薦';
+      cell.appendChild(badge);
+    }
 
-    const emojiEl = document.createElement('span');
-    emojiEl.className = 'sausage-emoji';
-    emojiEl.textContent = sausage.emoji;
+    // 香腸圖示
+    const imgWrap = document.createElement('div');
+    imgWrap.style.cssText = 'width:90px;height:90px;display:flex;align-items:center;justify-content:center;margin-bottom:4px;';
     if (sausage.image) {
       const img = document.createElement('img');
       img.src = sausage.image;
-      img.style.cssText = 'width:48px; height:48px; object-fit:contain; border-radius:6px;';
+      img.style.cssText = 'width:90px;height:90px;object-fit:contain;border-radius:8px;';
       img.alt = sausage.name;
-      emojiEl.textContent = '';
-      emojiEl.appendChild(img);
+      imgWrap.appendChild(img);
+    } else {
+      const emoji = document.createElement('span');
+      emoji.style.fontSize = '56px';
+      emoji.textContent = sausage.emoji;
+      imgWrap.appendChild(emoji);
     }
+    cell.appendChild(imgWrap);
 
-    const infoEl = document.createElement('div');
-    infoEl.className = 'sausage-info';
+    // 售價
+    const priceEl = document.createElement('div');
+    priceEl.style.cssText = 'font-size:12px;color:#aaa;margin-bottom:6px;text-align:center;font-family:Microsoft JhengHei, PingFang TC, sans-serif;';
+    priceEl.textContent = `現在售價 $${sausage.cost}/根`;
+    cell.appendChild(priceEl);
 
-    const nameEl = document.createElement('div');
-    nameEl.className = 'sausage-name';
-    nameEl.textContent = sausage.name;
-
-    const costEl = document.createElement('div');
-    costEl.className = 'sausage-cost';
-    costEl.textContent = `$${sausage.cost} / 根`;
-
-    const descEl = document.createElement('div');
-    descEl.className = 'sausage-desc';
-    descEl.textContent = sausage.description;
-
-    infoEl.appendChild(nameEl);
-    infoEl.appendChild(costEl);
-    infoEl.appendChild(descEl);
-
-    headerEl.appendChild(emojiEl);
-    headerEl.appendChild(infoEl);
-    card.appendChild(headerEl);
-
-    // Inventory hint row
+    // 庫存提示
     const currentStock = gameState.inventory[sausage.id] ?? 0;
     const spoiledQty = spoilageInfo?.spoilage[sausage.id] ?? 0;
-
-    const stockHintEl = document.createElement('div');
-    stockHintEl.className = 'sausage-stock-hint';
+    const stockHint = document.createElement('div');
+    stockHint.style.cssText = 'font-size:11px;color:#666;margin-bottom:6px;text-align:center;font-family:Microsoft JhengHei, PingFang TC, sans-serif;';
     if (spoiledQty > 0) {
-      stockHintEl.textContent = `庫存: ${currentStock} 根（昨晚損耗 ${spoiledQty} 根）`;
+      stockHint.textContent = `庫存: ${currentStock}（損耗 ${spoiledQty}）`;
     } else {
-      stockHintEl.textContent = `庫存: ${currentStock} 根`;
+      stockHint.textContent = `庫存: ${currentStock} 根`;
     }
-    card.appendChild(stockHintEl);
+    cell.appendChild(stockHint);
 
-    // Quantity control row
-    const qtyRowEl = document.createElement('div');
-    qtyRowEl.className = 'qty-row';
+    // 數量顯示框 + 加減按鈕
+    const qtyRow = document.createElement('div');
+    qtyRow.style.cssText = 'display:flex;align-items:center;gap:4px;margin-bottom:4px;';
 
-    // Quick-add buttons row: -10, -5, -1, [input], +1, +5, +10
-    const qtyControl = document.createElement('div');
-    qtyControl.className = 'qty-control';
-    qtyControl.style.display = 'flex';
-    qtyControl.style.alignItems = 'center';
-    qtyControl.style.gap = '4px';
-    qtyControl.style.flexWrap = 'wrap';
-
-    const subtotalEl = document.createElement('span');
-    subtotalEl.className = 'sausage-subtotal';
-    subtotalEl.textContent = `小計 $0`;
-    this.subtotalEls.set(sausage.id, subtotalEl);
-
-    // Editable input for direct number entry
-    const qtyInput = document.createElement('input');
-    qtyInput.type = 'number';
-    qtyInput.className = 'qty-input';
-    qtyInput.value = '0';
-    qtyInput.min = '0';
-    qtyInput.style.width = '48px';
-    qtyInput.style.textAlign = 'center';
-    qtyInput.style.fontSize = '16px';
-    qtyInput.style.fontWeight = 'bold';
-    qtyInput.style.background = '#111';
-    qtyInput.style.color = '#fff';
-    qtyInput.style.border = '1px solid #444';
-    qtyInput.style.borderRadius = '4px';
-    qtyInput.style.padding = '4px 2px';
-    qtyInput.style.appearance = 'textfield';
-    qtyInput.addEventListener('change', () => {
-      const raw = parseInt(qtyInput.value) || 0;
-      // calcMaxAffordable is defined below and closed over via the card scope
-      this.setQuantity(sausage, raw, qtyInput, subtotalEl);
-    });
-    qtyInput.addEventListener('blur', () => {
-      const raw = parseInt(qtyInput.value) || 0;
-      this.setQuantity(sausage, raw, qtyInput, subtotalEl);
-    });
-    this.qtyDisplays.set(sausage.id, qtyInput);
+    const qtyDisplay = document.createElement('div');
+    qtyDisplay.style.cssText = [
+      'width:44px;height:30px;',
+      'display:flex;align-items:center;justify-content:center;',
+      'background:#0a0a14;border:1px solid #444;border-radius:4px;',
+      'font-size:16px;font-weight:bold;color:#fff;',
+    ].join('');
+    qtyDisplay.textContent = '0';
+    this.qtyDisplays.set(sausage.id, qtyDisplay);
     this.cardRefs.set(sausage.id, { sausage });
 
-    const MAX_QUANTITY = 99;
+    const subtotalEl = document.createElement('div');
+    subtotalEl.style.cssText = 'font-size:11px;color:#666;text-align:center;font-family:Microsoft JhengHei, PingFang TC, sans-serif;';
+    subtotalEl.textContent = '小計 $0';
+    this.subtotalEls.set(sausage.id, subtotalEl);
 
     const calcMaxAffordable = (): number => {
+      const MAX_QUANTITY = 99;
       const otherSpend = this.calcTotalCost() - this.quantities[sausage.id] * sausage.cost;
       const remaining = gameState.money - otherSpend;
       const spendable = Math.max(0, remaining - this.getRentReserve());
       return Math.min(MAX_QUANTITY, Math.floor(spendable / sausage.cost));
     };
 
-    const makeBtn = (label: string, delta: number): HTMLButtonElement => {
+    const makeSmallBtn = (label: string, delta: number): HTMLButtonElement => {
       const btn = document.createElement('button');
-      btn.className = delta > 0 ? 'qty-btn btn-neon-cyan' : 'qty-btn btn-neon-red';
+      btn.style.cssText = [
+        'background:#1e1e2e;border:1px solid #444;border-radius:4px;',
+        'color:#ccc;font-size:12px;font-weight:bold;',
+        'padding:4px 6px;cursor:pointer;min-width:32px;',
+        'transition:background 0.1s;',
+      ].join('');
       btn.textContent = label;
-      btn.style.minWidth = '36px';
-      btn.style.padding = '4px 6px';
-      btn.style.fontSize = '13px';
+      btn.addEventListener('pointerover', () => { btn.style.background = '#ff6b0033'; });
+      btn.addEventListener('pointerout',  () => { btn.style.background = '#1e1e2e'; });
       btn.addEventListener('click', () => {
         const maxAffordable = calcMaxAffordable();
         const newVal = Math.max(0, Math.min(maxAffordable, this.quantities[sausage.id] + delta));
-        this.setQuantity(sausage, newVal, qtyInput, subtotalEl);
+        this.setQuantity(sausage, newVal, qtyDisplay, subtotalEl);
       });
       return btn;
     };
 
-    // "清空" button — destructive, sets quantity to 0
+    qtyRow.appendChild(qtyDisplay);
+    cell.appendChild(qtyRow);
+
+    const btnRow = document.createElement('div');
+    btnRow.style.cssText = 'display:flex;gap:4px;flex-wrap:wrap;justify-content:center;';
+    btnRow.appendChild(makeSmallBtn('+1', +1));
+    btnRow.appendChild(makeSmallBtn('+5', +5));
+    btnRow.appendChild(makeSmallBtn('+10', +10));
+
+    // 清空按鈕
     const clearBtn = document.createElement('button');
-    clearBtn.className = 'qty-btn';
+    clearBtn.style.cssText = [
+      'background:#1e0a0a;border:1px solid #ff4444;border-radius:4px;',
+      'color:#ff6666;font-size:11px;',
+      'padding:4px 6px;cursor:pointer;min-width:32px;margin-top:2px;',
+    ].join('');
     clearBtn.textContent = '清空';
-    clearBtn.style.minWidth = '36px';
-    clearBtn.style.padding = '4px 6px';
-    clearBtn.style.fontSize = '13px';
-    clearBtn.style.color = '#ff6666';
-    clearBtn.style.borderColor = '#ff4444';
     clearBtn.addEventListener('click', () => {
-      this.setQuantity(sausage, 0, qtyInput, subtotalEl);
+      this.setQuantity(sausage, 0, qtyDisplay, subtotalEl);
     });
+    btnRow.appendChild(clearBtn);
 
-    qtyControl.appendChild(clearBtn);
-    qtyControl.appendChild(makeBtn('-10', -10));
-    qtyControl.appendChild(makeBtn('-5', -5));
-    qtyControl.appendChild(makeBtn('-1', -1));
-    qtyControl.appendChild(qtyInput);
-    qtyControl.appendChild(makeBtn('+1', +1));
-    qtyControl.appendChild(makeBtn('+5', +5));
-    qtyControl.appendChild(makeBtn('+10', +10));
+    cell.appendChild(btnRow);
+    cell.appendChild(subtotalEl);
 
-    // "Max buy" button — reserves MIN_RENT_RESERVE for evening slot, capped at 99
-    const maxBtn = document.createElement('button');
-    maxBtn.className = 'qty-btn btn-neon-cyan';
-    maxBtn.textContent = '最大';
-    maxBtn.style.minWidth = '42px';
-    maxBtn.style.padding = '4px 6px';
-    maxBtn.style.fontSize = '13px';
-    maxBtn.addEventListener('click', () => {
-      this.setQuantity(sausage, calcMaxAffordable(), qtyInput, subtotalEl);
-    });
-    qtyControl.appendChild(maxBtn);
-
-    qtyRowEl.appendChild(qtyControl);
-    qtyRowEl.appendChild(subtotalEl);
-    card.appendChild(qtyRowEl);
-
-    return card;
+    return cell;
   }
 
-  private setQuantity(sausage: SausageType, qty: number, input: HTMLInputElement, subtotalEl: HTMLElement): void {
-    // Clamp: can't go below 0, can't exceed 99, can't exceed what we can afford while keeping rent reserve
+  private setQuantity(sausage: SausageType, qty: number, display: HTMLElement, subtotalEl: HTMLElement): void {
     const MAX_QUANTITY = 99;
     const reserve = this.getRentReserve();
     const otherSpend = this.calcTotalCost() - this.quantities[sausage.id] * sausage.cost;
@@ -395,13 +407,12 @@ export class MorningPanel {
     const maxAffordable = Math.min(MAX_QUANTITY, Math.floor(spendable / sausage.cost));
     const clamped = Math.max(0, Math.min(qty, maxAffordable));
 
-    // Show warning if user tried to exceed the rent-reserved limit
     const wouldExceed = qty > maxAffordable && remaining > 0;
     this.rentWarning.textContent = `至少保留 $${reserve} 租金，否則傍晚無法擺攤！`;
     this.rentWarning.style.display = wouldExceed ? 'block' : 'none';
 
     this.quantities[sausage.id] = clamped;
-    input.value = String(clamped);
+    display.textContent = String(clamped);
     subtotalEl.textContent = `小計 $${clamped * sausage.cost}`;
     this.updateSummary();
   }
@@ -417,30 +428,28 @@ export class MorningPanel {
   private updateSummary(): void {
     const totalSpend = this.calcTotalCost();
     const remaining = gameState.money - totalSpend;
-
-    this.summarySpend.textContent = `$${totalSpend}`;
-    this.summaryRemain.textContent = `$${remaining}`;
-
-    // Color the remaining amount red if below rent reserve
     const reserve = this.getRentReserve();
-    this.summaryRemain.style.color = remaining < reserve ? 'var(--neon-red, #ff4444)' : '';
 
-    // Enable confirm if player has chosen a prep AND (has new purchases OR existing inventory)
+    this.totalCostEl.textContent = `總成本: ¥ ${totalSpend.toLocaleString()}`;
+    this.totalCostEl.style.color = remaining < reserve ? '#ff4444' : '#ffffff';
+
     const hasNewPurchases = Object.values(this.quantities).some(q => q > 0);
     const hasExistingStock = Object.values(gameState.inventory).some(q => q > 0);
     const hasPrepChoice = this.selectedPrep !== '';
     const canProceed = hasPrepChoice && (hasNewPurchases || hasExistingStock);
+
     this.confirmBtn.disabled = !canProceed;
     this.confirmBtn.style.opacity = canProceed ? '1' : '0.5';
+    this.confirmBtn.style.cursor = canProceed ? 'pointer' : 'not-allowed';
+
     if (!hasPrepChoice) {
       this.confirmBtn.textContent = '請先選擇今日準備';
     } else {
-      this.confirmBtn.textContent = hasNewPurchases ? '確認進貨' : '直接出攤';
+      this.confirmBtn.textContent = hasNewPurchases ? '烤起來' : '直接出攤';
     }
   }
 
   private onConfirm = (): void => {
-    // Purchase all sausage types with quantity > 0
     for (const sausage of SAUSAGE_TYPES) {
       const qty = this.quantities[sausage.id] ?? 0;
       if (qty > 0) {

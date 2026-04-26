@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { EventBus } from '../utils/EventBus';
-import { gameState, updateGameState } from '../state/GameState';
+import { updateGameState } from '../state/GameState';
 import { GRID_SLOTS } from '../data/map';
 import { PROLOGUE_PAGES } from '../data/dialogue';
 import { sfx } from '../utils/SoundFX';
@@ -129,9 +129,9 @@ export class BootScene extends Phaser.Scene {
     // Title: logo-ex (preferred) → cover (fallback) → text fallback
     let title: Phaser.GameObjects.Image | Phaser.GameObjects.Text;
     if (this.textures.exists('logo-ex')) {
-      const logo = this.add.image(cx, height * 0.22, 'logo-ex');
-      const maxW = width * 0.92;
-      const maxH = height * 0.42;
+      const logo = this.add.image(cx, height * 0.28, 'logo-ex');
+      const maxW = width * 0.95;
+      const maxH = height * 0.55;
       const scale = Math.min(maxW / logo.width, maxH / logo.height);
       logo.setScale(scale).setDepth(10);
       title = logo;
@@ -164,13 +164,6 @@ export class BootScene extends Phaser.Scene {
       delay: 3000,
       repeatDelay: 2000,
     });
-
-    // Subtitle (above illustration)
-    this.add.text(cx, height * 0.34, '台灣夜市香腸征服之路', {
-      fontSize: '16px',
-      fontFamily: 'Microsoft JhengHei, PingFang TC, sans-serif',
-      color: '#ff6b00',
-    }).setOrigin(0.5).setDepth(10);
 
     // Story card background (bottom area, above illustration)
     const storyBg = this.add.graphics();
@@ -219,39 +212,25 @@ export class BootScene extends Phaser.Scene {
       paused: true,
     });
 
-    // ── Mode selection cards (hidden until all pages done) ───────────────
-    const cardWidth = 160;
-    const cardHeight = 180;
-    const gap = 20;
-    const leftX = cx - cardWidth - gap / 2;
-    const rightX = cx + gap / 2;
-    const cardY = cy - 40;
-
-    // Helper: start the game with a chosen mode
-    const startGame = (mode: string) => {
+    // ── Mode selection: 斜切大區塊（指烤火拼 / 小烤怡情）─────────────────
+    // Helper: start the game with a chosen mode + difficulty
+    const startGame = (mode: string, difficulty: 'hardcore' | 'casual') => {
       sfx.initOnUserGesture();
-      // Reset all module-level state for a fresh game
       resetCustomerEngine();
       resetAutoChessEngine();
       resetEventTracking();
       resetCasinoEngine();
       resetAchievements();
-      // Initialize map: slot 1 = player, rest = enemy
       const initialMap: Record<number, string> = {};
       for (const slot of GRID_SLOTS) {
         initialMap[slot.id] = slot.tier === 1 ? 'player' : (slot.opponentId || 'enemy');
       }
-      updateGameState({ map: initialMap, playerSlot: 1, gameMode: mode });
+      updateGameState({ map: initialMap, playerSlot: 1, gameMode: mode, difficulty });
       let bootTransitioned = false;
       const doBootTransition = () => {
         if (bootTransitioned) return;
         bootTransitioned = true;
-        // 已選過難度（重開存檔）→ 直接進 MorningScene；新遊戲 → DifficultyScene
-        if (gameState.difficulty) {
-          this.scene.start('MorningScene');
-        } else {
-          this.scene.start('DifficultyScene');
-        }
+        this.scene.start('MorningScene');
       };
       try {
         const { width: fw, height: fh } = this.scale;
@@ -271,64 +250,99 @@ export class BootScene extends Phaser.Scene {
       }
     };
 
-    // Normal mode card
-    const normalCard = this.add.rectangle(
-      leftX + cardWidth / 2, cardY + cardHeight / 2,
-      cardWidth, cardHeight, 0x1a1a3e, 0.9,
-    ).setStrokeStyle(2, 0xff6600).setInteractive({ useHandCursor: true }).setAlpha(0);
+    // 全部 alpha=0 隱藏，prologue 結束才 fade in
+    const midY = height * 0.62;
+    const skew = width * 0.06;
 
-    const normalEmoji = this.add.text(leftX + cardWidth / 2, cardY + 30, '', {
-      fontSize: '40px',
-    }).setOrigin(0.5).setAlpha(0);
+    // 左區塊（指烤火拼 / HARDCORE）— 深藍
+    const leftPoly = new Phaser.Geom.Polygon([
+      0,                        height * 0.42,
+      width * 0.55 - skew,      height * 0.42,
+      width * 0.45 + skew,      height * 0.85,
+      0,                        height * 0.85,
+    ]);
+    const leftBg = this.add.graphics().setAlpha(0).setDepth(15);
+    leftBg.fillStyle(0x142036, 0.95);
+    leftBg.fillPoints(leftPoly.points, true);
+    leftBg.lineStyle(4, 0xff6b00, 0.9);
+    leftBg.strokePoints(leftPoly.points, true);
 
-    const normalTitle = this.add.text(leftX + cardWidth / 2, cardY + 75, '指烤', {
-      fontSize: '20px',
+    // 右區塊（小烤怡情 / CASUAL）— 淺灰
+    const rightPoly = new Phaser.Geom.Polygon([
+      width * 0.55 - skew,      height * 0.42,
+      width,                    height * 0.42,
+      width,                    height * 0.85,
+      width * 0.45 + skew,      height * 0.85,
+    ]);
+    const rightBg = this.add.graphics().setAlpha(0).setDepth(15);
+    rightBg.fillStyle(0xd8dde6, 0.95);
+    rightBg.fillPoints(rightPoly.points, true);
+    rightBg.lineStyle(4, 0xff6b00, 0.9);
+    rightBg.strokePoints(rightPoly.points, true);
+
+    // 左區塊文字
+    const leftTitle = this.add.text(width * 0.22, midY - 15, '指烤火拼', {
+      fontSize: '54px',
       fontFamily: 'Microsoft JhengHei, PingFang TC, sans-serif',
-      color: '#ff6600',
+      color: '#ffffff',
+      stroke: '#000000',
+      strokeThickness: 4,
       fontStyle: 'bold',
-    }).setOrigin(0.5).setAlpha(0);
+    }).setOrigin(0.5).setDepth(20).setAlpha(0);
 
-    const normalDesc = this.add.text(leftX + cardWidth / 2, cardY + 110, '正常難度\n香腸要你自己顧', {
-      fontSize: '12px',
+    const leftSub = this.add.text(width * 0.22, midY + 35, 'HARDCORE', {
+      fontSize: '18px',
+      fontFamily: 'Microsoft JhengHei, PingFang TC, sans-serif',
+      color: '#ff6b00',
+    }).setOrigin(0.5).setDepth(20).setAlpha(0);
+
+    const leftDesc = this.add.text(width * 0.22, midY + 64, '節拍密、判定嚴', {
+      fontSize: '13px',
       fontFamily: 'Microsoft JhengHei, PingFang TC, sans-serif',
       color: '#aaaaaa',
-      align: 'center',
-    }).setOrigin(0.5).setAlpha(0);
+    }).setOrigin(0.5).setDepth(20).setAlpha(0);
 
-    normalCard.on('pointerover', () => normalCard.setStrokeStyle(3, 0xff8833));
-    normalCard.on('pointerout',  () => normalCard.setStrokeStyle(2, 0xff6600));
-    normalCard.on('pointerdown', () => startGame('normal'));
-
-    // Simulation mode card
-    const simCard = this.add.rectangle(
-      rightX + cardWidth / 2, cardY + cardHeight / 2,
-      cardWidth, cardHeight, 0x1a1a3e, 0.9,
-    ).setStrokeStyle(2, 0x00cc88).setInteractive({ useHandCursor: true }).setAlpha(0);
-
-    const simEmoji = this.add.text(rightX + cardWidth / 2, cardY + 30, '', {
-      fontSize: '40px',
-    }).setOrigin(0.5).setAlpha(0);
-
-    const simTitle = this.add.text(rightX + cardWidth / 2, cardY + 75, '模擬烤', {
-      fontSize: '20px',
+    // 右區塊文字
+    const rightTitle = this.add.text(width * 0.78, midY - 15, '小烤怡情', {
+      fontSize: '54px',
       fontFamily: 'Microsoft JhengHei, PingFang TC, sans-serif',
-      color: '#00cc88',
+      color: '#1a1a1a',
+      stroke: '#ffffff',
+      strokeThickness: 3,
       fontStyle: 'bold',
-    }).setOrigin(0.5).setAlpha(0);
+    }).setOrigin(0.5).setDepth(20).setAlpha(0);
 
-    const simDesc = this.add.text(rightX + cardWidth / 2, cardY + 110, '難度降低 50%\n適合新手練習', {
-      fontSize: '12px',
+    const rightSub = this.add.text(width * 0.78, midY + 35, 'CASUAL', {
+      fontSize: '18px',
       fontFamily: 'Microsoft JhengHei, PingFang TC, sans-serif',
-      color: '#aaaaaa',
-      align: 'center',
-    }).setOrigin(0.5).setAlpha(0);
+      color: '#ff6b00',
+    }).setOrigin(0.5).setDepth(20).setAlpha(0);
 
-    simCard.on('pointerover', () => simCard.setStrokeStyle(3, 0x33ffaa));
-    simCard.on('pointerout',  () => simCard.setStrokeStyle(2, 0x00cc88));
-    simCard.on('pointerdown', () => startGame('simulation'));
+    const rightDesc = this.add.text(width * 0.78, midY + 64, '節拍鬆、判定寬', {
+      fontSize: '13px',
+      fontFamily: 'Microsoft JhengHei, PingFang TC, sans-serif',
+      color: '#444444',
+    }).setOrigin(0.5).setDepth(20).setAlpha(0);
 
-    // Collect all card objects for fade-in together
-    const modeCardObjects = [normalCard, normalEmoji, normalTitle, normalDesc, simCard, simEmoji, simTitle, simDesc];
+    // 點擊 zone
+    const leftZone = this.add.zone(width * 0.22, midY + 30, width * 0.45, height * 0.43)
+      .setInteractive({ cursor: 'pointer' });
+    leftZone.on('pointerdown', () => startGame('normal', 'hardcore'));
+    leftZone.on('pointerover', () => leftTitle.setScale(1.06));
+    leftZone.on('pointerout',  () => leftTitle.setScale(1));
+
+    const rightZone = this.add.zone(width * 0.78, midY + 30, width * 0.45, height * 0.43)
+      .setInteractive({ cursor: 'pointer' });
+    rightZone.on('pointerdown', () => startGame('simulation', 'casual'));
+    rightZone.on('pointerover', () => rightTitle.setScale(1.06));
+    rightZone.on('pointerout',  () => rightTitle.setScale(1));
+
+    // Collect for fade-in
+    const modeCardObjects = [
+      leftBg, rightBg,
+      leftTitle, leftSub, leftDesc,
+      rightTitle, rightSub, rightDesc,
+    ];
 
     // ── Typing engine ──────────────────────────────────────────────────
     const showPage = (pageIndex: number) => {
