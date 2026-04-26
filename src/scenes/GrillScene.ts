@@ -53,7 +53,7 @@ function getSessionDuration(): number {
 }
 const GAME_DURATION = 90;      // seconds (kept as fallback reference)
 const MAX_GRILL_SLOTS = 8;     // 12 if grill-expand upgrade
-const GRILL_Y_FRAC = 0.35;    // grill vertical position as fraction of screen height (true center)
+const GRILL_Y_FRAC = 0.50;    // grill vertical position as fraction of screen height (true center)
 // Warming zone has no fixed limit — slots are created dynamically
 // Customer arrival scales with day: early days are calmer
 const BASE_ARRIVAL_INTERVAL = 10; // day 1 interval
@@ -78,10 +78,8 @@ interface GrillSlot {
   serveBtn: Phaser.GameObjects.Text | null;
   serveHint: Phaser.GameObjects.Text | null;
   // Runtime state flags attached during play
-  __flipPromptShown?: boolean;
   __carbonWarnShown?: boolean;
   __burntWarnShown?: boolean;
-  __autoFlipped?: boolean;
   __lastClickTime?: number;
   // Stage tracking for visual/audio feedback (Wave 4a)
   __prevTopStage?: CookingStage;
@@ -91,7 +89,6 @@ interface GrillSlot {
   flipBtn?: Phaser.GameObjects.Container | null;
   pressBtn?: Phaser.GameObjects.Container | null;
   oilBtn?: Phaser.GameObjects.Container | null;
-  __flipCooldownUntil?: number; // session-time seconds when cooldown ends
   __isPressingBtn?: boolean;    // true while press button is held
 }
 
@@ -250,6 +247,10 @@ export class GrillScene extends Phaser.Scene {
   // Track which groups have already fired triggerBatchServe (prevent double-fire)
   private serviceComboBatchFired = new Set<number>();
 
+  // ── Auto-pack timer (5s baseline, 0 delay with auto-grill upgrade) ──────────
+  private autoServeTimer = 0;
+  private readonly AUTO_SERVE_INTERVAL = 5; // seconds
+
   // ── Wave 6cd: BGM sync + rhythm gate ──────────────────────────────────────
   private rhythmStarted = false;
   // Wave 6cd-fix: BGM 直接用 Web Audio API 控制（避開 Phaser sound.seek 的時鐘漂移）
@@ -356,6 +357,9 @@ export class GrillScene extends Phaser.Scene {
     this.hitStats = { perfect: 0, great: 0, good: 0, miss: 0 };
     this.rhythmComboText = null;
     this.overflowSausages = [];
+
+    // ── Auto-pack timer reset ──
+    this.autoServeTimer = 0;
 
     // ── Wave 6cd reset ──
     this.rhythmStarted = false;
@@ -601,15 +605,6 @@ export class GrillScene extends Phaser.Scene {
       // ────────────────────────────────────────────────────────────────────────
 
       // ── Contextual feedback ──
-      const heatedSide = updated.currentSide === 'bottom' ? updated.bottomDoneness : updated.topDoneness;
-      const nonHeated = updated.currentSide === 'bottom' ? updated.topDoneness : updated.bottomDoneness;
-
-      // Show "點一下翻面！" hint when heated side hits green zone (70+) and other side not yet cooked
-      if (heatedSide >= 70 && nonHeated < 30 && !slot.__flipPromptShown) {
-        slot.__flipPromptShown = true;
-        this.showFeedback('點一下翻面！', slot.x, slot.y - 55, '#39ff14');
-      }
-
       // Show "雙擊起鍋" persistent hint when both sides are cooked enough
       if (!slot.serveHint && updated.topDoneness >= 30 && updated.bottomDoneness >= 30) {
         slot.serveHint = this.add.text(slot.x, slot.y - 45, '雙擊起鍋', {
@@ -627,20 +622,6 @@ export class GrillScene extends Phaser.Scene {
       } else if (currentQuality === 'burnt' && !slot.__burntWarnShown) {
         this.showFeedback('焦了！趕快起鍋', slot.x, slot.y - 55, '#ff6600');
         slot.__burntWarnShown = true;
-      }
-
-      // Auto-grill: if upgrade active, auto-flip when heated side >= 70 and other < 70
-      if (gameState.upgrades['auto-grill']) {
-        if (heatedSide >= 70 && nonHeated < 70 && !slot.__autoFlipped) {
-          slot.__autoFlipped = true;
-          slot.__flipPromptShown = true;
-          this.doFlipSlot(slot);
-          this.showFeedback('自動翻面', slot.x, slot.y - 40, '#44ccff');
-        }
-        // Reset auto-flip flag when the new side becomes active
-        if (heatedSide < 70) {
-          slot.__autoFlipped = false;
-        }
       }
     }
 
@@ -826,6 +807,16 @@ export class GrillScene extends Phaser.Scene {
       this.tickOverflowSausages(dt);
       this.autoServeReady();
     }
+
+    // ── Auto-pack timer: serve 1 sausage from warming zone every AUTO_SERVE_INTERVAL ──
+    if (this.rhythmStarted && !this.paused) {
+      this.autoServeTimer += dt;
+      const interval = gameState.upgrades['auto-grill'] ? 0.0001 : this.AUTO_SERVE_INTERVAL;
+      if (this.autoServeTimer >= interval) {
+        this.autoServeTimer = 0;
+        this.tryAutoPackOne();
+      }
+    }
   }
 
   // ── Wave 6a: Rhythm track ────────────────────────────────────────────────
@@ -844,9 +835,9 @@ export class GrillScene extends Phaser.Scene {
     this.nextNoteSpawnIdx = 0;
     this.rhythmNotes = [];
 
-    // NOTE_TRACK_Y: above grill rack (grill at 0.35), between customer queue (~0.17) and grill.
-    // 0.22 places the track in the gap between queue bottom and grill top.
-    this.noteTrackY = height * 0.22;
+    // NOTE_TRACK_Y: above grill rack (grill at 0.50), between customer queue (~0.17) and grill.
+    // 0.40 places the track just above the grill so notes look like they fly into the rack.
+    this.noteTrackY = height * 0.40;
 
     // Debug: track line (semi-transparent dark grey)
     const trackLine = this.add.graphics();
@@ -877,7 +868,7 @@ export class GrillScene extends Phaser.Scene {
     this.input.keyboard?.on('keydown-K', () => this.handleRhythmPress('ka'));
 
     // ── Wave 6b: Touch buttons (Don = red left, Ka = blue right) ────────────
-    const btnY = height - 80;
+    const btnY = height - 50;
     const donX = width * 0.25;
     const kaX  = width * 0.75;
     const btnRadius = 60;
@@ -1419,9 +1410,6 @@ export class GrillScene extends Phaser.Scene {
     slot.sprite = sprite;
     slot.__carbonWarnShown = false;
     slot.__burntWarnShown = false;
-    slot.__autoFlipped = false;
-    slot.__flipPromptShown = false;
-    slot.__flipCooldownUntil = 0;
     slot.__isPressingBtn = false;
   }
 
@@ -1447,6 +1435,17 @@ export class GrillScene extends Phaser.Scene {
         if (this.isDone || !this.scene.isActive()) return;
         this.fillSlotFromOverflow(slot);
       });
+    }
+  }
+
+  /**
+   * Auto-pack: serve 1 sausage from the first occupied warming slot.
+   * Called every AUTO_SERVE_INTERVAL seconds (or near-instant when auto-grill upgrade active).
+   */
+  private tryAutoPackOne(): void {
+    const slot = this.warmingSlots.find(ws => ws.sausage !== null);
+    if (slot) {
+      this.serveFromWarming(slot);
     }
   }
 
@@ -1494,9 +1493,6 @@ export class GrillScene extends Phaser.Scene {
     slot.sprite = sprite;
     slot.__carbonWarnShown = false;
     slot.__burntWarnShown = false;
-    slot.__autoFlipped = false;
-    slot.__flipPromptShown = false;
-    slot.__flipCooldownUntil = 0;
     slot.__isPressingBtn = false;
 
     // Show brief "補位" indicator
@@ -1709,7 +1705,7 @@ export class GrillScene extends Phaser.Scene {
   private setupWarmingZone(width: number, height: number): void {
     this.wzSlotW = width * 0.5;               // 50% width, centered
     this.wzX = (width - this.wzSlotW) / 2;    // centered horizontally
-    this.wzY = height * 0.62;                 // below heat buttons
+    this.wzY = height * 0.72;                 // below grill rack
 
     // Zone label
     this.add.text(this.wzX + this.wzSlotW / 2, this.wzY - 16, '保溫區（點擊出餐）', {
@@ -1718,8 +1714,8 @@ export class GrillScene extends Phaser.Scene {
       color: COLOR_DIM,
     }).setOrigin(0.5).setDepth(5);
 
-    // Create initial 10 empty slots (5x2 grid)
-    for (let i = 0; i < 10; i++) {
+    // Create initial 12 empty slots (4x3 grid)
+    for (let i = 0; i < 12; i++) {
       this.createWarmingSlotVisual();
     }
 
@@ -1727,10 +1723,10 @@ export class GrillScene extends Phaser.Scene {
 
   private createWarmingSlotVisual(): WarmingSlot {
     const idx = this.warmingSlots.length;
-    // 5x2 grid layout
-    const col = idx % 5;
-    const row = Math.floor(idx / 5);
-    const slotW = this.wzSlotW / 5;
+    // 4x3 grid layout (4 columns, 3 rows)
+    const col = idx % 4;
+    const row = Math.floor(idx / 4);
+    const slotW = this.wzSlotW / 4;
     const gap = 4;
     const sx = this.wzX + col * slotW;
     const sy = this.wzY + row * (this.wzSlotH + gap);
@@ -2209,10 +2205,10 @@ export class GrillScene extends Phaser.Scene {
   // ── Wave 4c: SpectatorCrowd setup ────────────────────────────────────────
 
   private setupSpectatorCrowd(width: number, height: number): void {
-    // 放在烤台下方、暖盤區上方；避開現有 UI（暖盤在 height*0.62，結束按鈕在 height*0.80）
-    // 選 height*0.76 作為中心，往下展開半圓形圍觀者
+    // 放在暖盤區下方（暖盤在 height*0.72），往下展開半圓形圍觀者
+    // 選 height*0.86 作為中心
     const crowdX = width / 2;
-    const crowdY = height * 0.76;
+    const crowdY = height * 0.86;
 
     this.spectatorCrowd = new SpectatorCrowd(this, crowdX, crowdY);
     this.spectatorCrowd.setDepth(5); // 在 HUD 下、香腸上
@@ -2329,7 +2325,7 @@ export class GrillScene extends Phaser.Scene {
     this.pendingCustomerQueue = pool;
   }
 
-  // ── Flip helper (shared by keyboard and auto-grill) ──────────────────────
+  // ── Flip helper (retained for potential future use) ──────────────────────
 
   private doFlipSlot(slot: GrillSlot): void {
     if (!slot.sausage || !slot.sprite || slot.sausage.served) return;
@@ -2337,8 +2333,6 @@ export class GrillScene extends Phaser.Scene {
     slot.sprite.triggerFlip();
     slot.sprite.updateData(slot.sausage);
     sfx.playFlip();
-    slot.__flipPromptShown = false;
-    this.showFeedback('翻面！', slot.x, slot.y + 35, '#ffcc44');
   }
 
   // ── Wave 4b: interaction buttons ─────────────────────────────────────────
@@ -2908,9 +2902,6 @@ export class GrillScene extends Phaser.Scene {
     slot.sprite = sprite;
     slot.__carbonWarnShown = false;
     slot.__burntWarnShown = false;
-    slot.__autoFlipped = false;
-    slot.__flipPromptShown = false;
-    slot.__flipCooldownUntil = 0;
     slot.__isPressingBtn = false;
 
     // Wave 4b: build interaction buttons for this slot
@@ -2950,11 +2941,6 @@ export class GrillScene extends Phaser.Scene {
     const diffAbs = Math.abs(grillingSausage.topDoneness - grillingSausage.bottomDoneness);
     const unevenPenalty = diffAbs > 35;
     const oilBrushedFlag = grillingSausage.oilBrushed;
-
-    // Flip-count warning (not a penalty — just feedback)
-    if (grillingSausage.flipCount < 2) {
-      this.showFeedback('翻面不足', slot.x, slot.y - 65, '#ffaa44');
-    }
 
     const warmingSausage: WarmingSausage = {
       id: grillingSausage.id,
@@ -4334,7 +4320,7 @@ export class GrillScene extends Phaser.Scene {
     overlayContainer.add(sub);
 
     // Controls
-    const controlsText = this.add.text(cx, height * 0.32,
+    const controlsText = this.add.text(cx, height * 0.30,
       '【咚 紅】  鍵盤 F 或 J\n【喀 藍】  鍵盤 D 或 K', {
         fontSize: '20px',
         fontFamily: FONT,
@@ -4345,7 +4331,7 @@ export class GrillScene extends Phaser.Scene {
     overlayContainer.add(controlsText);
 
     // Judgement explanation
-    const judgeText = this.add.text(cx, height * 0.52,
+    const judgeText = this.add.text(cx, height * 0.46,
       'PERFECT   ±50 ms   → 烤至完美金黃\n' +
       'GREAT       ±100 ms  → 烤至略嫩\n' +
       'GOOD        ±150 ms  → 烤至半熟\n' +
@@ -4357,6 +4343,17 @@ export class GrillScene extends Phaser.Scene {
         lineSpacing: 10,
       }).setOrigin(0.5);
     overlayContainer.add(judgeText);
+
+    // Auto-pack & service combo hints
+    const hintText = this.add.text(cx, height * 0.62,
+      '每 5 秒系統自動打包 1 份給客人\n每 15 秒出現金色服務組（連點咚喀）\n全部命中 = 一次打包多份', {
+        fontSize: '15px',
+        fontFamily: FONT,
+        color: '#ffdd88',
+        align: 'center',
+        lineSpacing: 8,
+      }).setOrigin(0.5);
+    overlayContainer.add(hintText);
 
     // Prompt
     const prompt = this.add.text(cx, height * 0.80, '按任意鍵 或 點擊任意處 開始', {

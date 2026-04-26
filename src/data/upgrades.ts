@@ -27,10 +27,10 @@ export const CART_UPGRADES: CartUpgrade[] = [
   { id: 'seating', name: '座位區', emoji: '', image: 'upgrade-seating.png', cost: 1200, description: '平均消費 +20%', effect: { spendBonus: 0.2 } },
   {
     id: 'auto-grill',
-    name: '自動烤香腸機',
+    name: '自動打包機',
     emoji: '',
     image: 'upgrade-auto-grill.png',
-    description: '全自動翻面機，熟度到了自動翻！但機器不便宜...',
+    description: '自動把保溫區的香腸打包給客人，零延遲出餐！',
     cost: 3500,
     effect: { autoFlip: 1 },
   },
