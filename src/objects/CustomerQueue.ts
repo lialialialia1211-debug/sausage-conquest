@@ -8,6 +8,7 @@ import { gameState } from '../state/GameState';
 const CUSTOMER_SLOT_W = 200;
 const PATIENCE_BAR_H = 10;
 const PATIENCE_BAR_W = 150;
+export const MAX_VISIBLE_CUSTOMERS = 6;
 
 // Patience indicator based on fraction
 function getCustomerEmoji(frac: number): string {
@@ -29,6 +30,7 @@ interface CustomerDisplay {
   remainingPatience: number;
   initialPatience: number;
   state: 'waiting' | 'served' | 'leaving';
+  hidden: boolean;
 }
 
 export class CustomerQueue extends Phaser.GameObjects.Container {
@@ -173,6 +175,12 @@ export class CustomerQueue extends Phaser.GameObjects.Container {
     container.add(toAdd);
     container.sendToBack(frameGfx);
 
+    // S7.1: hide customers beyond MAX_VISIBLE_CUSTOMERS (logic still runs)
+    const isHidden = slotIndex >= MAX_VISIBLE_CUSTOMERS;
+    if (isHidden) {
+      container.setVisible(false);
+    }
+
     const display: CustomerDisplay = {
       customer,
       container,
@@ -184,18 +192,21 @@ export class CustomerQueue extends Phaser.GameObjects.Container {
       remainingPatience: customer.patience,
       initialPatience: customer.patience,
       state: 'waiting',
+      hidden: isHidden,
     };
 
     this.displays.push(display);
     this.redrawPatienceBar(display);
 
-    // Slide in from right
-    this.scene.tweens.add({
-      targets: container,
-      x: targetX,
-      duration: 320,
-      ease: 'Back.Out',
-    });
+    // Slide in from right (only if visible)
+    if (!isHidden) {
+      this.scene.tweens.add({
+        targets: container,
+        x: targetX,
+        duration: 320,
+        ease: 'Back.Out',
+      });
+    }
   }
 
   tick(deltaSeconds: number): void {
@@ -255,6 +266,7 @@ export class CustomerQueue extends Phaser.GameObjects.Container {
           this.removeDisplay(display);
         }
         this.repositionQueue();
+        this.recomputeVisibility();
       },
     });
   }
@@ -324,6 +336,7 @@ export class CustomerQueue extends Phaser.GameObjects.Container {
           this.removeDisplay(display);
         }
         this.repositionQueue();
+        this.recomputeVisibility();
       },
     });
   }
@@ -366,6 +379,25 @@ export class CustomerQueue extends Phaser.GameObjects.Container {
         slotIndex++;
       }
     }
+  }
+
+  // S7.1: recompute which customers are visible (first MAX_VISIBLE_CUSTOMERS waiting ones)
+  recomputeVisibility(): void {
+    let visibleCount = 0;
+    for (const d of this.displays) {
+      if (d.state !== 'waiting') continue;
+      const shouldBeVisible = visibleCount < MAX_VISIBLE_CUSTOMERS;
+      d.hidden = !shouldBeVisible;
+      if (d.container?.active) {
+        d.container.setVisible(shouldBeVisible);
+      }
+      visibleCount++;
+    }
+  }
+
+  // S7.1: count hidden waiting customers (for candidate label)
+  getHiddenWaitingCount(): number {
+    return this.displays.filter(d => d.state === 'waiting' && d.hidden).length;
   }
 
   private redrawPatienceBar(display: CustomerDisplay): void {
