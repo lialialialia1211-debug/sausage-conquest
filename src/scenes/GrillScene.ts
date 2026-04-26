@@ -21,7 +21,7 @@ import {
 import { generateCustomers } from '../systems/CustomerEngine';
 import { sellSausage } from '../systems/EconomyEngine';
 import { SausageSprite } from '../objects/SausageSprite';
-import { CustomerQueue } from '../objects/CustomerQueue';
+import { CustomerQueue, MAX_VISIBLE_CUSTOMERS } from '../objects/CustomerQueue';
 import type { SaleRecord, Customer, WarmingSausage, GrillEvent, GrillEventChoice, GrillEventOutcome, OrderScore } from '../types';
 import { scoreOrder, starsToString, getScoreColor } from '../systems/OrderEngine';
 import { recordVisit } from '../systems/LoyaltyEngine';
@@ -36,7 +36,8 @@ import { AWAY_ACTIVITIES, rollActivityOutcome } from '../data/activities';
 import type { AwayActivity } from '../data/activities';
 import { getSpecialEffect } from '../data/sausage-effects';
 import type { SpecialEffectResult } from '../data/sausage-effects';
-// customerComments removed — S5.2
+// S7.6: customerReactions restored (slow/impatient text only, no counter-attack)
+import { CUSTOMER_REACTIONS } from '../data/customerReactions';
 import { SpectatorCrowd } from '../objects/SpectatorCrowd';
 import { RhythmNote } from '../objects/RhythmNote';
 import type { RhythmChart } from '../data/chart';
@@ -68,13 +69,6 @@ const COLOR_BG_BTM = 0x1a0800;
 const COLOR_ORANGE = '#ff6b00';
 const COLOR_DIM = '#664422';
 const FONT = 'Microsoft JhengHei, PingFang TC, sans-serif';
-
-// ── S2.1: Pause reason enum ──────────────────────────────────────────────────
-// ui     → any blocking overlay (combat panel, paused flag)
-// event  → grill event overlay
-// away   → player left stall (workers still run, patience still ticks)
-// null   → not paused
-type RhythmPauseReason = 'ui' | 'event' | 'away' | null;
 
 // ── Internal types ───────────────────────────────────────────────────────────
 interface GrillSlot {
@@ -123,7 +117,6 @@ interface WarmingSlot {
 export class GrillScene extends Phaser.Scene {
   // ── Session state ───────────────────────────────────────────────────────
   private timeLeft = GAME_DURATION;
-  private speedMultiplier = 1;
   private salesLog: SaleRecord[] = [];
   private grillStats = { perfect: 0, ok: 0, raw: 0, burnt: 0, 'half-cooked': 0, 'slightly-burnt': 0, carbonized: 0 };
   private customers: Customer[] = [];
@@ -249,6 +242,15 @@ export class GrillScene extends Phaser.Scene {
   private autoServeTimer = 0;
   private readonly AUTO_SERVE_INTERVAL = 3; // seconds (was 5)
 
+  // ── S7.1: candidate label (shown when >6 customers waiting) ─────────────────
+  private candidateLabel: Phaser.GameObjects.Text | null = null;
+  private candidateLabelTimer = 0;
+
+  // ── S7.6: customer commentary (slow service / impatient text bubbles) ────────
+  private commentBubble: Phaser.GameObjects.Text | null = null;
+  private lastCommentTime = 0;
+  private slowServiceTimer = 0;
+
   // ── Unified session event counter (replaces grillEventTriggered) ─────────────
   private totalSessionEvents = 0;
   private readonly MAX_SESSION_EVENTS = 3;
@@ -292,7 +294,6 @@ export class GrillScene extends Phaser.Scene {
 
     // Reset session state
     this.timeLeft = getSessionDuration();
-    this.speedMultiplier = 1;
     this.salesLog = [];
     this.grillStats = { perfect: 0, ok: 0, raw: 0, burnt: 0, 'half-cooked': 0, 'slightly-burnt': 0, carbonized: 0 };
     this.customers = [];
@@ -342,7 +343,10 @@ export class GrillScene extends Phaser.Scene {
     this.tipMultiplierServesLeft = 0;
     this.patienceBoostNext = 0;
     this.patienceBoostAmount = 1;
-    // S5.2: commentary fields removed
+    // S7.6: commentary fields reset
+    this.commentBubble = null;
+    this.lastCommentTime = 0;
+    this.slowServiceTimer = 0;
     this.perfectCombo = 0;
     this.maxCombo = 0;
     this.comboText = null;
@@ -489,6 +493,9 @@ export class GrillScene extends Phaser.Scene {
     this.showRhythmTutorial(width, height);
   }
 
+  // S7.3: unified queueY getter — single source of truth for customer area vertical position
+  private get queueY(): number { return this.scale.height * 0.22; }
+
   /** Returns true when ANY modal/overlay is active — used as master pause gate. */
   private isGloballyPaused(): boolean {
     return this.isShowingGrillEvent
@@ -498,40 +505,25 @@ export class GrillScene extends Phaser.Scene {
       || this.currentCombatPanel !== null;
   }
 
-  /**
-   * S2.1: Derived pause reason for downstream consumers.
-   * Priority: event > ui > away > null
-   * away: BGM/notes frozen but customer patience and worker AI still run.
-   * ui/event: everything frozen.
-   */
-  private getPauseReason(): RhythmPauseReason {
-    if (this.isShowingGrillEvent) return 'event';
-    if (this.paused || this.isShowingCondimentStation || this.currentCombatPanel !== null) return 'ui';
-    if (this.isPlayerAway) return 'away';
-    return null;
-  }
-
   update(_time: number, delta: number): void {
-    if (this.isDone || this.paused) return;
+    if (this.isDone) return;
+
+    // S7.2: BGM reconcile must run BEFORE paused early-return,
+    // otherwise pauseBgm() never fires when UI menus / events open.
+    if (this.rhythmStarted) {
+      const shouldPause = this.isGloballyPaused();
+      if (shouldPause && !this.bgmPaused && !this.bgmFinished) this.pauseBgm();
+      else if (!shouldPause && this.bgmPaused && !this.bgmFinished) this.resumeBgm();
+    }
+
+    if (this.paused) return;
     // Freeze all game logic while a grill event overlay is shown
     if (this.isShowingGrillEvent) return;
     // Freeze while condiment station is open
     if (this.isShowingCondimentStation) return;
 
-    // S2.1: BGM pause reconcile by reason.
-    // ui/event/away → BGM paused; null → BGM plays.
-    // (customer patience and worker AI run for 'away' — handled below via no early-return)
-    if (this.rhythmStarted) {
-      const reason = this.getPauseReason();
-      const shouldPause = reason !== null;
-      if (shouldPause && !this.bgmPaused && !this.bgmFinished) {
-        this.pauseBgm();
-      } else if (!shouldPause && this.bgmPaused && !this.bgmFinished) {
-        this.resumeBgm();
-      }
-    }
-
-    const dt = (delta / 1000) * this.speedMultiplier;
+    // S7.9: speedMultiplier removed — dt is simply delta / 1000
+    const dt = delta / 1000;
 
     // Tick customer patience
     this.customerQueue.tick(dt);
@@ -788,7 +780,22 @@ export class GrillScene extends Phaser.Scene {
     }
     this.updateTimerDisplay();
 
-    // S5.2: tickCustomerCommentary removed
+    // S7.6: tickCustomerCommentary restored (pure text, no counter-attack)
+    this.tickCustomerCommentary(dt);
+
+    // S7.1: update candidate label every second
+    this.candidateLabelTimer += dt;
+    if (this.candidateLabelTimer >= 1) {
+      this.candidateLabelTimer = 0;
+      const hiddenCount = this.customerQueue.getHiddenWaitingCount();
+      if (this.candidateLabel) {
+        if (hiddenCount > 0) {
+          this.candidateLabel.setText(`候補 +${hiddenCount}`).setVisible(true);
+        } else {
+          this.candidateLabel.setVisible(false);
+        }
+      }
+    }
 
     // ── Wave 4c: SpectatorCrowd tick ────────────────────────────────────────
     this.spectatorCrowd.tick(dt);
@@ -1555,7 +1562,7 @@ export class GrillScene extends Phaser.Scene {
     (sausage as GrillingSausage & { rhythmAccuracy?: string }).rhythmAccuracy = accuracy;
 
     const sprite = new SausageSprite(this, slot.x, slot.y, sausage);
-    sprite.setDepth(4); // S5.1: depth 4, between rackBack(2) and rackFront(6)
+    sprite.setDepth(4); // S7.8: depth 4, above rackBack(2) — no rackFront currently
     const slotIndex = this.grillSlots.indexOf(slot);
 
     // S1.5: double-click manual serve removed — auto-managed by rhythm system
@@ -1631,6 +1638,15 @@ export class GrillScene extends Phaser.Scene {
     glow.fillEllipse(width / 2, glowY, width * 0.85, 130);
   }
 
+  // S7.8 depth table (layout contract — do not adjust without updating all affected setDepth calls):
+  // 0    : 背景 / queue-bg
+  // 2    : rackBack（後桿 4 條 + 後半側軌）
+  // 3    : 香腸陰影
+  // 4    : 香腸 sprite
+  // 10-15: HUD（timer / stats / 排隊客人 label / 候補 label）
+  // 50-51: don/ka 觸控按鈕
+  // 200  : 對白氣泡 / 圍觀反應 / commentBubble
+  // 300  : 奧客事件 splash
   private drawGrillRack(width: number, height: number): void {
     const grillY = height * GRILL_Y_FRAC + 34;
     // Grill rack centered on screen
@@ -1645,8 +1661,8 @@ export class GrillScene extends Phaser.Scene {
     this.fireGlowGfx = this.add.graphics();
     this.redrawFireGlow(barStartX, grillY + barCount * barSpacing, barEndX - barStartX);
 
-    // S5.1: rackBack (bars i=0..3, side-rail back half) — depth 2, behind sausages
-    // Sausages will be at depth 4, rackFront at depth 6 → 3D layering effect
+    // S7.8: rackBack (bars i=0..3, side-rail back half) — depth 2, behind sausages
+    // rackFront was removed in S6.3 (user request). No rackFront currently.
     const rackBack = this.add.graphics();
     rackBack.setDepth(2);
 
@@ -1717,7 +1733,7 @@ export class GrillScene extends Phaser.Scene {
   // ── UI setup ─────────────────────────────────────────────────────────────
 
   private setupGrillSlots(width: number, height: number, slotCount: number): void {
-    // S5.1: y moved down to sit on rack bar #3 (between rackBack and rackFront)
+    // S7.8: y positioned to sit on rack bar #3 (rackBack range)
     const grillY = height * GRILL_Y_FRAC + 34 + 32;
     const slotSpacing = Math.max(70, Math.min(100, (width * 0.85) / slotCount));
     const totalW = slotSpacing * slotCount;
@@ -1990,13 +2006,13 @@ export class GrillScene extends Phaser.Scene {
   }
 
   private setupCustomerQueue(width: number, _height: number): void {
-    const queueY = this.scale.height * 0.22;
+    const queueY = this.queueY;
     if (this.textures.exists('queue-bg')) {
       const qbg = this.add.image(width / 2, queueY, 'queue-bg');
       qbg.setDisplaySize(width, 100).setAlpha(0.5).setDepth(0);
     }
-    // Center queue: 5 slots × 120px = 600px; offset by half to center on screen
-    const queueX = Math.round(width / 2 - 300);
+    // S7.1: Center queue: 6 slots × 200px = 1200px wide, x offset 40
+    const queueX = Math.round((width - MAX_VISIBLE_CUSTOMERS * 200) / 2);
     this.customerQueue = new CustomerQueue(this, queueX, queueY);
     this.customerQueue.onTimeout((customerId: string) => {
       this.onCustomerTimeout(customerId);
@@ -2009,12 +2025,12 @@ export class GrillScene extends Phaser.Scene {
       color: COLOR_DIM,
     });
 
-    // Pending queue count indicator (right side)
-    this.add.text(width - 12, queueY - 22, '（候補）', {
+    // S7.1: Candidate label — shows "候補 +N" when hidden waiting customers > 0
+    this.candidateLabel = this.add.text(width - 12, queueY - 22, '候補 +0', {
       fontSize: '12px',
       fontFamily: FONT,
       color: COLOR_DIM,
-    }).setOrigin(1, 0);
+    }).setOrigin(1, 0).setDepth(10).setVisible(false);
 
     // Dismiss button — remove first customer in queue at cost of -1 reputation
     const dismissBtn = this.add.text(
@@ -2029,7 +2045,7 @@ export class GrillScene extends Phaser.Scene {
       this.customerQueue.serveCustomer(next.id, false);
       this.customers = this.customers.filter(c => c.id !== next.id);
       changeReputation(-1);
-      this.showFeedback('趕走了客人 聲望-1', this.scale.width / 2, queueY - 30, '#ff6666');
+      this.showFeedback('趕走了客人 聲望-1', this.scale.width / 2, this.queueY - 30, '#ff6666');
     });
   }
 
@@ -2350,7 +2366,15 @@ export class GrillScene extends Phaser.Scene {
     this.pauseBgm();
     const { width: w, height: h } = this.scale;
 
-    const eventImageById: Record<string, string> = {
+    // S7.7: satisfies ensures all GrillEventId entries are present — tsc will error on missing keys
+    type GrillEventId = 'karen' | 'thug' | 'beggar' | 'inspector' | 'costco-guy'
+                      | 'food-critic' | 'competitor-spy' | 'expired-ingredient-gamble'
+                      | 'protection-fee' | 'territory-threat' | 'gang-offer'
+                      | 'underground-delivery' | 'management-fee-weekly'
+                      | 'inspector-surprise' | 'media-crisis-exposed'
+                      | 'food-festival' | 'celebrity-visit';
+
+    const eventImageById = {
       // nuisance category
       'karen': 'karen-alert',
       'costco-guy': 'event-costco-guy',
@@ -2366,13 +2390,13 @@ export class GrillScene extends Phaser.Scene {
       // beggar category
       'beggar': 'event-drunk-uncle',
       'food-festival': 'event-food-festival',
-      'celebrity-visit': 'event-food-festival',
+      'celebrity-visit': 'event-food-festival',  // no specific image, reuse food-festival
       // authority category
       'inspector': 'event-inspector',
       'management-fee-weekly': 'event-inspector',
       'inspector-surprise': 'event-inspector',
       'media-crisis-exposed': 'event-food-critic',
-    };
+    } satisfies Record<GrillEventId, string>;
 
     const categoryFallback: Record<string, string> = {
       'nuisance': 'karen-alert',
@@ -2381,7 +2405,13 @@ export class GrillScene extends Phaser.Scene {
       'authority': 'event-inspector',
     };
 
-    const splashKey = eventImageById[event.id] ?? categoryFallback[event.category] ?? 'karen-alert';
+    const splashKey = (eventImageById as Record<string, string>)[event.id]
+      ?? categoryFallback[event.category]
+      ?? 'karen-alert';
+    // S7.7: DEV warn if falling back to category (unknown event id or no specific image)
+    if (!(event.id in eventImageById) && import.meta.env.DEV) {
+      console.warn(`[grill-event] no specific image for id=${event.id}, fallback to category`);
+    }
     if (splashKey && this.textures.exists(splashKey)) {
       // Show character splash with SHAKE + ZOOM animation (no black overlay)
       const splash = this.add.image(w / 2, h / 2, splashKey).setDepth(300);
@@ -2721,7 +2751,7 @@ export class GrillScene extends Phaser.Scene {
 
     const sausage = createGrillingSausage(sausageTypeId);
     const sprite = new SausageSprite(this, slot.x, slot.y, sausage);
-    sprite.setDepth(4); // S5.1: depth 4, between rackBack(2) and rackFront(6)
+    sprite.setDepth(4); // S7.8: depth 4, above rackBack(2) — no rackFront currently
     const slotIndex = this.grillSlots.indexOf(slot);
 
     // Single click = flip; double-click = move to warming zone
@@ -3261,10 +3291,76 @@ export class GrillScene extends Phaser.Scene {
     this.time.delayedCall(1500, () => { if (this.isDone || !this.scene.isActive()) return; if (popup.active) popup.destroy(); });
   }
 
-  // ── Customer commentary & counter-attack ─────────────────────────────────
+  // ── Customer commentary (S7.6: restored — pure text, no counter-attack) ─────
 
-  // S5.2: tickCustomerCommentary / showCustomerComment / showCounterAttackPanel /
-  // executeCounterAttack / dismissCounterAttack — all removed (激怒系統已砍)
+  private tickCustomerCommentary(dt: number): void {
+    if (this.isDone || this.paused) return;
+
+    this.lastCommentTime += dt;
+    if (this.lastCommentTime < 5) return; // 每 5 秒最多一次
+    this.lastCommentTime = 0;
+
+    // 取得在排隊的客人數
+    const waitingCount = this.customers.length;
+    if (waitingCount === 0) return;
+
+    // 檢查慢服務：排隊 ≥ 2 人且烤架 + 保溫區都空
+    const grillEmpty = this.grillSlots.every(s => !s.sausage);
+    const warmingEmpty = this.warmingSlots.every(s => !s.sausage);
+
+    if (waitingCount >= 2 && grillEmpty && warmingEmpty) {
+      this.slowServiceTimer += 5;
+      if (this.slowServiceTimer >= 10) { // 累計 10 秒空攤
+        this.showCustomerReaction('slow');
+        return;
+      }
+    } else {
+      this.slowServiceTimer = Math.max(0, this.slowServiceTimer - 2);
+    }
+
+    // 排隊人數 ≥ 3 時偶爾觸發不耐煩
+    if (waitingCount >= 3 && Math.random() < 0.3) {
+      this.showCustomerReaction('impatient');
+      return;
+    }
+  }
+
+  private showCustomerReaction(category: 'slow' | 'impatient'): void {
+    // 移除舊氣泡
+    if (this.commentBubble?.active) {
+      this.commentBubble.destroy();
+      this.commentBubble = null;
+    }
+
+    const lines = CUSTOMER_REACTIONS[category];
+    const line = lines[Math.floor(Math.random() * lines.length)];
+
+    const bubbleX = this.scale.width / 2 + Math.random() * 100 - 50;
+    const bubbleY = this.queueY - 45;
+
+    this.commentBubble = this.add.text(bubbleX, bubbleY, `「${line}」`, {
+      fontSize: '14px',
+      fontFamily: FONT,
+      color: '#ffffff',
+      backgroundColor: '#333333dd',
+      padding: { x: 8, y: 4 },
+    }).setOrigin(0.5).setDepth(200);
+
+    // 淡出動畫
+    this.tweens.add({
+      targets: this.commentBubble,
+      y: bubbleY - 20,
+      alpha: { from: 1, to: 0 },
+      duration: 3000,
+      ease: 'Power1',
+      onComplete: () => {
+        if (this.commentBubble?.active) {
+          this.commentBubble.destroy();
+          this.commentBubble = null;
+        }
+      },
+    });
+  }
 
   private onCustomerTimeout(customerId: string): void {
     sfx.playCustomerLeave();
@@ -3588,8 +3684,8 @@ export class GrillScene extends Phaser.Scene {
 
   // Customer reaction bubble near queue
   private showCustomerReactionBubble(grillQuality: string): void {
-    const { width, height } = this.scale;
-    const queueY = height * 0.17;
+    const { width } = this.scale;
+    const queueY = this.queueY;
     const bubbleX = width / 2 + (Math.random() * 120 - 60);
     const bubbleY = queueY - 50;
 
@@ -3880,6 +3976,9 @@ export class GrillScene extends Phaser.Scene {
       this.awayOverlay = null;
       this.__awayBannerText = null;
 
+      // S7.6: clean up commentary bubble
+      if (this.commentBubble?.active) { this.commentBubble.destroy(); this.commentBubble = null; }
+
       // Clean up any active combat panel
       if (this.currentCombatPanel) {
         this.currentCombatPanel.destroy();
@@ -4108,7 +4207,8 @@ export class GrillScene extends Phaser.Scene {
     this.combatCustomersHandled.clear();
     EventBus.off('combat-done');
 
-    // S5.2: commentary UI cleanup removed
+    // S7.6: commentary bubble cleanup
+    if (this.commentBubble?.active) { this.commentBubble.destroy(); this.commentBubble = null; }
 
     if (this.timerFlashTween) {
       this.timerFlashTween.stop();
