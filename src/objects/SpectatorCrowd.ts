@@ -50,9 +50,9 @@ const PERSONALITY_IMAGE_MAP: Record<string, string> = {
   beggar:    'customer-beggar',
 };
 
-const SPECTATOR_SIZE = 60;     // 比 CustomerQueue 100 小一圈
-const MAX_CAPACITY = 6;
-const RADIUS = 160;
+const SPECTATOR_SIZE = 50;     // 縮小讓 12 個排得開
+const MAX_CAPACITY = 12;
+const RADIUS = 200;
 const NATURAL_LEAVE_MIN = 15;  // 圍觀者最短在場秒數
 const NATURAL_LEAVE_MAX = 30;  // 圍觀者最長在場秒數
 const BUBBLE_DURATION = 2.5;   // 氣泡顯示秒數
@@ -212,7 +212,8 @@ export class SpectatorCrowd extends Phaser.GameObjects.Container {
     const angle = Math.PI + (idx / safeMax) * Math.PI;
     const targetX = Math.cos(angle) * RADIUS;
     // 只取正 y，確保往下展開；sin(π..2π) 值域為 0 → -1 → 0，取 abs
-    const targetY = Math.abs(Math.sin(angle)) * 70;
+    // 加大垂直範圍讓 12 個圍觀者排得開
+    const targetY = Math.abs(Math.sin(angle)) * 90;
     return { targetX, targetY };
   }
 

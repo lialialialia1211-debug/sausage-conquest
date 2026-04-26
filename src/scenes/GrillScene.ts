@@ -54,14 +54,14 @@ function getSessionDuration(): number {
   return 105;
 }
 const GAME_DURATION = 90;      // seconds (kept as fallback reference)
-const MAX_GRILL_SLOTS = 4;     // 6 if grill-expand upgrade
+const MAX_GRILL_SLOTS = 8;     // 12 if grill-expand upgrade
 const GRILL_Y_FRAC = 0.35;    // grill vertical position as fraction of screen height (true center)
 // Warming zone has no fixed limit — slots are created dynamically
 // Customer arrival scales with day: early days are calmer
 const BASE_ARRIVAL_INTERVAL = 10; // day 1 interval
 const MIN_ARRIVAL_INTERVAL = 5;   // fastest interval (late game with upgrades)
-const CUSTOMER_BATCH_MIN = 1;
-const CUSTOMER_BATCH_MAX = 2;     // base max, scales up with day
+const CUSTOMER_BATCH_MIN = 2;
+const CUSTOMER_BATCH_MAX = 4;     // base max, scales up with day
 
 // ── Colors / fonts ──────────────────────────────────────────────────────────
 const COLOR_BG_TOP = 0x100500;
@@ -158,6 +158,9 @@ export class GrillScene extends Phaser.Scene {
   // ── Grill slots ─────────────────────────────────────────────────────────
   private grillSlots: GrillSlot[] = [];
   private inventoryCopy: Record<string, number> = {};
+
+  // ── Overflow queue（烤架滿時暫存，繼續烤至達標後補位）─────────────────────
+  private overflowSausages: { sausage: GrillingSausage; sausageTypeId: string; bornAt: number }[] = [];
 
   // ── Manual placement state ──────────────────────────────────────────────
   private selectedInventoryType: string | null = null;
@@ -289,7 +292,7 @@ export class GrillScene extends Phaser.Scene {
     const dayFactor = Math.min(1, (gameState.day - 1) / 14);
     const hasNeonSign = gameState.upgrades['neon-sign'];
     const upgradeBonus = hasNeonSign ? 1 : 0;
-    this.customerArrivalInterval = Math.max(MIN_ARRIVAL_INTERVAL, BASE_ARRIVAL_INTERVAL - dayFactor * 4 - upgradeBonus);
+    this.customerArrivalInterval = Math.max(MIN_ARRIVAL_INTERVAL, BASE_ARRIVAL_INTERVAL - dayFactor * 4 - upgradeBonus) * 0.6;
     this.grillSlots = [];
     this.warmingSlots = [];
     this.speedButtons = [];
@@ -348,6 +351,7 @@ export class GrillScene extends Phaser.Scene {
     this.maxRhythmCombo = 0;
     this.hitStats = { perfect: 0, great: 0, good: 0, miss: 0 };
     this.rhythmComboText = null;
+    this.overflowSausages = [];
 
     // ── Wave 6cd reset ──
     this.rhythmStarted = false;
@@ -363,7 +367,7 @@ export class GrillScene extends Phaser.Scene {
     this.appliedGarlic = true;
 
     // Worker: adi → extra grill slot
-    let maxSlots = gameState.upgrades['grill-expand'] ? 6 : MAX_GRILL_SLOTS;
+    let maxSlots = gameState.upgrades['grill-expand'] ? 12 : MAX_GRILL_SLOTS;
     if (gameState.hiredWorkers.includes('adi')) maxSlots += 1;
 
     this.drawBackground(width, height);
@@ -502,8 +506,8 @@ export class GrillScene extends Phaser.Scene {
       this.pendingCustomerQueue.length > 0
     ) {
       this.customerArrivalTimer = 0;
-      // Batch size scales: day 1-5 = 1-2, day 6-14 = 1-3, day 15+ = 2-4
-      const dayBatchMax = gameState.day >= 15 ? 4 : gameState.day >= 6 ? 3 : CUSTOMER_BATCH_MAX;
+      // Batch size scales: day 1-5 = 2-4, day 6-14 = 2-5, day 15+ = 2-6
+      const dayBatchMax = gameState.day >= 15 ? 6 : gameState.day >= 6 ? 5 : CUSTOMER_BATCH_MAX;
       const dayBatchMin = gameState.day >= 15 ? 2 : CUSTOMER_BATCH_MIN;
       const batch = Math.min(
         Phaser.Math.Between(dayBatchMin, dayBatchMax),
@@ -814,6 +818,7 @@ export class GrillScene extends Phaser.Scene {
 
     // ── Wave 6c: Auto-serve rhythm sausages that hit target doneness ──────────
     if (this.rhythmStarted) {
+      this.tickOverflowSausages(dt);
       this.autoServeReady();
     }
   }
@@ -1056,40 +1061,70 @@ export class GrillScene extends Phaser.Scene {
       labelColor[judgement],
     );
 
-    // Wave 6c: fly hit note into grill slot, or treat as MISS if no slot available
+    // Wave 6c: fly hit note into grill slot
+    // Overflow queue: if no empty slot, sausage continues cooking internally and will
+    // be placed on the next available slot (no longer treated as MISS).
     const slot = this.grillSlots.find(s => !s.sausage);
-    if (!slot) {
-      // No empty slot — treat as MISS (don't count as hit)
-      this.hitStats[judgement] -= 1; // undo the stat increment above
-      this.hitStats.miss += 1;
-      this.rhythmCombo = 0;
-      this.updateRhythmComboText();
-      sfx.playRhythmMiss();
-      this.showFeedback('MISS（烤架滿）', this.NOTE_HIT_X, this.noteTrackY - 40, '#ff4444');
-      // Grey out the note and let it fly off
-      frontNote.setAlpha(0.35);
-      return;
-    }
 
     // Capture for closures
     const hitNote = frontNote;
     const hitJudgement = judgement;
 
-    this.tweens.add({
-      targets: hitNote,
-      x: slot.x,
-      y: slot.y,
-      scaleX: 0.7,
-      scaleY: 0.7,
-      duration: 280,
-      ease: 'Cubic.Out',
-      onComplete: () => {
-        if (hitNote.active) hitNote.destroy();
-        const idx = this.rhythmNotes.indexOf(hitNote);
-        if (idx >= 0) this.rhythmNotes.splice(idx, 1);
-        this.spawnSausageOnSlot(slot, hitNote.note.sausage, hitJudgement as 'perfect' | 'great' | 'good');
-      },
-    });
+    if (slot) {
+      // Normal path: fly note to slot then spawn sausage
+      this.tweens.add({
+        targets: hitNote,
+        x: slot.x,
+        y: slot.y,
+        scaleX: 0.7,
+        scaleY: 0.7,
+        duration: 280,
+        ease: 'Cubic.Out',
+        onComplete: () => {
+          if (hitNote.active) hitNote.destroy();
+          const idx = this.rhythmNotes.indexOf(hitNote);
+          if (idx >= 0) this.rhythmNotes.splice(idx, 1);
+          this.spawnSausageOnSlot(slot, hitNote.note.sausage, hitJudgement as 'perfect' | 'great' | 'good');
+        },
+      });
+    } else {
+      // Overflow path: all slots occupied — create sausage and queue it
+      const overflowSausage = createGrillingSausage(hitNote.note.sausage);
+      (overflowSausage as GrillingSausage & { rhythmAccuracy?: string }).rhythmAccuracy =
+        hitJudgement as 'perfect' | 'great' | 'good';
+      this.overflowSausages.push({
+        sausage: overflowSausage,
+        sausageTypeId: hitNote.note.sausage,
+        bornAt: this.time.now,
+      });
+
+      // Visual: fade note toward queue indicator (bottom-right)
+      const queueX = this.scale.width - 60;
+      const queueY = this.scale.height * 0.78;
+      this.tweens.add({
+        targets: hitNote,
+        x: queueX,
+        y: queueY,
+        scaleX: 0.4,
+        scaleY: 0.4,
+        alpha: 0,
+        duration: 400,
+        ease: 'Cubic.Out',
+        onComplete: () => {
+          if (hitNote.active) hitNote.destroy();
+          const idx = this.rhythmNotes.indexOf(hitNote);
+          if (idx >= 0) this.rhythmNotes.splice(idx, 1);
+        },
+      });
+
+      // Show "等待中" floating hint
+      this.showFeedback(
+        `+1 等待中 (${this.overflowSausages.length})`,
+        this.NOTE_HIT_X,
+        this.noteTrackY - 70,
+        '#aaaaff',
+      );
+    }
   }
 
   /**
@@ -1292,7 +1327,72 @@ export class GrillScene extends Phaser.Scene {
         if (this.isDone || !this.scene.isActive()) return;
         if (!targetWarmSlot.sausage) return; // already served or cleared
         this.serveFromWarming(targetWarmSlot);
+        // After serving, try to place an overflow sausage into the now-free slot
+        this.fillSlotFromOverflow(slot);
       });
+    }
+  }
+
+  /**
+   * If there's an overflow sausage waiting, place it onto the given (now empty) slot.
+   * Preserves the sausage's existing doneness state.
+   */
+  private fillSlotFromOverflow(slot: GrillSlot): void {
+    if (this.overflowSausages.length === 0) return;
+    if (slot.sausage) return; // slot already occupied (race condition guard)
+    const entry = this.overflowSausages.shift();
+    if (!entry) return;
+    this.placeSausageInSlot(slot, entry.sausage);
+  }
+
+  /**
+   * Place an existing GrillingSausage onto a slot, creating the sprite.
+   * Used by fillSlotFromOverflow to restore overflow sausages with existing doneness.
+   */
+  private placeSausageInSlot(slot: GrillSlot, sausage: GrillingSausage): void {
+    if (slot.sausage) return; // race condition guard
+    this.clearSlotPlaceholder(slot);
+
+    const sprite = new SausageSprite(this, slot.x, slot.y, sausage);
+    const slotIndex = this.grillSlots.indexOf(slot);
+
+    sprite.onClick(() => {
+      const currentSlot = this.grillSlots.find(s => s.sprite === sprite);
+      if (!currentSlot) return;
+      const now = Date.now();
+      const lastClickTime = currentSlot.__lastClickTime ?? 0;
+      const isDoubleClick = (now - lastClickTime) < 350;
+      if (isDoubleClick) {
+        currentSlot.__lastClickTime = 0;
+        if (currentSlot.sprite) this.moveToWarming(currentSlot, currentSlot.sprite);
+      } else {
+        currentSlot.__lastClickTime = now;
+      }
+    });
+
+    sprite.on('pointerover', () => { this.hoveredSlotIndex = slotIndex; });
+    sprite.on('pointerout', () => { if (this.hoveredSlotIndex === slotIndex) this.hoveredSlotIndex = null; });
+
+    slot.sausage = sausage;
+    slot.sprite = sprite;
+    slot.__carbonWarnShown = false;
+    slot.__burntWarnShown = false;
+    slot.__autoFlipped = false;
+    slot.__flipPromptShown = false;
+    slot.__flipCooldownUntil = 0;
+    slot.__isPressingBtn = false;
+
+    // Show brief "補位" indicator
+    this.showFeedback('補位', slot.x, slot.y - 55, '#aaaaff');
+  }
+
+  /**
+   * Tick all overflow sausages so they keep cooking while waiting for a slot.
+   * No sprite updates needed (invisible queue).
+   */
+  private tickOverflowSausages(dt: number): void {
+    for (const entry of this.overflowSausages) {
+      entry.sausage = autoTickSausage(entry.sausage, dt);
     }
   }
 
@@ -1324,7 +1424,7 @@ export class GrillScene extends Phaser.Scene {
   private drawGrillRack(width: number, height: number): void {
     const grillY = height * GRILL_Y_FRAC + 34;
     // Grill rack centered on screen
-    const maxSlots = gameState.upgrades['grill-expand'] ? 6 : MAX_GRILL_SLOTS;
+    const maxSlots = gameState.upgrades['grill-expand'] ? 12 : MAX_GRILL_SLOTS;
     const rackW = 100 * maxSlots + 60;
     const barStartX = (width - rackW) / 2;
     const barEndX = barStartX + rackW;
@@ -1411,7 +1511,7 @@ export class GrillScene extends Phaser.Scene {
 
   private setupGrillSlots(width: number, height: number, slotCount: number): void {
     const grillY = height * GRILL_Y_FRAC - 20;
-    const slotSpacing = 100; // fixed tight spacing between slots
+    const slotSpacing = Math.max(70, Math.min(100, (width * 0.85) / slotCount));
     const totalW = slotSpacing * slotCount;
     const startX = (width - totalW) / 2 + slotSpacing / 2; // centered
 
@@ -1857,9 +1957,8 @@ export class GrillScene extends Phaser.Scene {
         const emptySlot = this.grillSlots.find(s => !s.sausage);
         if (emptySlot) {
           this.placeOnGrill(emptySlot, id);
-        } else {
-          this.showFeedback('烤架滿了！', bx, centerY - 30, '#ffaa00');
         }
+        // No feedback when grill is full — player can always use rhythm system
       });
 
       container.add([bgGfx, txt, nameTxt, hitZone]);
