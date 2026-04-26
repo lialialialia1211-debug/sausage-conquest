@@ -255,7 +255,7 @@ export class GrillScene extends Phaser.Scene {
 
   // ── Unified session event counter (replaces grillEventTriggered) ─────────────
   private totalSessionEvents = 0;
-  private readonly MAX_SESSION_EVENTS = 3;
+  private readonly MAX_SESSION_EVENTS = 2;
 
   // ── Chart completion guard (prevents double end-of-day) ──────────────────────
   private chartCompleteFired = false;
@@ -317,7 +317,7 @@ export class GrillScene extends Phaser.Scene {
     this.inventoryButtonMap = new Map();
     this.hoveredSlotIndex = null;
     this.grillEventTimer = 0;
-    this.grillEventNextTrigger = Phaser.Math.Between(25, 40);
+    this.grillEventNextTrigger = Phaser.Math.Between(40, 65);
     this.totalSessionEvents = 0;
     this.chartCompleteFired = false;
     this.isShowingGrillEvent = false;
@@ -875,7 +875,9 @@ export class GrillScene extends Phaser.Scene {
    */
   private setupRhythmTrack(width: number, height: number): void {
     // Load chart from Phaser JSON cache (preloaded in BootScene)
-    const cachedChart = this.cache.json.get('chart-grill-theme') as RhythmChart | undefined;
+    // Select EX chart for hardcore difficulty, standard chart for casual
+    const chartKey = gameState.difficulty === 'hardcore' ? 'chart-grill-theme-ex' : 'chart-grill-theme';
+    const cachedChart = this.cache.json.get(chartKey) as RhythmChart | undefined;
     this.chart = cachedChart ?? null;
 
     // Reset rhythm state
@@ -1315,9 +1317,10 @@ export class GrillScene extends Phaser.Scene {
       }
       this.bgmCtx = sm.context;
 
-      const cached = this.cache.audio.get('bgm-grill-theme') as unknown;
+      const bgmKey = gameState.difficulty === 'hardcore' ? 'bgm-grill-theme-ex' : 'bgm-grill-theme';
+      const cached = this.cache.audio.get(bgmKey) as unknown;
       if (!(cached instanceof AudioBuffer)) {
-        console.warn('[GrillScene] bgm-grill-theme AudioBuffer not in cache');
+        console.warn(`[GrillScene] ${bgmKey} AudioBuffer not in cache`);
         return;
       }
       this.bgmAudioBuffer = cached;
@@ -1485,6 +1488,7 @@ export class GrillScene extends Phaser.Scene {
     (sausage as GrillingSausage & { rhythmAccuracy?: string }).rhythmAccuracy = accuracy;
 
     const sprite = new SausageSprite(this, slot.x, slot.y, sausage);
+    sprite.setDepth(10);
     const slotIndex = this.grillSlots.indexOf(slot);
 
     // Double-click still moves to warming zone (manual serve override)
@@ -1575,6 +1579,7 @@ export class GrillScene extends Phaser.Scene {
     this.clearSlotPlaceholder(slot);
 
     const sprite = new SausageSprite(this, slot.x, slot.y, sausage);
+    sprite.setDepth(10);
     const slotIndex = this.grillSlots.indexOf(slot);
 
     sprite.onClick(() => {
@@ -1650,6 +1655,7 @@ export class GrillScene extends Phaser.Scene {
     const barSpacing = 16;
 
     const rack = this.add.graphics();
+    rack.setDepth(2);
 
     // Fire glow below rack (stored for update)
     this.fireGlowGfx = this.add.graphics();
@@ -2598,10 +2604,10 @@ export class GrillScene extends Phaser.Scene {
 
     // Reset timer and pick next trigger interval
     this.grillEventTimer = 0;
-    this.grillEventNextTrigger = Phaser.Math.Between(25, 40);
+    this.grillEventNextTrigger = Phaser.Math.Between(40, 65);
 
-    // 60% chance an event fires
-    if (Math.random() > 0.6) return;
+    // 40% chance an event fires
+    if (Math.random() > 0.4) return;
 
     const event = rollGrillEvent(gameState.day, this.triggeredEventIds);
     if (!event) return;
@@ -2977,6 +2983,7 @@ export class GrillScene extends Phaser.Scene {
 
     const sausage = createGrillingSausage(sausageTypeId);
     const sprite = new SausageSprite(this, slot.x, slot.y, sausage);
+    sprite.setDepth(10);
     const slotIndex = this.grillSlots.indexOf(slot);
 
     // Single click = flip; double-click = move to warming zone

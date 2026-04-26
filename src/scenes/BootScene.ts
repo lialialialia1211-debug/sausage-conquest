@@ -11,7 +11,7 @@ import { resetCasinoEngine } from '../systems/CasinoEngine';
 import { resetAchievements } from '../systems/AchievementEngine';
 
 // Bump this string whenever chart-grill-theme.json changes so browsers pick up the new chart
-const CHART_VERSION = '2026042603';
+const CHART_VERSION = '2026042604';
 
 // Page background tints for each prologue page
 const PAGE_TINTS = [
@@ -112,6 +112,9 @@ export class BootScene extends Phaser.Scene {
     this.load.json('chart-grill-theme', `chart-grill-theme.json?v=${CHART_VERSION}`);
     // BGM preloaded here so Wave 6d doesn't need to touch BootScene again
     this.load.audio('bgm-grill-theme', 'bgm-grill-theme.mp3');
+    // EX difficulty variant (hardcore mode)
+    this.load.json('chart-grill-theme-ex', `chart-grill-theme-ex.json?v=${CHART_VERSION}`);
+    this.load.audio('bgm-grill-theme-ex', 'bgm-grill-theme-ex.mp3');
   }
 
   create(): void {
@@ -166,22 +169,22 @@ export class BootScene extends Phaser.Scene {
       repeatDelay: 2000,
     });
 
-    // Story card background (bottom area, above illustration)
+    // Story card background (centred on screen)
     const storyBg = this.add.graphics();
-    storyBg.fillStyle(0x000000, 0.7);
-    storyBg.lineStyle(1, 0xffe600, 0.4);
-    storyBg.fillRoundedRect(cx - 270, height - 180, 540, 140, 6);
-    storyBg.strokeRoundedRect(cx - 270, height - 180, 540, 140, 6);
+    storyBg.fillStyle(0x000000, 0.75);
+    storyBg.lineStyle(2, 0xffe600, 0.5);
+    storyBg.fillRoundedRect(cx - 360, cy - 90, 720, 180, 10);
+    storyBg.strokeRoundedRect(cx - 360, cy - 90, 720, 180, 10);
     storyBg.setAlpha(0).setDepth(5);
 
-    // Story text (typing effect target, at bottom)
-    const storyText = this.add.text(cx, height - 110, '', {
-      fontSize: '16px',
+    // Story text (typing effect target, centred)
+    const storyText = this.add.text(cx, cy, '', {
+      fontSize: '24px',
       fontFamily: 'Microsoft JhengHei, PingFang TC, sans-serif',
       color: '#ffffff',
       align: 'center',
-      lineSpacing: 8,
-      wordWrap: { width: 500 },
+      lineSpacing: 10,
+      wordWrap: { width: 700 },
     }).setOrigin(0.5).setAlpha(0).setDepth(6);
 
     // Page indicator dots (at bottom)
@@ -325,18 +328,21 @@ export class BootScene extends Phaser.Scene {
       color: '#444444',
     }).setOrigin(0.5).setDepth(20).setAlpha(0);
 
-    // 點擊 zone
-    const leftZone = this.add.zone(width * 0.22, midY + 30, width * 0.45, height * 0.43)
-      .setInteractive({ cursor: 'pointer' });
+    // 點擊 zone — 一開始 disable，prologue 結束才 enable，避免誤觸快進
+    const leftZone = this.add.zone(width * 0.22, midY + 30, width * 0.45, height * 0.43);
     leftZone.on('pointerdown', () => startGame('normal', 'hardcore'));
     leftZone.on('pointerover', () => leftTitle.setScale(1.06));
     leftZone.on('pointerout',  () => leftTitle.setScale(1));
 
-    const rightZone = this.add.zone(width * 0.78, midY + 30, width * 0.45, height * 0.43)
-      .setInteractive({ cursor: 'pointer' });
+    const rightZone = this.add.zone(width * 0.78, midY + 30, width * 0.45, height * 0.43);
     rightZone.on('pointerdown', () => startGame('simulation', 'casual'));
     rightZone.on('pointerover', () => rightTitle.setScale(1.06));
     rightZone.on('pointerout',  () => rightTitle.setScale(1));
+
+    const enableModeZones = () => {
+      leftZone.setInteractive({ cursor: 'pointer' });
+      rightZone.setInteractive({ cursor: 'pointer' });
+    };
 
     // Collect for fade-in
     const modeCardObjects = [
@@ -439,6 +445,7 @@ export class BootScene extends Phaser.Scene {
           alpha: 1,
           duration: 600,
           ease: 'Power2',
+          onComplete: enableModeZones,
         });
         return;
       }

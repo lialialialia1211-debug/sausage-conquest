@@ -94,7 +94,7 @@ export class MorningPanel {
       'justify-content:center;',
       'gap:12px;',
       'padding:16px 10px;',
-      'overflow-y:auto;',
+      'overflow-y:hidden;',
     ].join('');
 
     for (const action of LEFT_ACTIONS) {
@@ -290,11 +290,11 @@ export class MorningPanel {
 
     // 香腸圖示
     const imgWrap = document.createElement('div');
-    imgWrap.style.cssText = 'width:90px;height:90px;display:flex;align-items:center;justify-content:center;margin-bottom:4px;';
+    imgWrap.style.cssText = 'width:70px;height:70px;display:flex;align-items:center;justify-content:center;margin-bottom:4px;';
     if (sausage.image) {
       const img = document.createElement('img');
       img.src = sausage.image;
-      img.style.cssText = 'width:90px;height:90px;object-fit:contain;border-radius:8px;';
+      img.style.cssText = 'width:70px;height:70px;object-fit:contain;border-radius:8px;';
       img.alt = sausage.name;
       imgWrap.appendChild(img);
     } else {
