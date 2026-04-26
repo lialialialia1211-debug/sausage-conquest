@@ -68,6 +68,13 @@ const COLOR_ORANGE = '#ff6b00';
 const COLOR_DIM = '#664422';
 const FONT = 'Microsoft JhengHei, PingFang TC, sans-serif';
 
+// ── S2.1: Pause reason enum ──────────────────────────────────────────────────
+// ui     → any blocking overlay (combat panel, paused flag)
+// event  → grill event overlay
+// away   → player left stall (workers still run, patience still ticks)
+// null   → not paused
+type RhythmPauseReason = 'ui' | 'event' | 'away' | null;
+
 // ── Internal types ───────────────────────────────────────────────────────────
 interface GrillSlot {
   sprite: SausageSprite | null;
@@ -252,6 +259,11 @@ export class GrillScene extends Phaser.Scene {
   // ── Chart completion guard (prevents double end-of-day) ──────────────────────
   private chartCompleteFired = false;
 
+  // ── S2.3: Drain phase — after last note, wait for grill/warming to empty ───
+  private isDrainPhase = false;
+  private drainPhaseTimer = 0;
+  private readonly DRAIN_PHASE_MAX = 10; // seconds max before force-endGrilling
+
   // ── Wave 6cd: BGM sync + rhythm gate ──────────────────────────────────────
   private rhythmStarted = false;
   // Wave 6cd-fix: BGM 直接用 Web Audio API 控制（避開 Phaser sound.seek 的時鐘漂移）
@@ -310,6 +322,8 @@ export class GrillScene extends Phaser.Scene {
     this.grillEventNextTrigger = Phaser.Math.Between(40, 65);
     this.totalSessionEvents = 0;
     this.chartCompleteFired = false;
+    this.isDrainPhase = false;
+    this.drainPhaseTimer = 0;
     this.isShowingGrillEvent = false;
     this.triggeredEventIds = [];
     this.grillEventOverlay = null;
@@ -492,6 +506,19 @@ export class GrillScene extends Phaser.Scene {
       || this.currentCombatPanel !== null;
   }
 
+  /**
+   * S2.1: Derived pause reason for downstream consumers.
+   * Priority: event > ui > away > null
+   * away: BGM/notes frozen but customer patience and worker AI still run.
+   * ui/event: everything frozen.
+   */
+  private getPauseReason(): RhythmPauseReason {
+    if (this.isShowingGrillEvent) return 'event';
+    if (this.paused || this.isShowingCondimentStation || this.currentCombatPanel !== null) return 'ui';
+    if (this.isPlayerAway) return 'away';
+    return null;
+  }
+
   update(_time: number, delta: number): void {
     if (this.isDone || this.paused) return;
     // Freeze all game logic while a grill event overlay is shown
@@ -499,9 +526,12 @@ export class GrillScene extends Phaser.Scene {
     // Freeze while condiment station is open
     if (this.isShowingCondimentStation) return;
 
-    // Reconcile BGM pause state with global pause flags
+    // S2.1: BGM pause reconcile by reason.
+    // ui/event/away → BGM paused; null → BGM plays.
+    // (customer patience and worker AI run for 'away' — handled below via no early-return)
     if (this.rhythmStarted) {
-      const shouldPause = this.isGloballyPaused();
+      const reason = this.getPauseReason();
+      const shouldPause = reason !== null;
       if (shouldPause && !this.bgmPaused && !this.bgmFinished) {
         this.pauseBgm();
       } else if (!shouldPause && this.bgmPaused && !this.bgmFinished) {
@@ -827,12 +857,24 @@ export class GrillScene extends Phaser.Scene {
     // ── Wave 6a: Rhythm track tick ───────────────────────────────────────────
     this.updateRhythmTrack();
 
-    // ── D: Chart-end detection — trigger onChartComplete 3s after last note ──
-    if (this.rhythmStarted && this.chart && !this.isDone) {
+    // ── D: Chart-end detection → enter drain phase ──────────────────────────
+    if (this.rhythmStarted && this.chart && !this.isDone && !this.isDrainPhase) {
       const lastNoteTime = this.chart.notes.length > 0
         ? this.chart.notes[this.chart.notes.length - 1].t
         : 0;
-      if (this.getRhythmTime() > lastNoteTime + 3) {
+      if (this.getRhythmTime() > lastNoteTime) {
+        // S2.3: Start drain phase — stop spawning notes, wait for grill/warming to clear
+        this.isDrainPhase = true;
+        this.drainPhaseTimer = 0;
+      }
+    }
+
+    // ── S2.3: Drain phase tick ────────────────────────────────────────────────
+    if (this.isDrainPhase && !this.isDone) {
+      this.drainPhaseTimer += dt;
+      const grillEmpty = this.grillSlots.every(s => !s.sausage);
+      const warmingEmpty = this.warmingSlots.every(ws => ws.sausage === null);
+      if ((grillEmpty && warmingEmpty) || this.drainPhaseTimer >= this.DRAIN_PHASE_MAX) {
         this.onChartComplete();
       }
     }
@@ -4100,12 +4142,18 @@ export class GrillScene extends Phaser.Scene {
       const grillRemaining = this.grillSlots.filter(s => s.sausage && !s.sausage.served).length;
       const warmingRemaining = this.warmingSlots.filter(s => s.sausage).length;
 
+      // S2.3: Write unsold warming zone sausages back to gameState so next-day logic can read them
+      const warmingZoneSnapshot = this.warmingSlots
+        .filter(ws => ws.sausage !== null)
+        .map(ws => ({ ...ws.sausage! }));
+
       // Persist to game state
       updateGameState({
         dailySalesLog: [...this.salesLog],
         dailyGrillStats: { ...this.grillStats },
         dailyWaste: { grillRemaining, warmingRemaining },
         dailyPerfectCount: this.grillStats.perfect,
+        warmingZone: warmingZoneSnapshot,
       });
 
       // Increment cumulative grill stats
