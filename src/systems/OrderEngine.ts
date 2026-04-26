@@ -8,8 +8,8 @@ import type { OrderScore, CustomerOrder, LoyaltyBadge, WarmingSausage } from '..
  */
 export function scoreOrder(
   warmingSausage: WarmingSausage,
-  customerOrder: CustomerOrder,
-  appliedGarlic: boolean,
+  _customerOrder: CustomerOrder,
+  _appliedGarlic: boolean,
   remainingPatienceRatio: number,  // 0-1, how much patience is left
   loyaltyBadge: LoyaltyBadge,
   basePrice: number,
@@ -44,8 +44,8 @@ export function scoreOrder(
   };
   const warmingScore = warmingScoreMap[warmingSausage.warmingState] ?? 50;
 
-  // 3. Condiment Score (0-100): garlic match = 100, mismatch = 0
-  const condimentScore = calculateCondimentScore(customerOrder.wantGarlic, appliedGarlic);
+  // 3. Condiment Score: fixed 100 (S1.4 — condiment RNG removed)
+  const condimentScore = 100;
 
   // 4. Wait Score (0-100): based on remaining patience
   const waitScore = Math.round(remainingPatienceRatio * 100);
@@ -68,14 +68,6 @@ export function scoreOrder(
   const tipAmount = calculateTip(totalScore, loyaltyBadge, basePrice);
 
   return { grillScore, warmingScore, condimentScore, waitScore, totalScore, stars, tipAmount };
-}
-
-/**
- * Calculate condiment accuracy score (garlic only).
- * Exact boolean match = 100, mismatch = 0.
- */
-function calculateCondimentScore(wantGarlic: boolean, appliedGarlic: boolean): number {
-  return wantGarlic === appliedGarlic ? 100 : 0;
 }
 
 /**

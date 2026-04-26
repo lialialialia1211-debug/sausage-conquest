@@ -52,8 +52,8 @@ function generateOrder(_day: number, personality?: string): CustomerOrder {
     sausageType = unlocked[Math.floor(Math.random() * unlocked.length)];
   }
 
-  // 50/50 chance of wanting garlic
-  const wantGarlic = Math.random() < 0.5;
+  // S1.4: wantGarlic fixed to true (condiment RNG removed)
+  const wantGarlic = true;
 
   return { sausageType, wantGarlic };
 }

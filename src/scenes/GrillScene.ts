@@ -152,14 +152,6 @@ export class GrillScene extends Phaser.Scene {
   private grillSlots: GrillSlot[] = [];
   private inventoryCopy: Record<string, number> = {};
 
-  // ── Overflow queue（烤架滿時暫存，繼續烤至達標後補位）─────────────────────
-  private overflowSausages: { sausage: GrillingSausage; sausageTypeId: string; bornAt: number }[] = [];
-
-  // ── Manual placement state ──────────────────────────────────────────────
-  private selectedInventoryType: string | null = null;
-  private inventoryPanel!: Phaser.GameObjects.Container;
-  private inventoryButtonMap: Map<string, Phaser.GameObjects.Container> = new Map();
-
   // ── Warming zone ─────────────────────────────────────────────────────────
   private warmingSlots: WarmingSlot[] = [];
   // warmingContainer is used implicitly via warmingSlots setup
@@ -313,8 +305,6 @@ export class GrillScene extends Phaser.Scene {
     this.feedbackTexts = [];
     this.fireParticles = [];
     this.fireParticleTimer = 0;
-    this.selectedInventoryType = null;
-    this.inventoryButtonMap = new Map();
     this.hoveredSlotIndex = null;
     this.grillEventTimer = 0;
     this.grillEventNextTrigger = Phaser.Math.Between(40, 65);
@@ -366,7 +356,6 @@ export class GrillScene extends Phaser.Scene {
     this.maxRhythmCombo = 0;
     this.hitStats = { perfect: 0, great: 0, good: 0, miss: 0 };
     this.rhythmComboText = null;
-    this.overflowSausages = [];
 
     // ── Auto-pack timer reset ──
     this.autoServeTimer = 0;
@@ -394,9 +383,7 @@ export class GrillScene extends Phaser.Scene {
     this.setupWarmingZone(width, height);
     this.setupCustomerQueue(width, height);
     this.setupSpeedButtons(width, height);
-    this.setupInventoryPanel(width, height);
     this.setupHUD(width, height);
-    this.setupEndButton(width, height);
     this.setupSpectatorCrowd(width, height);
     this.setupRhythmTrack(width, height);
 
@@ -444,15 +431,6 @@ export class GrillScene extends Phaser.Scene {
     this.customerArrivalTimer = this.customerArrivalInterval;
 
     this.cameras.main.fadeIn(400, 0, 0, 0);
-
-    // Keyboard: spacebar flips the hovered grill slot's sausage
-    this.input.keyboard!.on('keydown-SPACE', () => {
-      if (this.isDone || this.paused || this.isShowingGrillEvent) return;
-      if (this.hoveredSlotIndex === null) return;
-      const slot = this.grillSlots[this.hoveredSlotIndex];
-      if (!slot?.sausage || !slot.sprite || slot.sausage.served) return;
-      this.doFlipSlot(slot);
-    });
 
     // Wangcai interaction (if hired)
     if (gameState.hiredWorkers?.includes('wangcai')) {
@@ -861,7 +839,6 @@ export class GrillScene extends Phaser.Scene {
 
     // ── Wave 6c: Auto-serve rhythm sausages that hit target doneness ──────────
     if (this.rhythmStarted) {
-      this.tickOverflowSausages(dt);
       this.autoServeReady();
     }
 
@@ -1115,6 +1092,27 @@ export class GrillScene extends Phaser.Scene {
 
     frontNote.markHit();
 
+    // S1.1: Check inventory BEFORE counting stats. No stock → MISS, no combo credit.
+    const noteTypeId = frontNote.note.sausage;
+    const noteStock = this.inventoryCopy[noteTypeId] ?? 0;
+    if (noteStock <= 0) {
+      this.hitStats.miss += 1;
+      this.rhythmCombo = 0;
+      this.updateRhythmComboText();
+      sfx.playDon(); // keep auditory feedback so player knows the key was pressed
+      this.showJudgementBig('MISS', '#ff4444', 36, 500);
+      this.showFeedback('庫存不足', this.NOTE_HIT_X, this.noteTrackY - 50, '#ff4444');
+      if (frontNote.active) frontNote.destroy();
+      const nIdx = this.rhythmNotes.indexOf(frontNote);
+      if (nIdx >= 0) this.rhythmNotes.splice(nIdx, 1);
+      return;
+    }
+    // Deduct inventory before spawning
+    this.inventoryCopy[noteTypeId]--;
+    if (this.inventoryCopy[noteTypeId] <= 0) {
+      delete this.inventoryCopy[noteTypeId];
+    }
+
     // Update stats and combo
     this.hitStats[judgement] += 1;
     this.rhythmCombo += 1;
@@ -1149,8 +1147,7 @@ export class GrillScene extends Phaser.Scene {
     }
 
     // Wave 6c: fly hit note into grill slot
-    // Overflow queue: if no empty slot, sausage continues cooking internally and will
-    // be placed on the next available slot (no longer treated as MISS).
+    // S2.2: full grid → direct MISS (overflowSausages removed in S1.5)
     const slot = this.grillSlots.find(s => !s.sausage);
 
     // Capture for closures
@@ -1175,42 +1172,18 @@ export class GrillScene extends Phaser.Scene {
         },
       });
     } else {
-      // Overflow path: all slots occupied — create sausage and queue it
-      const overflowSausage = createGrillingSausage(hitNote.note.sausage);
-      (overflowSausage as GrillingSausage & { rhythmAccuracy?: string }).rhythmAccuracy =
-        hitJudgement as 'perfect' | 'great' | 'good';
-      this.overflowSausages.push({
-        sausage: overflowSausage,
-        sausageTypeId: hitNote.note.sausage,
-        bornAt: this.time.now,
-      });
-
-      // Visual: fade note toward queue indicator (bottom-right)
-      const queueX = this.scale.width - 60;
-      const queueY = this.scale.height * 0.78;
-      this.tweens.add({
-        targets: hitNote,
-        x: queueX,
-        y: queueY,
-        scaleX: 0.4,
-        scaleY: 0.4,
-        alpha: 0,
-        duration: 400,
-        ease: 'Cubic.Out',
-        onComplete: () => {
-          if (hitNote.active) hitNote.destroy();
-          const idx = this.rhythmNotes.indexOf(hitNote);
-          if (idx >= 0) this.rhythmNotes.splice(idx, 1);
-        },
-      });
-
-      // Show "等待中" floating hint
-      this.showFeedback(
-        `+1 等待中 (${this.overflowSausages.length})`,
-        this.NOTE_HIT_X,
-        this.noteTrackY - 70,
-        '#aaaaff',
-      );
+      // S2.2: Grid full → direct MISS. Refund the inventory we just deducted.
+      this.inventoryCopy[noteTypeId] = (this.inventoryCopy[noteTypeId] ?? 0) + 1;
+      // Undo the hit stats we already counted, replace with miss
+      this.hitStats[hitJudgement as 'perfect' | 'great' | 'good'] -= 1;
+      this.hitStats.miss += 1;
+      this.rhythmCombo = 0;
+      this.updateRhythmComboText();
+      this.showJudgementBig('MISS', '#ff4444', 36, 500);
+      this.showFeedback('烤架已滿', this.NOTE_HIT_X, this.noteTrackY - 70, '#ff4444');
+      if (hitNote.active) hitNote.destroy();
+      const mIdx = this.rhythmNotes.indexOf(hitNote);
+      if (mIdx >= 0) this.rhythmNotes.splice(mIdx, 1);
     }
 
     // ── Wave 6e: Service combo hit tracking ─────────────────────────────────
@@ -1448,9 +1421,15 @@ export class GrillScene extends Phaser.Scene {
     const totalPurchased = Object.values(inventory).reduce((a, b) => a + b, 0);
     if (totalPurchased === 0) return; // no purchases → keep default chart sausage types
 
-    // Build weighted pool proportional to purchase quantities
+    // S1.3: Use gameState.inventory (actual stock) as the allocation cap.
+    // A sausage type with inventory = 0 cannot be assigned to any note.
+    const availableStock = { ...gameState.inventory };
+
+    // Build weighted pool proportional to purchase quantities, filtered to available stock
     const pool: string[] = [];
     for (const [sausageId, qty] of Object.entries(inventory)) {
+      const stockQty = availableStock[sausageId] ?? 0;
+      if (stockQty <= 0) continue; // skip zero-stock types
       for (let n = 0; n < qty; n++) pool.push(sausageId);
     }
     if (pool.length === 0) return;
@@ -1535,22 +1514,7 @@ export class GrillScene extends Phaser.Scene {
     sprite.setDepth(10);
     const slotIndex = this.grillSlots.indexOf(slot);
 
-    // Double-click still moves to warming zone (manual serve override)
-    sprite.onClick(() => {
-      const currentSlot = this.grillSlots.find(s => s.sprite === sprite);
-      if (!currentSlot) return;
-      const now = Date.now();
-      const lastClickTime = currentSlot.__lastClickTime ?? 0;
-      const isDoubleClick = (now - lastClickTime) < 350;
-      if (isDoubleClick) {
-        currentSlot.__lastClickTime = 0;
-        if (currentSlot.sprite) this.moveToWarming(currentSlot, currentSlot.sprite);
-      } else {
-        currentSlot.__lastClickTime = now;
-        // Single click on rhythm sausage: no manual flip (auto-managed)
-      }
-    });
-
+    // S1.5: double-click manual serve removed — auto-managed by rhythm system
     sprite.on('pointerover', () => { this.hoveredSlotIndex = slotIndex; });
     sprite.on('pointerout', () => { if (this.hoveredSlotIndex === slotIndex) this.hoveredSlotIndex = null; });
 
@@ -1578,11 +1542,6 @@ export class GrillScene extends Phaser.Scene {
       // Move to warming zone and wait there for service combo to trigger batch serve
       if (!slot.sprite) continue;
       this.moveToWarming(slot, slot.sprite);
-      // After warming slot is filled, try to place an overflow sausage into the freed slot
-      this.time.delayedCall(620, () => {
-        if (this.isDone || !this.scene.isActive()) return;
-        this.fillSlotFromOverflow(slot);
-      });
     }
   }
 
@@ -1599,67 +1558,6 @@ export class GrillScene extends Phaser.Scene {
       const slot = this.warmingSlots.find(ws => ws.sausage !== null);
       if (!slot) break;
       this.serveFromWarming(slot);
-    }
-  }
-
-  /**
-   * If there's an overflow sausage waiting, place it onto the given (now empty) slot.
-   * Preserves the sausage's existing doneness state.
-   */
-  private fillSlotFromOverflow(slot: GrillSlot): void {
-    if (this.overflowSausages.length === 0) return;
-    if (slot.sausage) return; // slot already occupied (race condition guard)
-    const entry = this.overflowSausages.shift();
-    if (!entry) return;
-    this.placeSausageInSlot(slot, entry.sausage);
-  }
-
-  /**
-   * Place an existing GrillingSausage onto a slot, creating the sprite.
-   * Used by fillSlotFromOverflow to restore overflow sausages with existing doneness.
-   */
-  private placeSausageInSlot(slot: GrillSlot, sausage: GrillingSausage): void {
-    if (slot.sausage) return; // race condition guard
-    this.clearSlotPlaceholder(slot);
-
-    const sprite = new SausageSprite(this, slot.x, slot.y, sausage);
-    sprite.setDepth(10);
-    const slotIndex = this.grillSlots.indexOf(slot);
-
-    sprite.onClick(() => {
-      const currentSlot = this.grillSlots.find(s => s.sprite === sprite);
-      if (!currentSlot) return;
-      const now = Date.now();
-      const lastClickTime = currentSlot.__lastClickTime ?? 0;
-      const isDoubleClick = (now - lastClickTime) < 350;
-      if (isDoubleClick) {
-        currentSlot.__lastClickTime = 0;
-        if (currentSlot.sprite) this.moveToWarming(currentSlot, currentSlot.sprite);
-      } else {
-        currentSlot.__lastClickTime = now;
-      }
-    });
-
-    sprite.on('pointerover', () => { this.hoveredSlotIndex = slotIndex; });
-    sprite.on('pointerout', () => { if (this.hoveredSlotIndex === slotIndex) this.hoveredSlotIndex = null; });
-
-    slot.sausage = sausage;
-    slot.sprite = sprite;
-    slot.__carbonWarnShown = false;
-    slot.__burntWarnShown = false;
-    slot.__isPressingBtn = false;
-
-    // Show brief "補位" indicator
-    this.showFeedback('補位', slot.x, slot.y - 55, '#aaaaff');
-  }
-
-  /**
-   * Tick all overflow sausages so they keep cooking while waiting for a slot.
-   * No sprite updates needed (invisible queue).
-   */
-  private tickOverflowSausages(dt: number): void {
-    for (const entry of this.overflowSausages) {
-      entry.sausage = autoTickSausage(entry.sausage, dt);
     }
   }
 
@@ -2111,164 +2009,6 @@ export class GrillScene extends Phaser.Scene {
 
   }
 
-  private setupInventoryPanel(width: number, height: number): void {
-    const panelY = height * 0.88;
-    const panelH = height * 0.12;
-
-    // Background
-    const bg = this.add.graphics();
-    bg.fillStyle(0x100500, 0.9);
-    bg.lineStyle(1, 0xff6b00, 0.4);
-    bg.fillRect(0, panelY, width, panelH);
-    bg.strokeRect(0, panelY, width, panelH);
-    bg.setDepth(9);
-
-    this.add.text(10, panelY + 4, '庫存 — 點擊選擇，再點烤架空位放置', {
-      fontSize: '13px',
-      fontFamily: FONT,
-      color: COLOR_DIM,
-    }).setDepth(10);
-
-    // Build inventory buttons
-    this.inventoryPanel = this.add.container(0, 0).setDepth(10);
-    this.rebuildInventoryButtons(width, panelY, panelH);
-  }
-
-  private rebuildInventoryButtons(width: number, panelY: number, panelH: number): void {
-    // Clear old buttons
-    this.inventoryPanel.removeAll(true);
-    this.inventoryButtonMap.clear();
-
-    const available = Object.entries(this.inventoryCopy).filter(([, qty]) => qty > 0);
-    const unavailable = Object.keys(SAUSAGE_MAP).filter(
-      id =>
-        gameState.unlockedSausages.includes(id) &&
-        !available.find(([aid]) => aid === id)
-    );
-
-    const allItems = [
-      ...available.map(([id, qty]) => ({ id, qty, hasStock: true })),
-      ...unavailable.map(id => ({ id, qty: 0, hasStock: false })),
-    ];
-
-    const btnW = 120;
-    const btnH = 85;
-    const gap = 8;
-    const totalBtns = allItems.length;
-    const totalW = totalBtns * btnW + (totalBtns - 1) * gap;
-    let startX = Math.max(12, (width - totalW) / 2);
-
-    const centerY = panelY + panelH / 2 + 8;
-
-    allItems.forEach(({ id, qty, hasStock }) => {
-      const bx = startX + btnW / 2;
-      const info = SAUSAGE_MAP[id];
-
-      const container = this.add.container(bx, centerY);
-      const bgGfx = this.add.graphics();
-
-      const drawBg = (selected: boolean, hover: boolean) => {
-        bgGfx.clear();
-        if (!hasStock) {
-          bgGfx.fillStyle(0x080200, 0.6);
-          bgGfx.lineStyle(1, 0x442200, 0.3);
-        } else if (selected) {
-          bgGfx.fillStyle(0xff6b00, 0.4);
-          bgGfx.lineStyle(2, 0xff9900, 1.0);
-        } else if (hover) {
-          bgGfx.fillStyle(0xff6b00, 0.15);
-          bgGfx.lineStyle(1, 0xff6b00, 0.7);
-        } else {
-          bgGfx.fillStyle(0x100500, 0.85);
-          bgGfx.lineStyle(1, 0xff6b00, 0.4);
-        }
-        bgGfx.fillRoundedRect(-btnW / 2, -btnH / 2, btnW, btnH, 4);
-        bgGfx.strokeRoundedRect(-btnW / 2, -btnH / 2, btnW, btnH, 4);
-      };
-
-      drawBg(false, false);
-
-      // Show sausage art image in inventory button if available
-      const textureKey = `sausage-${id}`;
-      if (this.textures.exists(textureKey)) {
-        const img = this.add.image(0, -18, textureKey);
-        const imgScale = Math.min(90 / img.width, 58 / img.height);
-        img.setScale(imgScale).setAlpha(hasStock ? 1 : 0.3);
-        container.add(img);
-      }
-
-      const txt = this.add.text(0, 16, `×${qty}`, {
-        fontSize: '20px',
-        fontFamily: FONT,
-        color: hasStock ? COLOR_ORANGE : '#442200',
-        align: 'center',
-      }).setOrigin(0.5);
-
-      const nameTxt = this.add.text(0, 34, info?.name ?? id, {
-        fontSize: '13px',
-        fontFamily: FONT,
-        color: hasStock ? '#886633' : '#331100',
-        align: 'center',
-      }).setOrigin(0.5);
-
-      const hitZone = this.add.zone(0, 0, btnW, btnH).setInteractive({ cursor: hasStock ? 'pointer' : 'default' });
-
-      hitZone.on('pointerover', () => {
-        if (hasStock) drawBg(this.selectedInventoryType === id, true);
-      });
-      hitZone.on('pointerout', () => {
-        drawBg(this.selectedInventoryType === id, false);
-      });
-      hitZone.on('pointerdown', () => {
-        if (!hasStock) return;
-        // Auto-place onto first empty grill slot
-        const emptySlot = this.grillSlots.find(s => !s.sausage);
-        if (emptySlot) {
-          this.placeOnGrill(emptySlot, id);
-        }
-        // No feedback when grill is full — player can always use rhythm system
-      });
-
-      container.add([bgGfx, txt, nameTxt, hitZone]);
-      this.inventoryPanel.add(container);
-      this.inventoryButtonMap.set(id, container);
-
-      startX += btnW + gap;
-    });
-  }
-
-  private updateInventoryDisplay(): void {
-    const { width, height } = this.scale;
-    const panelY = height * 0.88;
-    const panelH = height * 0.12;
-    this.rebuildInventoryButtons(width, panelY, panelH);
-  }
-
-  private updateInventoryButtonStyles(): void {
-    this.inventoryButtonMap.forEach((container, id) => {
-      const bgGfx = container.list[0] as Phaser.GameObjects.Graphics;
-      const isSelected = this.selectedInventoryType === id;
-      const qty = this.inventoryCopy[id] ?? 0;
-      const hasStock = qty > 0;
-      const btnW = 120;
-      const btnH = 85;
-
-      bgGfx.clear();
-      if (!hasStock) {
-        bgGfx.fillStyle(0x080200, 0.6);
-        bgGfx.lineStyle(1, 0x442200, 0.3);
-      } else if (isSelected) {
-        bgGfx.fillStyle(0xff6b00, 0.4);
-        bgGfx.lineStyle(2, 0xff9900, 1.0);
-      } else {
-        bgGfx.fillStyle(0x100500, 0.85);
-        bgGfx.lineStyle(1, 0xff6b00, 0.4);
-      }
-      bgGfx.fillRoundedRect(-btnW / 2, -btnH / 2, btnW, btnH, 4);
-      bgGfx.strokeRoundedRect(-btnW / 2, -btnH / 2, btnW, btnH, 4);
-    });
-  }
-
   private setupHUD(width: number, _height: number): void {
     // ── Top left: timer ──────────────────────────────────────────────────
     this.timerText = this.add.text(16, 55, `${this.timeLeft}s`, {
@@ -2331,30 +2071,6 @@ export class GrillScene extends Phaser.Scene {
       stroke: '#000000',
       strokeThickness: 3,
     }).setOrigin(0.5, 0).setDepth(100).setAlpha(0);
-  }
-
-  private setupEndButton(width: number, height: number): void {
-    const btnW = 80;
-    const btnH = 22;
-    // Same row as speed buttons — centered
-    const bx = width * 0.5;
-    const by = height * 0.80;
-
-    this.createButton(bx, by, btnW, btnH, '結束營業', () => {
-      this.endGrilling();
-    });
-
-    // Restart button — right side of same row
-    const restartBtn = this.add.text(width * 0.75, by, '重新開始', {
-      fontSize: '12px', color: '#ff6666', backgroundColor: '#1a0a0a',
-      padding: { x: 6, y: 3 }, fontFamily: FONT
-    }).setOrigin(0.5).setInteractive({ useHandCursor: true }).setDepth(10);
-    restartBtn.on('pointerdown', () => {
-      if (this.bgm) { this.bgm.stop(); this.bgm.destroy(); this.bgm = null; }
-      // Full game state reset
-      this.resetFullGameState();
-      this.scene.start('BootScene');
-    });
   }
 
   // ── Wave 4c: SpectatorCrowd setup ────────────────────────────────────────
@@ -3062,11 +2778,6 @@ export class GrillScene extends Phaser.Scene {
 
     // Wave 4b: build interaction buttons for this slot
     this.buildSlotInteractionBtns(slot);
-
-    // Reset selection and update inventory display
-    this.selectedInventoryType = null;
-    this.updateInventoryDisplay();
-    this.updateInventoryButtonStyles();
   }
 
   // Move a ready sausage from grill to warming zone
@@ -4627,62 +4338,6 @@ export class GrillScene extends Phaser.Scene {
     try { this.input?.keyboard?.removeAllListeners?.(); } catch (_e) { /* ignore */ }
     try { this.cameras?.main?.removeAllListeners?.(); } catch (_e) { /* ignore */ }
     EventBus.off('black-market-done');
-  }
-
-  private resetFullGameState(): void {
-    updateGameState({
-      day: 1,
-      money: 8000,
-      reputation: 50,
-      phase: 'boot',
-      playerSlot: 1,
-      inventory: {},
-      map: { 1: 'player', 2: 'enemy', 3: 'enemy', 4: 'enemy', 5: 'enemy', 6: 'enemy', 7: 'enemy', 8: 'enemy', 9: 'enemy' },
-      upgrades: {},
-      prices: {},
-      selectedSlot: 1,
-      unlockedSausages: ['flying-fish-roe', 'cheese', 'big-taste', 'big-wrap-small', 'great-wall'],
-      hiredWorkers: [],
-      marketingPurchases: {},
-      grillEventCooldowns: {},
-      workerSalaryPaid: false,
-      undergroundRep: 0,
-      reputationCrisisDay: -1,
-      chaosCount: 0,
-      dailyChaosActions: [],
-      hasBodyguard: false,
-      bodyguardDaysLeft: 0,
-      blackMarketUnlocked: false,
-      blackMarketStock: {},
-      customerLoyalty: {},
-      dailyOrderScores: [],
-      battleBonus: 0,
-      playerLoans: [],
-      gameMode: '',
-      dailyExpenses: 0,
-      dailySalesLog: [],
-      dailyGrillStats: { perfect: 0, ok: 0, raw: 0, burnt: 0, 'half-cooked': 0, 'slightly-burnt': 0, carbonized: 0 },
-      warmingZone: [],
-      dailyWaste: { grillRemaining: 0, warmingRemaining: 0 },
-      dailyTrafficBonus: 0,
-      skipDay: false,
-      activeOpponents: [],
-      defeatedOpponents: [],
-      stats: {
-        totalSausagesSold: 0,
-        totalRevenue: 0,
-        totalExpenses: 0,
-        battlesWon: 0,
-        battlesLost: 0,
-        totalPerfect: 0,
-        totalBurnt: 0,
-        totalCarbonized: 0,
-        totalLoansRepaid: 0,
-      },
-      loans: { active: null, bankBlacklisted: false },
-      managementFee: { weeklyAmount: 500, lastPaidDay: 0, isResisting: false, resistDays: 0, bribedInspector: false, rebranded: false },
-      hui: { isActive: false, day: 0, cycle: 0, members: [], pot: 0, dailyFee: 100, playerHasCollected: false, playerBidAmount: 0, runaway: false, totalPaidIn: 0, totalCollected: 0 },
-    });
   }
 
   // ── Task 5.1: Cheese Perfect — 起司爆漿瞬間 ─────────────────────────────
