@@ -15,10 +15,10 @@ export interface SpoilageInfo {
 }
 
 const LEFT_ACTIONS = [
-  { id: 'strategy', label: '策略' },
-  { id: 'scout',    label: '偵查' },
-  { id: 'practice', label: '練烤功' },
-  { id: 'social',   label: '拜碼頭' },
+  { id: 'strategy', label: '策略',  desc: '分析夜市動向，今日營收 +10%' },
+  { id: 'scout',    label: '偵查',  desc: '偵測對手攤位，下回合戰鬥優勢' },
+  { id: 'practice', label: '練烤功', desc: '判定窗口寬 +10%（節奏遊戲容錯）' },
+  { id: 'social',   label: '拜碼頭', desc: '奧客事件機率 -50%' },
 ] as const;
 
 export class MorningPanel {
@@ -31,7 +31,7 @@ export class MorningPanel {
   private subtotalEls: Map<string, HTMLElement> = new Map();
   private cardRefs: Map<string, { sausage: SausageType }> = new Map();
   private selectedPrep: string = '';
-  private leftBtns: Map<string, HTMLButtonElement> = new Map();
+  private leftBtns: Map<string, HTMLElement> = new Map();
 
   constructor(spoilageInfo?: SpoilageInfo) {
     // Init quantities to 0 for each sausage type
@@ -85,51 +85,81 @@ export class MorningPanel {
     headerRow.appendChild(suggestEl);
     this.panel.appendChild(headerRow);
 
-    // ── 左欄：4 大動作按鈕 ───────────────────────────────────────────
+    // ── 左欄：section 標題「準備項目」+ 4 個帶說明的選項按鈕 ──────────
     const leftCol = document.createElement('div');
     leftCol.style.cssText = [
       'background:#0a0a12;',
       'border-right:1px solid #222;',
       'display:flex;flex-direction:column;',
       'justify-content:center;',
-      'gap:12px;',
-      'padding:16px 10px;',
+      'gap:8px;',
+      'padding:12px 10px;',
       'overflow-y:hidden;',
     ].join('');
 
+    // Section 標題（不可點）
+    const sectionTitle = document.createElement('div');
+    sectionTitle.style.cssText = [
+      'font-size:12px;font-weight:bold;',
+      'font-family:Microsoft JhengHei, PingFang TC, sans-serif;',
+      'color:#888;',
+      'letter-spacing:2px;',
+      'padding:4px 6px;',
+      'text-transform:uppercase;',
+      'border-bottom:1px solid #333;',
+      'margin-bottom:4px;',
+    ].join('');
+    sectionTitle.textContent = '準備項目';
+    leftCol.appendChild(sectionTitle);
+
     for (const action of LEFT_ACTIONS) {
-      const btn = document.createElement('button');
-      btn.style.cssText = [
-        'display:block;width:100%;',
+      const btnWrap = document.createElement('div');
+      btnWrap.style.cssText = [
+        'display:flex;flex-direction:column;',
         'background:#111827;',
         'border:2px solid #333;',
         'border-radius:8px;',
-        'padding:18px 8px;',
+        'padding:10px 8px 8px;',
         'cursor:pointer;',
-        'font-size:20px;',
-        'font-weight:bold;',
+        'transition:border-color 0.15s, background 0.15s;',
+      ].join('');
+
+      const labelEl = document.createElement('div');
+      labelEl.style.cssText = [
+        'font-size:16px;font-weight:bold;',
         'font-family:Microsoft JhengHei, PingFang TC, sans-serif;',
         'color:#ffffff;',
         'letter-spacing:2px;',
-        'transition:border-color 0.15s, background 0.15s, transform 0.1s;',
-        'text-align:center;',
+        'margin-bottom:4px;',
       ].join('');
-      btn.textContent = action.label;
+      labelEl.textContent = action.label;
 
-      btn.addEventListener('pointerover', () => {
+      const descEl = document.createElement('div');
+      descEl.style.cssText = [
+        'font-size:11px;',
+        'font-family:Microsoft JhengHei, PingFang TC, sans-serif;',
+        'color:#888;',
+        'line-height:1.3;',
+      ].join('');
+      descEl.textContent = action.desc;
+
+      btnWrap.appendChild(labelEl);
+      btnWrap.appendChild(descEl);
+
+      btnWrap.addEventListener('pointerover', () => {
         if (this.selectedPrep !== action.id) {
-          btn.style.borderColor = '#ff6b00';
-          btn.style.background = '#1a0e00';
+          btnWrap.style.borderColor = '#ff6b00';
+          btnWrap.style.background = '#1a0e00';
         }
       });
-      btn.addEventListener('pointerout', () => {
+      btnWrap.addEventListener('pointerout', () => {
         if (this.selectedPrep !== action.id) {
-          btn.style.borderColor = '#333';
-          btn.style.background = '#111827';
+          btnWrap.style.borderColor = '#333';
+          btnWrap.style.background = '#111827';
         }
       });
 
-      btn.addEventListener('click', () => {
+      btnWrap.addEventListener('click', () => {
         this.selectedPrep = action.id;
         updateGameState({ morningPrep: action.id });
         // 更新所有按鈕視覺
@@ -137,18 +167,19 @@ export class MorningPanel {
           if (id === action.id) {
             b.style.borderColor = '#ff6b00';
             b.style.background = '#1a0e00';
-            b.style.color = '#ff6b00';
+            (b.querySelector('div') as HTMLElement).style.color = '#ff6b00';
           } else {
             b.style.borderColor = '#333';
             b.style.background = '#111827';
-            b.style.color = '#ffffff';
+            (b.querySelector('div') as HTMLElement).style.color = '#ffffff';
           }
         }
         this.updateSummary();
       });
 
-      this.leftBtns.set(action.id, btn);
-      leftCol.appendChild(btn);
+      // leftBtns 存 btnWrap（型別改為 HTMLElement，見下方 Map 型別更新）
+      this.leftBtns.set(action.id, btnWrap);
+      leftCol.appendChild(btnWrap);
     }
 
     this.panel.appendChild(leftCol);
@@ -161,14 +192,17 @@ export class MorningPanel {
       'overflow:hidden;',
     ].join('');
 
-    // ── 右上：香腸選擇格橫排 ──────────────────────────────────────────
+    // ── 右上：香腸選擇格（交叉兩排錯開）────────────────────────────────
+    // 奇數索引（1,3...）往下偏移 30px，形成 [1] [3] [5] / [2] [4] 的視覺
     const sausageRow = document.createElement('div');
     sausageRow.style.cssText = [
       'display:flex;',
       'flex-direction:row;',
+      'flex-wrap:nowrap;',
+      'align-items:flex-start;',
       'gap:8px;',
       'padding:12px 12px 8px;',
-      'overflow-x:auto;',
+      'overflow:hidden;',
       'flex-shrink:0;',
       'border-bottom:1px solid #222;',
     ].join('');
@@ -177,8 +211,13 @@ export class MorningPanel {
     // 決定哪個是「總公司推薦」（第一個解鎖類型，或第二個）
     const recommendedId = unlockedTypes.length >= 2 ? unlockedTypes[1].id : (unlockedTypes[0]?.id ?? '');
 
-    for (const sausage of unlockedTypes) {
+    for (let i = 0; i < unlockedTypes.length; i++) {
+      const sausage = unlockedTypes[i];
       const cell = this.buildSausageCell(sausage, spoilageInfo, sausage.id === recommendedId);
+      // 偶數索引（0,2,4）貼頂，奇數索引（1,3）往下偏移 30px（交叉排列）
+      if (i % 2 === 1) {
+        cell.style.marginTop = '30px';
+      }
       sausageRow.appendChild(cell);
     }
     rightCol.appendChild(sausageRow);
@@ -211,7 +250,7 @@ export class MorningPanel {
       'border:1px solid #333;',
       'letter-spacing:1px;',
     ].join('');
-    this.totalCostEl.textContent = '總成本: ¥ 0';
+    this.totalCostEl.textContent = '總成本: $0';
     bottomLeft.appendChild(this.totalCostEl);
 
     this.rentWarning = document.createElement('div');
@@ -288,13 +327,13 @@ export class MorningPanel {
       cell.appendChild(badge);
     }
 
-    // 香腸圖示
+    // 香腸圖示（縮小到 60px 防止擠出）
     const imgWrap = document.createElement('div');
-    imgWrap.style.cssText = 'width:70px;height:70px;display:flex;align-items:center;justify-content:center;margin-bottom:4px;';
+    imgWrap.style.cssText = 'width:60px;height:60px;display:flex;align-items:center;justify-content:center;margin-bottom:4px;';
     if (sausage.image) {
       const img = document.createElement('img');
       img.src = sausage.image;
-      img.style.cssText = 'width:70px;height:70px;object-fit:contain;border-radius:8px;';
+      img.style.cssText = 'width:60px;height:60px;object-fit:contain;border-radius:8px;';
       img.alt = sausage.name;
       imgWrap.appendChild(img);
     } else {
@@ -430,7 +469,7 @@ export class MorningPanel {
     const remaining = gameState.money - totalSpend;
     const reserve = this.getRentReserve();
 
-    this.totalCostEl.textContent = `總成本: ¥ ${totalSpend.toLocaleString()}`;
+    this.totalCostEl.textContent = `總成本: $${totalSpend.toLocaleString()}`;
     this.totalCostEl.style.color = remaining < reserve ? '#ff4444' : '#ffffff';
 
     const hasNewPurchases = Object.values(this.quantities).some(q => q > 0);
@@ -456,6 +495,8 @@ export class MorningPanel {
         buyStock(sausage.id, qty);
       }
     }
+    // Store purchase quantities for GrillScene chart redistribution
+    updateGameState({ purchaseQuantities: { ...this.quantities } });
     EventBus.emit('morning-done', {});
   };
 

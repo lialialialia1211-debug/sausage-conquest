@@ -169,16 +169,17 @@ export class BootScene extends Phaser.Scene {
       repeatDelay: 2000,
     });
 
-    // Story card background (centred on screen)
+    // Story card background — pushed down to avoid blocking the enlarged LOGO
+    const storyY = height * 0.78;
     const storyBg = this.add.graphics();
     storyBg.fillStyle(0x000000, 0.75);
     storyBg.lineStyle(2, 0xffe600, 0.5);
-    storyBg.fillRoundedRect(cx - 360, cy - 90, 720, 180, 10);
-    storyBg.strokeRoundedRect(cx - 360, cy - 90, 720, 180, 10);
+    storyBg.fillRoundedRect(cx - 360, storyY - 90, 720, 180, 10);
+    storyBg.strokeRoundedRect(cx - 360, storyY - 90, 720, 180, 10);
     storyBg.setAlpha(0).setDepth(5);
 
     // Story text (typing effect target, centred)
-    const storyText = this.add.text(cx, cy, '', {
+    const storyText = this.add.text(cx, storyY, '', {
       fontSize: '24px',
       fontFamily: 'Microsoft JhengHei, PingFang TC, sans-serif',
       color: '#ffffff',
@@ -255,15 +256,16 @@ export class BootScene extends Phaser.Scene {
     };
 
     // 全部 alpha=0 隱藏，prologue 結束才 fade in
-    const midY = height * 0.62;
-    const skew = width * 0.06;
+    // 縮小 40%（剩 60%）並置中：x 從 width*0.20 到 width*0.80，y 從 0.50 到 0.76
+    const midY = height * 0.63;
+    const skew = width * 0.04;
 
     // 左區塊（指烤火拼 / HARDCORE）— 深藍
     const leftPoly = new Phaser.Geom.Polygon([
-      0,                        height * 0.42,
-      width * 0.55 - skew,      height * 0.42,
-      width * 0.45 + skew,      height * 0.85,
-      0,                        height * 0.85,
+      width * 0.20,             height * 0.50,
+      width * 0.50 - skew,      height * 0.50,
+      width * 0.45 + skew,      height * 0.76,
+      width * 0.20,             height * 0.76,
     ]);
     const leftBg = this.add.graphics().setAlpha(0).setDepth(15);
     leftBg.fillStyle(0x142036, 0.95);
@@ -273,10 +275,10 @@ export class BootScene extends Phaser.Scene {
 
     // 右區塊（小烤怡情 / CASUAL）— 淺灰
     const rightPoly = new Phaser.Geom.Polygon([
-      width * 0.55 - skew,      height * 0.42,
-      width,                    height * 0.42,
-      width,                    height * 0.85,
-      width * 0.45 + skew,      height * 0.85,
+      width * 0.50 - skew,      height * 0.50,
+      width * 0.80,             height * 0.50,
+      width * 0.80,             height * 0.76,
+      width * 0.45 + skew,      height * 0.76,
     ]);
     const rightBg = this.add.graphics().setAlpha(0).setDepth(15);
     rightBg.fillStyle(0xd8dde6, 0.95);
@@ -284,57 +286,58 @@ export class BootScene extends Phaser.Scene {
     rightBg.lineStyle(4, 0xff6b00, 0.9);
     rightBg.strokePoints(rightPoly.points, true);
 
-    // 左區塊文字
-    const leftTitle = this.add.text(width * 0.22, midY - 15, '指烤火拼', {
-      fontSize: '54px',
+    // 左區塊文字（縮小 40%：x→width*0.32, fontSize 54→32, sub 18→11, desc 13→8）
+    const leftTitle = this.add.text(width * 0.32, midY - 9, '指烤火拼', {
+      fontSize: '32px',
       fontFamily: 'Microsoft JhengHei, PingFang TC, sans-serif',
       color: '#ffffff',
       stroke: '#000000',
-      strokeThickness: 4,
-      fontStyle: 'bold',
-    }).setOrigin(0.5).setDepth(20).setAlpha(0);
-
-    const leftSub = this.add.text(width * 0.22, midY + 35, 'HARDCORE', {
-      fontSize: '18px',
-      fontFamily: 'Microsoft JhengHei, PingFang TC, sans-serif',
-      color: '#ff6b00',
-    }).setOrigin(0.5).setDepth(20).setAlpha(0);
-
-    const leftDesc = this.add.text(width * 0.22, midY + 64, '節拍密、判定嚴', {
-      fontSize: '13px',
-      fontFamily: 'Microsoft JhengHei, PingFang TC, sans-serif',
-      color: '#aaaaaa',
-    }).setOrigin(0.5).setDepth(20).setAlpha(0);
-
-    // 右區塊文字
-    const rightTitle = this.add.text(width * 0.78, midY - 15, '小烤怡情', {
-      fontSize: '54px',
-      fontFamily: 'Microsoft JhengHei, PingFang TC, sans-serif',
-      color: '#1a1a1a',
-      stroke: '#ffffff',
       strokeThickness: 3,
       fontStyle: 'bold',
     }).setOrigin(0.5).setDepth(20).setAlpha(0);
 
-    const rightSub = this.add.text(width * 0.78, midY + 35, 'CASUAL', {
-      fontSize: '18px',
+    const leftSub = this.add.text(width * 0.32, midY + 21, 'HARDCORE', {
+      fontSize: '11px',
       fontFamily: 'Microsoft JhengHei, PingFang TC, sans-serif',
       color: '#ff6b00',
     }).setOrigin(0.5).setDepth(20).setAlpha(0);
 
-    const rightDesc = this.add.text(width * 0.78, midY + 64, '節拍鬆、判定寬', {
-      fontSize: '13px',
+    const leftDesc = this.add.text(width * 0.32, midY + 38, '節拍密、判定嚴', {
+      fontSize: '8px',
+      fontFamily: 'Microsoft JhengHei, PingFang TC, sans-serif',
+      color: '#aaaaaa',
+    }).setOrigin(0.5).setDepth(20).setAlpha(0);
+
+    // 右區塊文字（縮小 40%：x→width*0.68）
+    const rightTitle = this.add.text(width * 0.68, midY - 9, '小烤怡情', {
+      fontSize: '32px',
+      fontFamily: 'Microsoft JhengHei, PingFang TC, sans-serif',
+      color: '#1a1a1a',
+      stroke: '#ffffff',
+      strokeThickness: 2,
+      fontStyle: 'bold',
+    }).setOrigin(0.5).setDepth(20).setAlpha(0);
+
+    const rightSub = this.add.text(width * 0.68, midY + 21, 'CASUAL', {
+      fontSize: '11px',
+      fontFamily: 'Microsoft JhengHei, PingFang TC, sans-serif',
+      color: '#ff6b00',
+    }).setOrigin(0.5).setDepth(20).setAlpha(0);
+
+    const rightDesc = this.add.text(width * 0.68, midY + 38, '節拍鬆、判定寬', {
+      fontSize: '8px',
       fontFamily: 'Microsoft JhengHei, PingFang TC, sans-serif',
       color: '#444444',
     }).setOrigin(0.5).setDepth(20).setAlpha(0);
 
     // 點擊 zone — 一開始 disable，prologue 結束才 enable，避免誤觸快進
-    const leftZone = this.add.zone(width * 0.22, midY + 30, width * 0.45, height * 0.43);
+    // zone 對應縮小：x 從 0.22→0.32 / 0.78→0.68，width 從 width*0.45→width*0.28，height 從 0.43→0.26
+    const leftZone = this.add.zone(width * 0.32, midY + 18, width * 0.28, height * 0.26);
     leftZone.on('pointerdown', () => startGame('normal', 'hardcore'));
     leftZone.on('pointerover', () => leftTitle.setScale(1.06));
     leftZone.on('pointerout',  () => leftTitle.setScale(1));
 
-    const rightZone = this.add.zone(width * 0.78, midY + 30, width * 0.45, height * 0.43);
+    const rightZone = this.add.zone(width * 0.68, midY + 18, width * 0.28, height * 0.26);
     rightZone.on('pointerdown', () => startGame('simulation', 'casual'));
     rightZone.on('pointerover', () => rightTitle.setScale(1.06));
     rightZone.on('pointerout',  () => rightTitle.setScale(1));

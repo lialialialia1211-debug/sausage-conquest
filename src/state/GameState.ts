@@ -98,6 +98,8 @@ export const gameState = {
   // Prize effects from SausageBoxPanel lucky draw
   autoPerfectServes: 0,  // remaining auto-perfect serve count
   heatRateBonus: 0,      // cumulative heat rate bonus multiplier
+  // Sausage quantities purchased this morning — used to redistribute chart note types
+  purchaseQuantities: {} as Record<string, number>,
 };
 
 // Update state and notify UI via EventBus
@@ -125,6 +127,7 @@ export function advanceDay(): void {
     dailyOrderScores: [],
     battleBonus: 0,
     morningPrep: '',
+    purchaseQuantities: {},
     // grillEventCooldowns persist across days — do NOT reset here
     // customerLoyalty persists across days — do NOT reset here
   });

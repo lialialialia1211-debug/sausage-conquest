@@ -266,19 +266,10 @@ body {
 /* ─── MorningPanel — sausage card styles ─── */
 
 .morning-panel {
-  max-width: 640px;
-  max-height: calc(100vh - 80px);
-  overflow-y: auto;
-  scrollbar-width: thin;
-  scrollbar-color: var(--neon-yellow) transparent;
-}
-
-.morning-panel::-webkit-scrollbar {
-  width: 6px;
-}
-.morning-panel::-webkit-scrollbar-thumb {
-  background: var(--neon-yellow);
-  border-radius: 3px;
+  max-width: 92vw;
+  width: 92vw;
+  max-height: 88vh;
+  overflow: hidden;
 }
 
 .sausage-cards {

@@ -579,9 +579,12 @@ export class GrillScene extends Phaser.Scene {
             this.showFeedback('網紅正在直播你的攤位！', this.scale.width / 2, this.scale.height * 0.1, '#44aaff');
           } else if (
             ['karen', 'enforcer', 'inspector', 'spy'].includes(c.personality) &&
-            !this.combatCustomersHandled.has(c.id)
+            !this.combatCustomersHandled.has(c.id) &&
+            gameState.day >= 5 &&                              // 前 4 天不觸發 personality combat
+            this.totalSessionEvents < this.MAX_SESSION_EVENTS  // 納入每場事件上限
           ) {
             this.combatCustomersHandled.add(c.id);
+            this.totalSessionEvents++;                         // 計入事件計數
             this.triggerCombat(c);
           }
         }
@@ -1338,6 +1341,9 @@ export class GrillScene extends Phaser.Scene {
     // Inject service combo notes into the chart before starting
     this.injectServiceComboNotes();
 
+    // Redistribute sausage types on notes based on player's morning purchases
+    this.redistributeNoteSausages();
+
     this.rhythmStarted = true;
     this.nextNoteSpawnIdx = 0;
     this.rhythmNotes.forEach(n => { if (n.active) n.destroy(); });
@@ -1416,6 +1422,31 @@ export class GrillScene extends Phaser.Scene {
     // Initialize hit tracker for each group
     this.serviceComboGroupHits.clear();
     this.serviceComboBatchFired.clear();
+  }
+
+  /**
+   * Redistribute non-service-combo note sausage types based on player's
+   * morning purchases (purchaseQuantities). Service combo notes are skipped.
+   * If no purchases were made, chart defaults are preserved.
+   */
+  private redistributeNoteSausages(): void {
+    if (!this.chart) return;
+    const inventory = gameState.purchaseQuantities ?? {};
+    const totalPurchased = Object.values(inventory).reduce((a, b) => a + b, 0);
+    if (totalPurchased === 0) return; // no purchases → keep default chart sausage types
+
+    // Build weighted pool proportional to purchase quantities
+    const pool: string[] = [];
+    for (const [sausageId, qty] of Object.entries(inventory)) {
+      for (let n = 0; n < qty; n++) pool.push(sausageId);
+    }
+    if (pool.length === 0) return;
+
+    // Reassign sausage type on each non-service-combo note from the pool
+    for (const note of this.chart.notes) {
+      if (note.isServiceCombo) continue; // preserve service combo sausage variety
+      note.sausage = pool[Math.floor(Math.random() * pool.length)];
+    }
   }
 
   /** Play BGM from given offset (seconds). Creates a fresh AudioBufferSourceNode. */
