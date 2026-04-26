@@ -138,7 +138,7 @@ export class GrillScene extends Phaser.Scene {
   // ── Grill event state ───────────────────────────────────────────────────
   private grillEventTimer = 0;
   private grillEventNextTrigger = 0; // randomized interval in seconds
-  private grillEventTriggered = 0;   // how many events fired this session (max 2)
+  private grillEventTriggered = 0;   // how many events fired this session (max 3, no repeats)
   private isShowingGrillEvent = false;
   private triggeredEventIds: string[] = [];
   // UI containers for event overlay (destroyed after dismissal)
@@ -728,31 +728,12 @@ export class GrillScene extends Phaser.Scene {
       }
     }
 
-    // Countdown
+    // Wave 6 rhythm mode: scene end is driven by BGM completion (onChartComplete),
+    // NOT by timeLeft countdown or "no customer" auto-end.
+    // timeLeft is kept as a display-only counter (HUD), no longer triggers endGrilling.
     this.timeLeft -= dt;
-    if (this.timeLeft <= 0) {
-      this.timeLeft = 0;
-      this.endGrilling();
-    }
-
+    if (this.timeLeft < 0) this.timeLeft = 0;
     this.updateTimerDisplay();
-
-    // Auto-end if no pending customers and nobody waiting
-    // Don't auto-end during combat, events, condiment station, or away activities
-    if (
-      !this.isDone &&
-      !this.paused &&
-      !this.isShowingGrillEvent &&
-      !this.isShowingCondimentStation &&
-      !this.isPlayerAway &&
-      !this.currentCombatPanel &&
-      this.pendingCustomerQueue.length === 0 &&
-      this.customerQueue.getWaitingCount() === 0 &&
-      this.salesLog.length > 0 &&
-      this.timeLeft < 85 // don't auto-end in the first 5 seconds
-    ) {
-      this.endGrilling();
-    }
 
     this.tickCustomerCommentary(dt);
 
@@ -1714,8 +1695,8 @@ export class GrillScene extends Phaser.Scene {
       color: COLOR_DIM,
     }).setOrigin(0.5).setDepth(5);
 
-    // Create initial 12 empty slots (4x3 grid)
-    for (let i = 0; i < 12; i++) {
+    // Create initial 16 empty slots (4 columns × 4 rows)
+    for (let i = 0; i < 16; i++) {
       this.createWarmingSlotVisual();
     }
 
@@ -1723,7 +1704,7 @@ export class GrillScene extends Phaser.Scene {
 
   private createWarmingSlotVisual(): WarmingSlot {
     const idx = this.warmingSlots.length;
-    // 4x3 grid layout (4 columns, 3 rows)
+    // 4-column grid (rows extend downward as needed)
     const col = idx % 4;
     const row = Math.floor(idx / 4);
     const slotW = this.wzSlotW / 4;
@@ -2486,7 +2467,7 @@ export class GrillScene extends Phaser.Scene {
   // ── Grill event tick ──────────────────────────────────────────────────────
 
   private tickGrillEvents(dt: number): void {
-    if (this.grillEventTriggered >= 2) return;
+    if (this.grillEventTriggered >= 3) return;
 
     this.grillEventTimer += dt;
     if (this.grillEventTimer < this.grillEventNextTrigger) return;

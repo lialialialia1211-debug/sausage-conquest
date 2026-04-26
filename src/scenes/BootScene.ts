@@ -10,6 +10,9 @@ import { resetEventTracking } from '../systems/EventEngine';
 import { resetCasinoEngine } from '../systems/CasinoEngine';
 import { resetAchievements } from '../systems/AchievementEngine';
 
+// Bump this string whenever chart-grill-theme.json changes so browsers pick up the new chart
+const CHART_VERSION = '2026042602';
+
 // Page background tints for each prologue page
 const PAGE_TINTS = [
   { top: 0x050508, bot: 0x0d0d14 },  // Page 1: dim office (cold dark)
@@ -104,7 +107,8 @@ export class BootScene extends Phaser.Scene {
 
     // ── Wave 6a: Rhythm chart + theme BGM ──
     // chart-grill-theme.json is loaded into Phaser cache under key 'chart-grill-theme'
-    this.load.json('chart-grill-theme', 'chart-grill-theme.json');
+    // Cache-bust chart JSON so chart updates are picked up without manual refresh
+    this.load.json('chart-grill-theme', `chart-grill-theme.json?v=${CHART_VERSION}`);
     // BGM preloaded here so Wave 6d doesn't need to touch BootScene again
     this.load.audio('bgm-grill-theme', 'bgm-grill-theme.mp3');
   }

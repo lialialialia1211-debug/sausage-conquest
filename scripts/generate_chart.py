@@ -64,19 +64,18 @@ def main() -> None:
 
     notes = []
 
-    # 1) Place a note on every beat for verse/chorus, every 2nd for intro, every 3rd for outro
+    # 1) Place a note on every beat for ALL sections (intro/verse/chorus full density)
     for i, t in enumerate(beats):
         sec_idx, label = get_section(t)
 
         if label == "intro":
-            if i % 2 != 0:
-                continue
+            pass  # every beat (was: every 2nd)
         elif label == "verse":
             pass  # every beat
         elif label == "chorus":
             pass  # every beat
         elif label == "outro":
-            if i % 3 != 0:
+            if i % 2 != 0:
                 continue
         else:
             continue
@@ -110,11 +109,9 @@ def main() -> None:
             })
 
     if DIFFICULTY == "extreme":
-        # Verse: half-beat syncopation every 4 beats (lighter density than chorus)
+        # Verse: half-beat syncopation between EVERY adjacent pair (full density)
         verse_beats = [t for _, t in [(i, t) for i, t in enumerate(beats) if 20.27 <= t < 81.08]]
-        for k in range(0, len(verse_beats) - 1, 4):
-            if k + 1 >= len(verse_beats):
-                break
+        for k in range(len(verse_beats) - 1):
             mid_t = (verse_beats[k] + verse_beats[k + 1]) / 2
             if any(abs(n["t"] - mid_t) < 0.12 for n in notes):
                 continue
@@ -123,6 +120,20 @@ def main() -> None:
                 "type": "ka",
                 "sausage": random.choice(SAUSAGES_COMMON),
             })
+
+        # Chorus high-energy zone (last 30s): add 1/4-beat triplets at the 1/4 and 3/4 points
+        chorus_high = [t for _, t in [(i, t) for i, t in enumerate(beats) if 110.0 <= t < 141.90]]
+        for k in range(len(chorus_high) - 1):
+            beat_gap = chorus_high[k + 1] - chorus_high[k]
+            for frac in (0.25, 0.75):
+                tick_t = chorus_high[k] + beat_gap * frac
+                if any(abs(n["t"] - tick_t) < 0.10 for n in notes):
+                    continue
+                notes.append({
+                    "t": round(float(tick_t), 3),
+                    "type": "don" if frac < 0.5 else "ka",
+                    "sausage": random.choice(SAUSAGES_COMMON),
+                })
 
     # Sort by time after all insertions
     notes.sort(key=lambda n: n["t"])
