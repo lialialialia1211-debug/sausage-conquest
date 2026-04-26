@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { EventBus } from '../utils/EventBus';
-import { updateGameState } from '../state/GameState';
+import { gameState, updateGameState } from '../state/GameState';
 import { GRID_SLOTS } from '../data/map';
 import { PROLOGUE_PAGES } from '../data/dialogue';
 import { sfx } from '../utils/SoundFX';
@@ -35,6 +35,7 @@ export class BootScene extends Phaser.Scene {
   preload(): void {
     // ── Cover & Prologue ──
     this.load.image('cover', 'cover.png');
+    this.load.image('logo-ex', 'logo-ex.png');
     this.load.image('prologue-1', 'story-prologue-1.png');
     this.load.image('prologue-2', 'story-prologue-2.png');
     this.load.image('prologue-3', 'story-prologue-3.png');
@@ -125,9 +126,16 @@ export class BootScene extends Phaser.Scene {
     const bg = this.add.graphics();
     this.drawBackground(bg, width, height, 0);
 
-    // Title: cover image logo (on TOP of everything)
+    // Title: logo-ex (preferred) → cover (fallback) → text fallback
     let title: Phaser.GameObjects.Image | Phaser.GameObjects.Text;
-    if (this.textures.exists('cover')) {
+    if (this.textures.exists('logo-ex')) {
+      const logo = this.add.image(cx, height * 0.22, 'logo-ex');
+      const maxW = width * 0.92;
+      const maxH = height * 0.42;
+      const scale = Math.min(maxW / logo.width, maxH / logo.height);
+      logo.setScale(scale).setDepth(10);
+      title = logo;
+    } else if (this.textures.exists('cover')) {
       const cover = this.add.image(cx, height * 0.22, 'cover');
       const maxW = width * 0.85;
       const maxH = height * 0.22;
@@ -238,7 +246,12 @@ export class BootScene extends Phaser.Scene {
       const doBootTransition = () => {
         if (bootTransitioned) return;
         bootTransitioned = true;
-        this.scene.start('MorningScene');
+        // 已選過難度（重開存檔）→ 直接進 MorningScene；新遊戲 → DifficultyScene
+        if (gameState.difficulty) {
+          this.scene.start('MorningScene');
+        } else {
+          this.scene.start('DifficultyScene');
+        }
       };
       try {
         const { width: fw, height: fh } = this.scale;

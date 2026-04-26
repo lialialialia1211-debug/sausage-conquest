@@ -39,7 +39,7 @@ import { CUSTOMER_COMMENTS, COUNTER_ATTACKS } from '../data/customerComments';
 import { SpectatorCrowd } from '../objects/SpectatorCrowd';
 import { RhythmNote } from '../objects/RhythmNote';
 import type { RhythmChart } from '../data/chart';
-import { judgeHit, JUDGE_WINDOWS } from '../systems/RhythmEngine';
+import { JUDGE_WINDOWS } from '../systems/RhythmEngine';
 import type { HitJudgement } from '../systems/RhythmEngine';
 import type { NoteType, ChartNote } from '../data/chart';
 
@@ -999,7 +999,7 @@ export class GrillScene extends Phaser.Scene {
       n.setPositionByTime(now, n.note.t, this.NOTE_HIT_X, this.NOTE_SPAWN_X, this.NOTE_LEAD_TIME);
 
       // Auto-MISS: note time passed the good window and still not hit
-      if (!n.isHit && n.note.t < now - JUDGE_WINDOWS.good) {
+      if (!n.isHit && n.note.t < now - JUDGE_WINDOWS.good * this.getJudgeMultiplier()) {
         n.markHit();
         this.hitStats.miss += 1;
         this.rhythmCombo = 0;
@@ -1030,6 +1030,29 @@ export class GrillScene extends Phaser.Scene {
     }
   }
 
+  // ── Difficulty: judgement window multiplier ───────────────────────────────
+
+  /**
+   * Returns 2.0 for casual (寬判定 ×2)，1.0 for hardcore or undefined（預設）。
+   * Multiplied into JUDGE_WINDOWS values at runtime; the constants stay unchanged.
+   */
+  private getJudgeMultiplier(): number {
+    return gameState.difficulty === 'casual' ? 2.0 : 1.0;
+  }
+
+  /**
+   * Local judgement function that respects the current difficulty multiplier.
+   * Mirrors judgeHit() from RhythmEngine but scales all windows by the multiplier.
+   */
+  private judgeHitDynamic(noteTime: number, pressTime: number): HitJudgement | null {
+    const m = this.getJudgeMultiplier();
+    const delta = Math.abs(noteTime - pressTime);
+    if (delta <= JUDGE_WINDOWS.perfect * m) return 'perfect';
+    if (delta <= JUDGE_WINDOWS.great   * m) return 'great';
+    if (delta <= JUDGE_WINDOWS.good    * m) return 'good';
+    return null;
+  }
+
   // ── Wave 6b: Rhythm input handling ──────────────────────────────────────
 
   /**
@@ -1050,7 +1073,7 @@ export class GrillScene extends Phaser.Scene {
     for (const n of this.rhythmNotes) {
       if (n.isHit) continue;
       // Notes still too far in the future haven't entered the press-eligible window
-      if (n.note.t - now > JUDGE_WINDOWS.good) continue;
+      if (n.note.t - now > JUDGE_WINDOWS.good * this.getJudgeMultiplier()) continue;
       frontNote = n;
       break;
     }
@@ -1066,7 +1089,7 @@ export class GrillScene extends Phaser.Scene {
       return;
     }
 
-    const judgement = judgeHit(frontNote.note.t, now);
+    const judgement = this.judgeHitDynamic(frontNote.note.t, now);
     if (judgement === null) {
       // Outside even the good window — auto-MISS handler will deal with it
       return;

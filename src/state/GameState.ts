@@ -90,6 +90,7 @@ export const gameState = {
     totalCollected: 0,
   } as HuiState,
   gameMode: '' as string,  // 'normal' | 'simulation' | '' (not yet chosen)
+  difficulty: undefined as 'hardcore' | 'casual' | undefined,  // set in DifficultyScene
   // Track which one-time economy hint notifications have been shown (by hint ID)
   economyHintsShown: [] as string[],
   // Morning preparation choice for today: 'scout' | 'practice' | 'social' | '' (empty = not chosen)

@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { BootScene } from './scenes/BootScene';
+import { DifficultyScene } from './scenes/DifficultyScene';
 import { MorningScene } from './scenes/MorningScene';
 import { EveningScene } from './scenes/EveningScene';
 import { GrillScene } from './scenes/GrillScene';
@@ -25,6 +26,7 @@ const config: Phaser.Types.Core.GameConfig = {
   },
   scene: [
     BootScene,
+    DifficultyScene,
     MorningScene,
     EveningScene,
     GrillScene,
