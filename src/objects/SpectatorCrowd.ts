@@ -53,7 +53,7 @@ const PERSONALITY_IMAGE_MAP: Record<string, string> = {
   beggar:    'customer-beggar',
 };
 
-const SPECTATOR_SIZE = 50;     // 縮小讓 12 個排得開
+const SPECTATOR_SIZE = 90;     // 放大讓圍觀者清晰可見
 const MAX_CAPACITY = 12;
 const RADIUS = 200;
 const NATURAL_LEAVE_MIN = 15;  // 圍觀者最短在場秒數

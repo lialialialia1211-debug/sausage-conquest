@@ -170,7 +170,6 @@ export class GrillScene extends Phaser.Scene {
   private timerText!: Phaser.GameObjects.Text;
   private revenueText!: Phaser.GameObjects.Text;
   private statsText!: Phaser.GameObjects.Text;
-  private speedButtons: Phaser.GameObjects.Container[] = [];
   private feedbackTexts: Phaser.GameObjects.Text[] = [];
   // Fire emoji particles floating upward
   private fireParticles: Phaser.GameObjects.Text[] = [];
@@ -311,7 +310,6 @@ export class GrillScene extends Phaser.Scene {
     this.customerArrivalInterval = Math.max(MIN_ARRIVAL_INTERVAL, BASE_ARRIVAL_INTERVAL - dayFactor * 4 - upgradeBonus) * 0.6;
     this.grillSlots = [];
     this.warmingSlots = [];
-    this.speedButtons = [];
     this.feedbackTexts = [];
     this.fireParticles = [];
     this.fireParticleTimer = 0;
@@ -391,7 +389,6 @@ export class GrillScene extends Phaser.Scene {
     this.setupGrillSlots(width, height, maxSlots);
     this.setupWarmingZone(width, height);
     this.setupCustomerQueue(width, height);
-    this.setupSpeedButtons(width, height);
     this.setupHUD(width, height);
     this.setupSpectatorCrowd(width, height);
     this.setupRhythmTrack(width, height);
@@ -1675,39 +1672,6 @@ export class GrillScene extends Phaser.Scene {
     rackBack.lineTo(barEndX, grillY + 3 * barSpacing);
     rackBack.strokePath();
 
-    // S5.1: rackFront (bars i=4..8, side-rail front half, metallic sheen) — depth 6, in front of sausages
-    // This creates the illusion that sausages are nestled inside the rack
-    const rackFront = this.add.graphics();
-    rackFront.setDepth(6);
-
-    // Front horizontal bars (i=4..8, lower portion — appear in front of sausages)
-    rackFront.lineStyle(4, 0x777777, 1);
-    for (let i = 4; i < barCount; i++) {
-      const y = grillY + i * barSpacing;
-      rackFront.beginPath();
-      rackFront.moveTo(barStartX, y);
-      rackFront.lineTo(barEndX, y);
-      rackFront.strokePath();
-    }
-
-    // Side rails (front half — lower portion)
-    rackFront.lineStyle(6, 0x666666, 1);
-    rackFront.beginPath();
-    rackFront.moveTo(barStartX, grillY + 4 * barSpacing);
-    rackFront.lineTo(barStartX, grillY + (barCount - 1) * barSpacing);
-    rackFront.strokePath();
-
-    rackFront.beginPath();
-    rackFront.moveTo(barEndX, grillY + 4 * barSpacing);
-    rackFront.lineTo(barEndX, grillY + (barCount - 1) * barSpacing);
-    rackFront.strokePath();
-
-    // Metallic sheen on front bars (highlight)
-    rackFront.lineStyle(2, 0x999999, 0.4);
-    rackFront.beginPath();
-    rackFront.moveTo(barStartX + 4, grillY + 4 * barSpacing);
-    rackFront.lineTo(barEndX - 4, grillY + 4 * barSpacing);
-    rackFront.strokePath();
   }
 
   private redrawFireGlow(_x: number, _y: number, _w: number): void {
@@ -2026,7 +1990,7 @@ export class GrillScene extends Phaser.Scene {
   }
 
   private setupCustomerQueue(width: number, _height: number): void {
-    const queueY = this.scale.height * 0.17;
+    const queueY = this.scale.height * 0.22;
     if (this.textures.exists('queue-bg')) {
       const qbg = this.add.image(width / 2, queueY, 'queue-bg');
       qbg.setDisplaySize(width, 100).setAlpha(0.5).setDepth(0);
@@ -2069,40 +2033,6 @@ export class GrillScene extends Phaser.Scene {
     });
   }
 
-  private setupSpeedButtons(width: number, height: number): void {
-    // Speed buttons at 80% screen height, left third of screen
-    const btnY = height * 0.80;
-    const speeds = [1, 2, 3];
-
-    const btnW = 36;
-    const btnH = 22;
-    const gap = 5;
-    const totalBtnW = speeds.length * btnW + (speeds.length - 1) * gap;
-    // Left third of screen
-    const startX = width * 0.05;
-
-    speeds.forEach((spd, i) => {
-      const bx = startX + i * (btnW + gap) + btnW / 2;
-      const btn = this.createButton(bx, btnY, btnW, btnH, `${spd}x`, () => {
-        this.speedMultiplier = spd;
-        this.updateSpeedButtonStyles();
-      });
-      // Override font size to 11px
-      const txtObj = btn.list[1] as Phaser.GameObjects.Text;
-      txtObj.setFontSize('11px');
-      this.speedButtons.push(btn);
-    });
-
-    this.updateSpeedButtonStyles();
-
-    const centerX = startX + totalBtnW / 2;
-    this.add.text(centerX, btnY - 14, '速度', {
-      fontSize: '11px',
-      fontFamily: FONT,
-      color: COLOR_DIM,
-    }).setOrigin(0.5);
-
-  }
 
   private setupHUD(width: number, _height: number): void {
     // ── Top left: timer ──────────────────────────────────────────────────
@@ -2120,25 +2050,6 @@ export class GrillScene extends Phaser.Scene {
       fontFamily: FONT,
       color: COLOR_ORANGE,
     }).setOrigin(1, 0).setDepth(10);
-
-    // ── Price board — show today's prices like a real night market stall ──
-    const priceEntries = Object.entries(gameState.prices)
-      .filter(([id]) => gameState.unlockedSausages.includes(id))
-      .map(([id, price]) => {
-        const info = SAUSAGE_MAP[id];
-        return info ? `${info.name} $${price}` : '';
-      })
-      .filter(Boolean);
-
-    if (priceEntries.length > 0) {
-      this.add.text(width / 2, 72, priceEntries.join('  '), {
-        fontSize: '11px',
-        fontFamily: FONT,
-        color: '#ffcc44',
-        backgroundColor: '#1a0800cc',
-        padding: { x: 8, y: 3 },
-      }).setOrigin(0.5, 0).setDepth(10);
-    }
 
     // ── Top-right stats display ──────────────────────────────────────────
     const statsX = width - 10;
@@ -2189,72 +2100,6 @@ export class GrillScene extends Phaser.Scene {
       backgroundColor: '#000000aa',
       padding: { x: 6, y: 3 },
     }).setOrigin(1, 0).setDepth(15);
-  }
-
-  // ── Button factory ────────────────────────────────────────────────────────
-
-  private createButton(
-    x: number,
-    y: number,
-    w: number,
-    h: number,
-    label: string,
-    onPress: () => void,
-  ): Phaser.GameObjects.Container {
-    const container = this.add.container(x, y);
-
-    const bg = this.add.graphics();
-    this.drawButtonBg(bg, w, h, false);
-
-    const fontSize = label.includes('\n') ? '11px' : '13px';
-    const txt = this.add.text(0, 0, label, {
-      fontSize,
-      fontFamily: FONT,
-      color: COLOR_ORANGE,
-      align: 'center',
-    }).setOrigin(0.5);
-
-    const hitZone = this.add.zone(0, 0, w, h).setInteractive({ cursor: 'pointer' });
-
-    hitZone.on('pointerover', () => this.drawButtonBg(bg, w, h, true));
-    hitZone.on('pointerout',  () => this.drawButtonBg(bg, w, h, false));
-    hitZone.on('pointerdown', onPress);
-
-    container.add([bg, txt, hitZone]);
-    return container;
-  }
-
-  private drawButtonBg(g: Phaser.GameObjects.Graphics, w: number, h: number, hover: boolean): void {
-    g.clear();
-    g.fillStyle(hover ? 0xff6b00 : 0x100500, hover ? 0.2 : 0.92);
-    g.lineStyle(1, 0xff6b00, hover ? 1.0 : 0.5);
-    g.fillRoundedRect(-w / 2, -h / 2, w, h, 4);
-    g.strokeRoundedRect(-w / 2, -h / 2, w, h, 4);
-  }
-
-  private updateSpeedButtonStyles(): void {
-    const speeds = [1, 2, 3];
-    const btnW = 36;
-    const btnH = 28;
-    this.speedButtons.forEach((btn, i) => {
-      const isActive = speeds[i] === this.speedMultiplier;
-      const bg = btn.list[0] as Phaser.GameObjects.Graphics;
-      const txt = btn.list[1] as Phaser.GameObjects.Text;
-      bg.clear();
-      if (isActive) {
-        bg.fillStyle(0xff6b00, 0.35);
-        bg.lineStyle(2, 0xff6b00, 1);
-        bg.fillRoundedRect(-btnW / 2, -btnH / 2, btnW, btnH, 4);
-        bg.strokeRoundedRect(-btnW / 2, -btnH / 2, btnW, btnH, 4);
-        txt.setColor('#ffffff');
-      } else {
-        bg.fillStyle(0x100500, 0.92);
-        bg.lineStyle(1, 0xff6b00, 0.35);
-        bg.fillRoundedRect(-btnW / 2, -btnH / 2, btnW, btnH, 4);
-        bg.strokeRoundedRect(-btnW / 2, -btnH / 2, btnW, btnH, 4);
-        txt.setColor(COLOR_DIM);
-      }
-    });
   }
 
   // ── Game logic ─────────────────────────────────────────────────────────────
@@ -2505,14 +2350,38 @@ export class GrillScene extends Phaser.Scene {
     this.pauseBgm();
     const { width: w, height: h } = this.scale;
 
-    const eventImageMap: Record<string, string> = {
-      'nuisance': 'karen-alert',
-      'thug': 'karen-alert',
-      'beggar': 'karen-alert',
-      'authority': 'karen-alert',
+    const eventImageById: Record<string, string> = {
+      // nuisance category
+      'karen': 'karen-alert',
+      'costco-guy': 'event-costco-guy',
+      'food-critic': 'event-food-critic',
+      'competitor-spy': 'karen-alert',           // no specific image
+      'expired-ingredient-gamble': 'karen-alert', // no specific image
+      // thug category
+      'thug': 'event-thugs',
+      'protection-fee': 'event-thugs',
+      'territory-threat': 'event-thugs',
+      'gang-offer': 'event-thugs',
+      'underground-delivery': 'event-thugs',
+      // beggar category
+      'beggar': 'event-drunk-uncle',
+      'food-festival': 'event-food-festival',
+      'celebrity-visit': 'event-food-festival',
+      // authority category
+      'inspector': 'event-inspector',
+      'management-fee-weekly': 'event-inspector',
+      'inspector-surprise': 'event-inspector',
+      'media-crisis-exposed': 'event-food-critic',
     };
 
-    const splashKey = eventImageMap[event.category];
+    const categoryFallback: Record<string, string> = {
+      'nuisance': 'karen-alert',
+      'thug': 'event-thugs',
+      'beggar': 'event-drunk-uncle',
+      'authority': 'event-inspector',
+    };
+
+    const splashKey = eventImageById[event.id] ?? categoryFallback[event.category] ?? 'karen-alert';
     if (splashKey && this.textures.exists(splashKey)) {
       // Show character splash with SHAKE + ZOOM animation (no black overlay)
       const splash = this.add.image(w / 2, h / 2, splashKey).setDepth(300);
