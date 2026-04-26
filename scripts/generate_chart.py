@@ -41,8 +41,8 @@ DENSITY_RULES = [
 ]
 
 # Difficulty: how aggressively to spawn notes
-# "hard" = every beat in verse + chorus, plus syncopation in chorus
-DIFFICULTY = "hard"
+# "extreme" = every beat in all sections + half-beat syncopation in verse and chorus
+DIFFICULTY = "extreme"
 
 
 def get_section(t: float) -> tuple[int, str]:
@@ -94,24 +94,38 @@ def main() -> None:
             "sausage": sausage,
         })
 
-    # 2) Add syncopation (off-beat half-notes) in chorus only — every 4 beats insert one mid-point
-    if DIFFICULTY == "hard":
-        chorus_beats = [(i, t) for i, t in enumerate(beats) if 81.08 <= t < 141.90]
-        # Group by every 4 beats; insert ka at the midpoint between beat 2 and 3 of each group
-        for k in range(0, len(chorus_beats) - 1, 4):
-            if k + 2 >= len(chorus_beats):
-                break
-            _, t1 = chorus_beats[k + 1]
-            _, t2 = chorus_beats[k + 2]
-            mid_t = (t1 + t2) / 2
+    # 2) Add syncopation in verse and chorus
+    if DIFFICULTY in ("hard", "extreme"):
+        # Chorus: half-beat syncopation between every adjacent beat pair (heavy density)
+        chorus_beats = [t for _, t in [(i, t) for i, t in enumerate(beats) if 81.08 <= t < 141.90]]
+        for k in range(len(chorus_beats) - 1):
+            mid_t = (chorus_beats[k] + chorus_beats[k + 1]) / 2
+            # Skip if too close to existing note (< 0.12s)
+            if any(abs(n["t"] - mid_t) < 0.12 for n in notes):
+                continue
             notes.append({
                 "t": round(float(mid_t), 3),
                 "type": "ka",
                 "sausage": random.choice(SAUSAGES_COMMON),
             })
 
-        # Sort by time again after insertion
-        notes.sort(key=lambda n: n["t"])
+    if DIFFICULTY == "extreme":
+        # Verse: half-beat syncopation every 4 beats (lighter density than chorus)
+        verse_beats = [t for _, t in [(i, t) for i, t in enumerate(beats) if 20.27 <= t < 81.08]]
+        for k in range(0, len(verse_beats) - 1, 4):
+            if k + 1 >= len(verse_beats):
+                break
+            mid_t = (verse_beats[k] + verse_beats[k + 1]) / 2
+            if any(abs(n["t"] - mid_t) < 0.12 for n in notes):
+                continue
+            notes.append({
+                "t": round(float(mid_t), 3),
+                "type": "ka",
+                "sausage": random.choice(SAUSAGES_COMMON),
+            })
+
+    # Sort by time after all insertions
+    notes.sort(key=lambda n: n["t"])
 
     # 3) Re-balance don/ka after sort (alternate for visual rhythm)
     for idx, n in enumerate(notes):
