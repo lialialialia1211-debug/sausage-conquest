@@ -36,7 +36,7 @@ import { AWAY_ACTIVITIES, rollActivityOutcome } from '../data/activities';
 import type { AwayActivity } from '../data/activities';
 import { getSpecialEffect } from '../data/sausage-effects';
 import type { SpecialEffectResult } from '../data/sausage-effects';
-import { CUSTOMER_COMMENTS, COUNTER_ATTACKS } from '../data/customerComments';
+// customerComments removed — S5.2
 import { SpectatorCrowd } from '../objects/SpectatorCrowd';
 import { RhythmNote } from '../objects/RhythmNote';
 import type { RhythmChart } from '../data/chart';
@@ -98,6 +98,7 @@ interface GrillSlot {
   pressBtn?: Phaser.GameObjects.Container | null;
   oilBtn?: Phaser.GameObjects.Container | null;
   __isPressingBtn?: boolean;    // true while press button is held
+  __shadowGfx?: Phaser.GameObjects.Graphics | null;  // S5.1: ellipse shadow under slot
 }
 
 // Extended Graphics object that carries the associated hit zone
@@ -207,11 +208,7 @@ export class GrillScene extends Phaser.Scene {
   private patienceBoostNext: number = 0;
   private patienceBoostAmount: number = 1;
 
-  // ── Customer commentary state ─────────────────────────────────────────────
-  private lastCommentTime = 0;
-  private commentBubble: Phaser.GameObjects.Text | null = null;
-  private counterAttackPanel: Phaser.GameObjects.Container | null = null;
-  private slowServiceTimer = 0; // how long grill+warming have been empty while customers wait
+  // S5.2: customer commentary state removed
 
   // ── Wave 4c: SpectatorCrowd ──────────────────────────────────────────────
   private spectatorCrowd!: SpectatorCrowd;
@@ -347,10 +344,7 @@ export class GrillScene extends Phaser.Scene {
     this.tipMultiplierServesLeft = 0;
     this.patienceBoostNext = 0;
     this.patienceBoostAmount = 1;
-    this.lastCommentTime = 0;
-    this.commentBubble = null;
-    this.counterAttackPanel = null;
-    this.slowServiceTimer = 0;
+    // S5.2: commentary fields removed
     this.perfectCombo = 0;
     this.maxCombo = 0;
     this.comboText = null;
@@ -797,7 +791,7 @@ export class GrillScene extends Phaser.Scene {
     }
     this.updateTimerDisplay();
 
-    this.tickCustomerCommentary(dt);
+    // S5.2: tickCustomerCommentary removed
 
     // ── Wave 4c: SpectatorCrowd tick ────────────────────────────────────────
     this.spectatorCrowd.tick(dt);
@@ -932,7 +926,7 @@ export class GrillScene extends Phaser.Scene {
 
     // NOTE_TRACK_Y: above grill rack (grill at 0.50), between customer queue (~0.17) and grill.
     // 0.40 places the track just above the grill so notes look like they fly into the rack.
-    this.noteTrackY = height * 0.40;
+    this.noteTrackY = height * 0.42; // S5.1: down 2% so notes land closer to rack
 
     // Debug: track line (semi-transparent dark grey)
     const trackLine = this.add.graphics();
@@ -1564,7 +1558,7 @@ export class GrillScene extends Phaser.Scene {
     (sausage as GrillingSausage & { rhythmAccuracy?: string }).rhythmAccuracy = accuracy;
 
     const sprite = new SausageSprite(this, slot.x, slot.y, sausage);
-    sprite.setDepth(10);
+    sprite.setDepth(4); // S5.1: depth 4, between rackBack(2) and rackFront(6)
     const slotIndex = this.grillSlots.indexOf(slot);
 
     // S1.5: double-click manual serve removed — auto-managed by rhythm system
@@ -1576,6 +1570,7 @@ export class GrillScene extends Phaser.Scene {
     slot.__carbonWarnShown = false;
     slot.__burntWarnShown = false;
     slot.__isPressingBtn = false;
+    this.addSlotShadow(slot); // S5.1: shadow under sausage
   }
 
   /**
@@ -1649,41 +1644,70 @@ export class GrillScene extends Phaser.Scene {
     const barCount = 9;
     const barSpacing = 16;
 
-    const rack = this.add.graphics();
-    rack.setDepth(2);
-
     // Fire glow below rack (stored for update)
     this.fireGlowGfx = this.add.graphics();
     this.redrawFireGlow(barStartX, grillY + barCount * barSpacing, barEndX - barStartX);
 
-    // Horizontal grill bars
-    rack.lineStyle(4, 0x666666, 1);
-    for (let i = 0; i < barCount; i++) {
+    // S5.1: rackBack (bars i=0..3, side-rail back half) — depth 2, behind sausages
+    // Sausages will be at depth 4, rackFront at depth 6 → 3D layering effect
+    const rackBack = this.add.graphics();
+    rackBack.setDepth(2);
+
+    // Back horizontal bars (i=0..3, top portion — appear behind sausages)
+    rackBack.lineStyle(4, 0x666666, 1);
+    for (let i = 0; i < 4; i++) {
       const y = grillY + i * barSpacing;
-      rack.beginPath();
-      rack.moveTo(barStartX, y);
-      rack.lineTo(barEndX, y);
-      rack.strokePath();
+      rackBack.beginPath();
+      rackBack.moveTo(barStartX, y);
+      rackBack.lineTo(barEndX, y);
+      rackBack.strokePath();
     }
 
-    // Side rails
-    rack.lineStyle(6, 0x555555, 1);
-    rack.beginPath();
-    rack.moveTo(barStartX, grillY);
-    rack.lineTo(barStartX, grillY + (barCount - 1) * barSpacing);
-    rack.strokePath();
+    // Side rails (back half — upper portion)
+    rackBack.lineStyle(6, 0x555555, 1);
+    rackBack.beginPath();
+    rackBack.moveTo(barStartX, grillY);
+    rackBack.lineTo(barStartX, grillY + 3 * barSpacing);
+    rackBack.strokePath();
 
-    rack.beginPath();
-    rack.moveTo(barEndX, grillY);
-    rack.lineTo(barEndX, grillY + (barCount - 1) * barSpacing);
-    rack.strokePath();
+    rackBack.beginPath();
+    rackBack.moveTo(barEndX, grillY);
+    rackBack.lineTo(barEndX, grillY + 3 * barSpacing);
+    rackBack.strokePath();
 
-    // Metallic sheen on top rail
-    rack.lineStyle(2, 0x999999, 0.4);
-    rack.beginPath();
-    rack.moveTo(barStartX + 4, grillY);
-    rack.lineTo(barEndX - 4, grillY);
-    rack.strokePath();
+    // S5.1: rackFront (bars i=4..8, side-rail front half, metallic sheen) — depth 6, in front of sausages
+    // This creates the illusion that sausages are nestled inside the rack
+    const rackFront = this.add.graphics();
+    rackFront.setDepth(6);
+
+    // Front horizontal bars (i=4..8, lower portion — appear in front of sausages)
+    rackFront.lineStyle(4, 0x777777, 1);
+    for (let i = 4; i < barCount; i++) {
+      const y = grillY + i * barSpacing;
+      rackFront.beginPath();
+      rackFront.moveTo(barStartX, y);
+      rackFront.lineTo(barEndX, y);
+      rackFront.strokePath();
+    }
+
+    // Side rails (front half — lower portion)
+    rackFront.lineStyle(6, 0x666666, 1);
+    rackFront.beginPath();
+    rackFront.moveTo(barStartX, grillY + 4 * barSpacing);
+    rackFront.lineTo(barStartX, grillY + (barCount - 1) * barSpacing);
+    rackFront.strokePath();
+
+    rackFront.beginPath();
+    rackFront.moveTo(barEndX, grillY + 4 * barSpacing);
+    rackFront.lineTo(barEndX, grillY + (barCount - 1) * barSpacing);
+    rackFront.strokePath();
+
+    // Metallic sheen on front bars (highlight)
+    rackFront.lineStyle(2, 0x999999, 0.4);
+    rackFront.beginPath();
+    rackFront.moveTo(barStartX + 4, grillY + 4 * barSpacing);
+    rackFront.lineTo(barEndX - 4, grillY + 4 * barSpacing);
+    rackFront.strokePath();
   }
 
   private redrawFireGlow(_x: number, _y: number, _w: number): void {
@@ -1729,7 +1753,8 @@ export class GrillScene extends Phaser.Scene {
   // ── UI setup ─────────────────────────────────────────────────────────────
 
   private setupGrillSlots(width: number, height: number, slotCount: number): void {
-    const grillY = height * GRILL_Y_FRAC - 20;
+    // S5.1: y moved down to sit on rack bar #3 (between rackBack and rackFront)
+    const grillY = height * GRILL_Y_FRAC + 34 + 32;
     const slotSpacing = Math.max(70, Math.min(100, (width * 0.85) / slotCount));
     const totalW = slotSpacing * slotCount;
     const startX = (width - totalW) / 2 + slotSpacing / 2; // centered
@@ -1742,9 +1767,26 @@ export class GrillScene extends Phaser.Scene {
     }
   }
 
+  /** S5.1: Create ellipse shadow for a slot when a sausage lands on it (depth 3). */
+  private addSlotShadow(slot: GrillSlot): void {
+    // Remove previous shadow if any
+    if (slot.__shadowGfx) { slot.__shadowGfx.destroy(); slot.__shadowGfx = null; }
+    const shadow = this.add.graphics();
+    shadow.fillStyle(0x000000, 0.35);
+    shadow.fillEllipse(slot.x, slot.y + 24, 80, 16);
+    shadow.setDepth(3);
+    slot.__shadowGfx = shadow;
+  }
+
+  /** S5.1: Destroy the slot shadow when sausage is removed. */
+  private removeSlotShadow(slot: GrillSlot): void {
+    if (slot.__shadowGfx) { slot.__shadowGfx.destroy(); slot.__shadowGfx = null; }
+  }
+
   private addOneGrillSlot(): void {
     const { width, height } = this.scale;
-    const grillY = height * GRILL_Y_FRAC - 20;
+    // S5.1: y moved down to sit on rack bar #3
+    const grillY = height * GRILL_Y_FRAC + 34 + 32;
     const slotSpacing = 100;
     const slotCount = this.grillSlots.length + 1;
     const totalW = slotSpacing * slotCount;
@@ -2810,7 +2852,7 @@ export class GrillScene extends Phaser.Scene {
 
     const sausage = createGrillingSausage(sausageTypeId);
     const sprite = new SausageSprite(this, slot.x, slot.y, sausage);
-    sprite.setDepth(10);
+    sprite.setDepth(4); // S5.1: depth 4, between rackBack(2) and rackFront(6)
     const slotIndex = this.grillSlots.indexOf(slot);
 
     // Single click = flip; double-click = move to warming zone
@@ -2842,6 +2884,7 @@ export class GrillScene extends Phaser.Scene {
     slot.__carbonWarnShown = false;
     slot.__burntWarnShown = false;
     slot.__isPressingBtn = false;
+    this.addSlotShadow(slot); // S5.1: shadow under sausage
 
     // Wave 4b: build interaction buttons for this slot
     this.buildSlotInteractionBtns(slot);
@@ -2913,6 +2956,7 @@ export class GrillScene extends Phaser.Scene {
     this.time.delayedCall(580, () => {
       if (this.isDone || !this.scene.isActive()) return;
       slot.sausage = null;
+      this.removeSlotShadow(slot); // S5.1: remove shadow when sausage leaves
       this.drawEmptySlotPlaceholder(slot);
       this.updateStatsDisplay();
     });
@@ -3136,13 +3180,6 @@ export class GrillScene extends Phaser.Scene {
     warmSlot.sausage = null;
     this.clearWarmingSlotDisplay(warmSlot);
 
-    // 碎碎念觸發：品質差時
-    if (grillQuality === 'carbonized' || grillQuality === 'burnt') {
-      this.time.delayedCall(800, () => this.showCustomerComment('burnt'));
-    } else if (grillQuality === 'raw' || grillQuality === 'half-cooked') {
-      this.time.delayedCall(800, () => this.showCustomerComment('raw'));
-    }
-
     // Check for special sausage effect
     const directEffect = getSpecialEffect(ws.sausageTypeId);
     if (directEffect) {
@@ -3314,13 +3351,6 @@ export class GrillScene extends Phaser.Scene {
     // ── Customer reaction bubble ─────────────────────────────────────────
     this.time.delayedCall(300, () => this.showCustomerReactionBubble(effectiveGrillQuality));
 
-    // 碎碎念觸發：品質差時
-    if (grillQuality === 'carbonized' || grillQuality === 'burnt') {
-      this.time.delayedCall(800, () => this.showCustomerComment('burnt'));
-    } else if (grillQuality === 'raw' || grillQuality === 'half-cooked') {
-      this.time.delayedCall(800, () => this.showCustomerComment('raw'));
-    }
-
     // Check for special sausage effect
     const finalizeEffect = getSpecialEffect(sausage.sausageTypeId);
     if (finalizeEffect) {
@@ -3364,175 +3394,8 @@ export class GrillScene extends Phaser.Scene {
 
   // ── Customer commentary & counter-attack ─────────────────────────────────
 
-  private tickCustomerCommentary(dt: number): void {
-    if (this.isDone || this.paused) return;
-    if (this.counterAttackPanel) return; // 正在顯示反擊面板，不要生成新的
-
-    this.lastCommentTime += dt;
-    if (this.lastCommentTime < 5) return; // 每 5 秒最多一次
-    this.lastCommentTime = 0;
-
-    // 取得在排隊的客人數
-    const waitingCount = this.customers.length;
-    if (waitingCount === 0) return;
-
-    // 檢查慢服務：排隊 ≥ 2 人且烤架 + 保溫區都空
-    const grillEmpty = this.grillSlots.every(s => !s.sausage);
-    const warmingEmpty = this.warmingSlots.every(s => !s.sausage);
-
-    if (waitingCount >= 2 && grillEmpty && warmingEmpty) {
-      this.slowServiceTimer += 5;
-      if (this.slowServiceTimer >= 10) { // 累計 10 秒空攤
-        this.showCustomerComment('slow');
-        return;
-      }
-    } else {
-      this.slowServiceTimer = Math.max(0, this.slowServiceTimer - 2);
-    }
-
-    // 排隊人數 ≥ 3 時偶爾觸發不耐煩
-    if (waitingCount >= 3 && Math.random() < 0.3) {
-      this.showCustomerComment('impatient');
-      return;
-    }
-  }
-
-  private showCustomerComment(category: keyof typeof CUSTOMER_COMMENTS): void {
-    // 移除舊氣泡
-    if (this.commentBubble?.active) {
-      this.commentBubble.destroy();
-      this.commentBubble = null;
-    }
-
-    const lines = CUSTOMER_COMMENTS[category];
-    const line = lines[Math.floor(Math.random() * lines.length)];
-
-    // 客人排隊區域大概在 height * 0.17
-    const queueY = this.scale.height * 0.17;
-    const bubbleX = this.scale.width / 2 + Math.random() * 100 - 50;
-    const bubbleY = queueY - 45;
-
-    this.commentBubble = this.add.text(bubbleX, bubbleY, `「${line}」`, {
-      fontSize: '14px',
-      fontFamily: 'Microsoft JhengHei, PingFang TC, sans-serif',
-      color: '#ffffff',
-      backgroundColor: '#333333dd',
-      padding: { x: 8, y: 4 },
-    }).setOrigin(0.5).setDepth(50);
-
-    // 淡出動畫
-    this.tweens.add({
-      targets: this.commentBubble,
-      y: bubbleY - 20,
-      alpha: { from: 1, to: 0 },
-      duration: 3000,
-      ease: 'Power1',
-      onComplete: () => {
-        if (this.commentBubble?.active) {
-          this.commentBubble.destroy();
-          this.commentBubble = null;
-        }
-      },
-    });
-
-    // 50% 機率觸發反擊面板
-    if (Math.random() < 0.5) {
-      this.time.delayedCall(500, () => {
-        this.showCounterAttackPanel();
-      });
-    }
-  }
-
-  private showCounterAttackPanel(): void {
-    if (this.counterAttackPanel) return;
-
-    const { width, height } = this.scale;
-    const panelW = 280;
-    const panelH = 120;
-    const px = width / 2;
-    const py = height * 0.45;
-
-    this.counterAttackPanel = this.add.container(px, py).setDepth(100);
-    this.paused = true; // 暫停烤制
-
-    // 背景
-    const bg = this.add.graphics();
-    bg.fillStyle(0x1a0a0a, 0.95);
-    bg.lineStyle(2, 0xff4444, 0.8);
-    bg.fillRoundedRect(-panelW / 2, -panelH / 2, panelW, panelH, 8);
-    bg.strokeRoundedRect(-panelW / 2, -panelH / 2, panelW, panelH, 8);
-    this.counterAttackPanel.add(bg);
-
-    // 標題
-    const title = this.add.text(0, -panelH / 2 + 16, '被客人激怒了！要反擊嗎？', {
-      fontSize: '13px',
-      fontFamily: 'Microsoft JhengHei, PingFang TC, sans-serif',
-      color: '#ff6666',
-    }).setOrigin(0.5);
-    this.counterAttackPanel.add(title);
-
-    // 按鈕
-    COUNTER_ATTACKS.forEach((atk, i) => {
-      const btnY = -10 + i * 32;
-      const btn = this.add.text(0, btnY, `${atk.label}（${atk.description}）`, {
-        fontSize: '12px',
-        fontFamily: 'Microsoft JhengHei, PingFang TC, sans-serif',
-        color: '#ffcc00',
-        backgroundColor: '#2a1a0a',
-        padding: { x: 10, y: 4 },
-      }).setOrigin(0.5).setInteractive({ useHandCursor: true });
-
-      btn.on('pointerover', () => btn.setColor('#ffffff'));
-      btn.on('pointerout', () => btn.setColor('#ffcc00'));
-      btn.on('pointerdown', () => {
-        this.executeCounterAttack(atk);
-      });
-
-      this.counterAttackPanel!.add(btn);
-    });
-
-    // 忍住按鈕
-    const ignoreBtn = this.add.text(0, panelH / 2 - 18, '算了，忍一下', {
-      fontSize: '11px',
-      color: '#888888',
-    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
-    ignoreBtn.on('pointerdown', () => this.dismissCounterAttack());
-    this.counterAttackPanel.add(ignoreBtn);
-
-    // 5 秒自動關閉
-    this.time.delayedCall(5000, () => this.dismissCounterAttack());
-  }
-
-  private executeCounterAttack(atk: typeof COUNTER_ATTACKS[0]): void {
-    // 扣錢 + 聲望
-    if (atk.moneyPenalty > 0) {
-      spendMoney(atk.moneyPenalty);
-    }
-    if (atk.repPenalty > 0) {
-      changeReputation(-atk.repPenalty);
-    }
-    if (atk.chaosPoints > 0) {
-      addChaos(atk.chaosPoints, `反擊客人：${atk.label}`);
-    }
-
-    // 趕走第一個排隊客人
-    const next = this.customerQueue.getNextCustomer();
-    if (next) {
-      this.customerQueue.serveCustomer(next.id, false);
-      this.customers = this.customers.filter(c => c.id !== next.id);
-    }
-
-    this.showFeedback(atk.feedback, this.scale.width / 2, this.scale.height * 0.25, atk.feedbackColor);
-    this.dismissCounterAttack();
-  }
-
-  private dismissCounterAttack(): void {
-    if (this.counterAttackPanel) {
-      this.counterAttackPanel.destroy();
-      this.counterAttackPanel = null;
-    }
-    this.paused = false;
-  }
+  // S5.2: tickCustomerCommentary / showCustomerComment / showCounterAttackPanel /
+  // executeCounterAttack / dismissCounterAttack — all removed (激怒系統已砍)
 
   private onCustomerTimeout(customerId: string): void {
     sfx.playCustomerLeave();
@@ -4376,9 +4239,7 @@ export class GrillScene extends Phaser.Scene {
     this.combatCustomersHandled.clear();
     EventBus.off('combat-done');
 
-    // Clean up commentary UI
-    if (this.commentBubble?.active) { this.commentBubble.destroy(); this.commentBubble = null; }
-    if (this.counterAttackPanel) { this.counterAttackPanel.destroy(); this.counterAttackPanel = null; }
+    // S5.2: commentary UI cleanup removed
 
     if (this.timerFlashTween) {
       this.timerFlashTween.stop();

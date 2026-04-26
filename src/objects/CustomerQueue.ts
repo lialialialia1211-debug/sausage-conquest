@@ -5,9 +5,9 @@ import type { Customer } from '../types';
 import { SAUSAGE_MAP } from '../data/sausages';
 import { gameState } from '../state/GameState';
 
-const CUSTOMER_SLOT_W = 140;
-const PATIENCE_BAR_H = 7;
-const PATIENCE_BAR_W = 100;
+const CUSTOMER_SLOT_W = 200;
+const PATIENCE_BAR_H = 10;
+const PATIENCE_BAR_W = 150;
 
 // Patience indicator based on fraction
 function getCustomerEmoji(frac: number): string {
@@ -55,7 +55,7 @@ export class CustomerQueue extends Phaser.GameObjects.Container {
     this.add(container);
 
     const emojiText = this.scene.add.text(0, 0, getCustomerEmoji(1), {
-      fontSize: '56px',
+      fontSize: '72px',
       align: 'center',
     }).setOrigin(0.5);
 
@@ -74,18 +74,18 @@ export class CustomerQueue extends Phaser.GameObjects.Container {
 
     if (this.scene.textures.exists(imageKey)) {
       const portrait = this.scene.add.image(0, 0, imageKey);
-      const pScale = Math.min(100 / portrait.width, 100 / portrait.height);
+      const pScale = Math.min(140 / portrait.width, 140 / portrait.height);
       portrait.setScale(pScale);
       container.add(portrait);
       // Move emoji behind/hide it
       emojiText.setAlpha(0);
       emojiText.setY(-18); // move emoji above as a small indicator
-      emojiText.setFontSize(12);
+      emojiText.setFontSize(16);
     }
 
     const patBarBg = this.scene.add.graphics();
     patBarBg.fillStyle(0x333333, 1);
-    patBarBg.fillRect(-PATIENCE_BAR_W / 2, 55, PATIENCE_BAR_W, PATIENCE_BAR_H);
+    patBarBg.fillRect(-PATIENCE_BAR_W / 2, 74, PATIENCE_BAR_W, PATIENCE_BAR_H);
 
     const patBarFill = this.scene.add.graphics();
 
@@ -99,8 +99,8 @@ export class CustomerQueue extends Phaser.GameObjects.Container {
       // Append garlic emoji if customer wants garlic
       const bubbleText = customer.order.wantGarlic ? `${baseName} 🧄` : baseName;
 
-      orderBubble = this.scene.add.text(0, -60, bubbleText, {
-        fontSize: '20px',
+      orderBubble = this.scene.add.text(0, -78, bubbleText, {
+        fontSize: '26px',
         align: 'center',
       }).setOrigin(0.5);
     }
@@ -109,7 +109,7 @@ export class CustomerQueue extends Phaser.GameObjects.Container {
       const badgeLabel = customer.loyaltyBadge === 'gold' ? '金'
         : customer.loyaltyBadge === 'silver' ? '銀' : '銅';
       badgeBubble = this.scene.add.text(CUSTOMER_SLOT_W / 2 - 10, -50, badgeLabel, {
-        fontSize: '16px',
+        fontSize: '22px',
       }).setOrigin(0.5);
     }
 
@@ -127,16 +127,16 @@ export class CustomerQueue extends Phaser.GameObjects.Container {
     if (frameColor) {
       frameGfx.lineStyle(2, frameColor, 0.8);
       frameGfx.strokeRoundedRect(
-        -CUSTOMER_SLOT_W / 2 + 4, -22,
-        CUSTOMER_SLOT_W - 8, 50,
+        -CUSTOMER_SLOT_W / 2 + 4, -32,
+        CUSTOMER_SLOT_W - 8, 74,
         6,
       );
     }
     if (customer.isVIP) {
       frameGfx.lineStyle(3, 0xffcc00, 1);
       frameGfx.strokeRoundedRect(
-        -CUSTOMER_SLOT_W / 2 + 2, -24,
-        CUSTOMER_SLOT_W - 4, 54,
+        -CUSTOMER_SLOT_W / 2 + 2, -34,
+        CUSTOMER_SLOT_W - 4, 78,
         8,
       );
     }
@@ -146,11 +146,11 @@ export class CustomerQueue extends Phaser.GameObjects.Container {
     if (customer.loyaltyBadge && customer.loyaltyBadge !== 'none' && customer.loyaltyId) {
       const loyalty = gameState?.customerLoyalty?.[customer.loyaltyId];
       if (loyalty) {
-        nameTag = this.scene.add.text(0, 38, loyalty.name, {
-          fontSize: '10px',
+        nameTag = this.scene.add.text(0, 52, loyalty.name, {
+          fontSize: '14px',
           color: '#ffcc00',
           backgroundColor: '#1a1a0a',
-          padding: { x: 3, y: 1 },
+          padding: { x: 5, y: 2 },
         }).setOrigin(0.5);
       }
 
@@ -381,7 +381,7 @@ export class CustomerQueue extends Phaser.GameObjects.Container {
 
     if (fillW > 0) {
       display.patBarFill.fillStyle(color, 1);
-      display.patBarFill.fillRect(-PATIENCE_BAR_W / 2, 55, fillW, PATIENCE_BAR_H);
+      display.patBarFill.fillRect(-PATIENCE_BAR_W / 2, 74, fillW, PATIENCE_BAR_H);
     }
   }
 }

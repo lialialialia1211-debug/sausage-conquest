@@ -308,13 +308,13 @@ export class SpectatorCrowd extends Phaser.GameObjects.Container {
       sp.container.y + this.y - SPECTATOR_SIZE / 2 - 30,
       text,
       {
-        fontSize: '13px',
+        fontSize: '20px',
         color: '#ffffff',
         backgroundColor: '#000000cc',
-        padding: { x: 8, y: 5 },
+        padding: { x: 14, y: 10 },
         stroke: '#000000',
-        strokeThickness: 2,
-        wordWrap: { width: 220 },
+        strokeThickness: 3,
+        wordWrap: { width: 340 },
         align: 'center',
       },
     ).setOrigin(0.5, 1).setDepth(201);
