@@ -11,6 +11,12 @@ export interface ChartNote {
   serviceComboGroupId?: number;   // 同組 6 顆音符共用 id
 }
 
+export interface DifficultyBand {
+  label: 'easy' | 'medium' | 'hard' | 'extreme' | string;
+  t_start: number;
+  t_end: number;
+}
+
 export interface RhythmChart {
   audioFile: string;
   duration: number;
@@ -18,6 +24,7 @@ export interface RhythmChart {
   tempo: number;
   totalNotes: number;
   sections: { label: string; t_start: number; t_end: number }[];
+  difficultyBands?: DifficultyBand[];  // S3: difficulty segmentation for customer wave pacing
   notes: ChartNote[];
 }
 

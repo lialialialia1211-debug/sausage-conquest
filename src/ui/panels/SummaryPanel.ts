@@ -1,6 +1,7 @@
 // SummaryPanel — 每日結算面板 (pure DOM, no Phaser)
 import { EventBus } from '../../utils/EventBus';
 import { gameState } from '../../state/GameState';
+import type { DailyRhythmStats } from '../../state/GameState';
 import { GRID_SLOTS } from '../../data/map';
 import type { SaleRecord, DailySummary } from '../../types';
 
@@ -121,6 +122,12 @@ export class SummaryPanel {
     if (gameState.dailyOrderScores.length > 0) {
       const orderScoresEl = this.buildOrderScores();
       this.panel.appendChild(orderScoresEl);
+    }
+
+    // S3.4: Rhythm stats block (only shown if GrillScene wrote stats this day)
+    if (gameState.dailyRhythmStats) {
+      const rhythmEl = this.buildRhythmStats(gameState.dailyRhythmStats);
+      this.panel.appendChild(rhythmEl);
     }
 
     // Chaos log (only shown if there were chaos actions today)
@@ -344,6 +351,84 @@ export class SummaryPanel {
       row.appendChild(countEl);
       section.appendChild(row);
     });
+
+    return section;
+  }
+
+  /**
+   * S3.4: Rhythm performance block for SummaryPanel.
+   * Shows PERFECT/GREAT/GOOD/MISS counts, max combo, and S/A/B/C grade.
+   */
+  private buildRhythmStats(stats: DailyRhythmStats): HTMLElement {
+    const section = document.createElement('div');
+    section.className = 'summary-grill-stats';
+    section.style.marginTop = '8px';
+    section.style.borderTop = '1px solid #ff6b0044';
+    section.style.paddingTop = '6px';
+
+    const title = document.createElement('div');
+    title.className = 'summary-section-title';
+    title.textContent = '節奏成績';
+    section.appendChild(title);
+
+    // Grade display (large, colored)
+    const gradeColors: Record<string, string> = {
+      S: '#ffd700',
+      A: '#c0c0c0',
+      B: '#cd7f32',
+      C: '#888888',
+    };
+    const gradeEl = document.createElement('div');
+    gradeEl.style.fontSize = '36px';
+    gradeEl.style.fontWeight = 'bold';
+    gradeEl.style.textAlign = 'center';
+    gradeEl.style.color = gradeColors[stats.grade] ?? '#ffffff';
+    gradeEl.style.textShadow = `0 0 10px ${gradeColors[stats.grade] ?? '#ffffff'}88`;
+    gradeEl.textContent = stats.grade;
+    section.appendChild(gradeEl);
+
+    const total = stats.totalNotes || 1;
+    const rows: Array<{ label: string; count: number; color: string }> = [
+      { label: 'PERFECT', count: stats.hitStats.perfect, color: '#ffd700' },
+      { label: 'GREAT',   count: stats.hitStats.great,   color: '#c0c0c0' },
+      { label: 'GOOD',    count: stats.hitStats.good,    color: '#cd7f32' },
+      { label: 'MISS',    count: stats.hitStats.miss,    color: '#ff4444' },
+    ];
+
+    for (const row of rows) {
+      const pct = Math.round((row.count / total) * 100);
+      const rowEl = document.createElement('div');
+      rowEl.className = 'summary-revenue-row';
+      rowEl.style.marginBottom = '2px';
+
+      const labelEl = document.createElement('span');
+      labelEl.className = 'summary-rev-label';
+      labelEl.style.color = row.color;
+      labelEl.textContent = row.label;
+
+      const valEl = document.createElement('span');
+      valEl.className = 'summary-rev-value';
+      valEl.style.color = row.color;
+      valEl.textContent = `${row.count} (${pct}%)`;
+
+      rowEl.appendChild(labelEl);
+      rowEl.appendChild(valEl);
+      section.appendChild(rowEl);
+    }
+
+    // Max combo row
+    const comboRow = document.createElement('div');
+    comboRow.className = 'summary-revenue-row';
+    comboRow.style.marginTop = '4px';
+    const comboLabel = document.createElement('span');
+    comboLabel.className = 'summary-rev-label';
+    comboLabel.textContent = '最高 Combo';
+    const comboVal = document.createElement('span');
+    comboVal.className = 'summary-rev-value';
+    comboVal.textContent = `${stats.maxCombo}`;
+    comboRow.appendChild(comboLabel);
+    comboRow.appendChild(comboVal);
+    section.appendChild(comboRow);
 
     return section;
   }

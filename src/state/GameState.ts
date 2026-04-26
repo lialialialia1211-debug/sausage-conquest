@@ -100,7 +100,18 @@ export const gameState = {
   heatRateBonus: 0,      // cumulative heat rate bonus multiplier
   // Sausage quantities purchased this morning — used to redistribute chart note types
   purchaseQuantities: {} as Record<string, number>,
+  // S3.3: Daily rhythm performance stats — written by GrillScene, read by SummaryPanel
+  dailyRhythmStats: undefined as DailyRhythmStats | undefined,
 };
+
+// ── S3.3: Daily rhythm stats ──────────────────────────────────────────────────
+export interface DailyRhythmStats {
+  hitStats: { perfect: number; great: number; good: number; miss: number };
+  maxCombo: number;
+  totalNotes: number;
+  accuracy: number;       // 0..1
+  grade: 'S' | 'A' | 'B' | 'C';
+}
 
 // Update state and notify UI via EventBus
 export function updateGameState(updates: Partial<typeof gameState>): void {
@@ -128,6 +139,7 @@ export function advanceDay(): void {
     battleBonus: 0,
     morningPrep: '',
     purchaseQuantities: {},
+    dailyRhythmStats: undefined,  // S3.3: clear previous day's rhythm stats
     // grillEventCooldowns persist across days — do NOT reset here
     // customerLoyalty persists across days — do NOT reset here
   });

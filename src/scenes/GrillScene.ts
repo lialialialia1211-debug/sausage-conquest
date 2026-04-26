@@ -2,6 +2,7 @@
 import Phaser from 'phaser';
 import { EventBus } from '../utils/EventBus';
 import { gameState, changeReputation, updateGameState, addMoney } from '../state/GameState';
+import type { DailyRhythmStats } from '../state/GameState';
 import { GRID_SLOTS } from '../data/map';
 import { SAUSAGE_MAP } from '../data/sausages';
 import {
@@ -544,11 +545,21 @@ export class GrillScene extends Phaser.Scene {
     // Tick customer patience
     this.customerQueue.tick(dt);
 
-    // Auto-replenish pending queue so customers keep coming throughout the session
-    if (this.rhythmStarted && !this.isDone && this.pendingCustomerQueue.length < 5) {
-      const toAdd = 5 - this.pendingCustomerQueue.length;
-      const refill = generateCustomers(1, 0).slice(0, toAdd);
-      this.pendingCustomerQueue.push(...refill);
+    // S3.2: Update customerArrivalInterval based on current difficultyBand
+    if (this.rhythmStarted && this.chart?.difficultyBands && !this.isDone) {
+      const now = this.getRhythmTime();
+      const bands = this.chart.difficultyBands;
+      const currentBand = bands.find(b => now >= b.t_start && now < b.t_end) ?? bands[bands.length - 1];
+      let intervalMultiplier = 1.0;
+      if (currentBand.label === 'medium') intervalMultiplier = 0.95;
+      else if (currentBand.label === 'hard') intervalMultiplier = 0.9;
+      else if (currentBand.label === 'extreme') intervalMultiplier = 0.85;
+      // Derive per-band interval from total customers / total duration
+      const totalNotes = this.chart.totalNotes ?? 286;
+      const scaledTarget = Math.ceil(totalNotes / this.AVG_SAUSAGES_PER_ORDER);
+      const baseDuration = this.chart.duration;
+      const baseIntervalFromChart = baseDuration / Math.max(1, scaledTarget);
+      this.customerArrivalInterval = Math.max(2, baseIntervalFromChart * intervalMultiplier);
     }
 
     // Tick customer arrivals
@@ -2220,6 +2231,9 @@ export class GrillScene extends Phaser.Scene {
     updateGameState({ warmingZone: [] });
   }
 
+  // S3: average sausages per order (used to derive customer count from chart totalNotes)
+  private readonly AVG_SAUSAGES_PER_ORDER = 3;
+
   private generateCustomerPool(): void {
     // Use slot-based traffic: playerSlot (1-9) maps to GRID_SLOTS by tier
     const playerSlotData = GRID_SLOTS.find(s => s.tier === gameState.playerSlot) ?? GRID_SLOTS[0];
@@ -2231,9 +2245,20 @@ export class GrillScene extends Phaser.Scene {
     const socialPrepBonus = gameState.morningPrep === 'social' ? 0.1 : 0;
     const marketingBonus = (gameState.upgrades['neon-sign'] ? 0.15 : 0) + (gameState.dailyTrafficBonus ?? 0) + socialPrepBonus;
     updateGameState({ dailyTrafficBonus: 0 });
+
+    // S3.1 (B mode): Customer target = ceil(totalNotes / AVG_SAUSAGES_PER_ORDER)
+    // Apply socialPrep/marketing bonus on top of the chart-derived target
+    const totalNotes = this.chart?.totalNotes ?? 286;
+    const baseTarget = Math.ceil(totalNotes / this.AVG_SAUSAGES_PER_ORDER);
+    const scaledTarget = Math.ceil(baseTarget * (1 + marketingBonus));
+
+    // Generate pool; keep generating until we reach target
     let pool = generateCustomers(trafficNorm, marketingBonus);
-    // Cap at ~40 customers for a 90-second session (generous flow)
-    if (pool.length > 40) pool = pool.slice(0, 40);
+    while (pool.length < scaledTarget) {
+      pool = pool.concat(generateCustomers(1, 0));
+    }
+    // Trim to exact target (no more hardcoded 40-cap)
+    pool = pool.slice(0, scaledTarget);
 
     this.pendingCustomerQueue = pool;
   }
@@ -4137,6 +4162,24 @@ export class GrillScene extends Phaser.Scene {
         this.timerFlashTween = null;
         if (this.timerText?.active) this.timerText.setAlpha(1);
       }
+
+      // S3.3: Compute daily rhythm stats and grade
+      const totalNotesPlayed = this.chart?.totalNotes ?? 286;
+      const { perfect, great, good, miss } = this.hitStats;
+      const weightedHits = perfect * 1 + great * 0.7 + good * 0.3;
+      const accuracy = totalNotesPlayed > 0 ? weightedHits / totalNotesPlayed : 0;
+      const grade: DailyRhythmStats['grade'] =
+        accuracy >= 0.95 ? 'S' :
+        accuracy >= 0.85 ? 'A' :
+        accuracy >= 0.70 ? 'B' : 'C';
+      const rhythmStats: DailyRhythmStats = {
+        hitStats: { perfect, great, good, miss },
+        maxCombo: this.maxRhythmCombo,
+        totalNotes: totalNotesPlayed,
+        accuracy,
+        grade,
+      };
+      updateGameState({ dailyRhythmStats: rhythmStats });
 
       // Count waste
       const grillRemaining = this.grillSlots.filter(s => s.sausage && !s.sausage.served).length;
