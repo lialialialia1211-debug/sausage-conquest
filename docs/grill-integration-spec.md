@@ -7,13 +7,13 @@ Use it as the implementation contract for future gameplay changes.
 
 1. `MorningPanel` writes `gameState.inventory` and `gameState.purchaseQuantities`.
 2. `GrillScene.startRhythmGame()` injects service combo notes, then calls `redistributeNoteSausages()`.
-3. Normal rhythm notes are allocated from real `gameState.inventory`.
+3. Normal rhythm notes keep the chart intact so the music pattern does not disappear mid-song.
 4. `purchaseQuantities` controls the sausage type mix for the night.
-5. Actual inventory is the hard cap. If the player bought 12 sausages, only 12 normal notes may become grillable sausages.
+5. Actual inventory is enforced when placing/selling sausages, not by deleting notes from the chart.
 6. Service combo notes are separate bonus/service pressure notes and do not consume morning stock.
 7. After note allocation, `generateCustomerPool()` must run again so customer demand follows the final chart note count.
 8. A hit note may spawn a sausage only when inventory exists and a grill slot is empty.
-9. If the grill is full, the note is blocked with `BLOCKED`; do not count `PERFECT/GREAT/GOOD` and then also count `MISS`.
+9. If the grill is full, the note becomes heat input: keep the hit judgement and speed up sausages already on the grill so slots clear faster.
 10. Selling a sausage is the only place that deducts real `gameState.inventory`.
 
 ## Pause Contract
@@ -127,8 +127,8 @@ Before pushing gameplay changes:
 
 1. `npm run build` must pass.
 2. Start a day with zero inventory: normal notes should not spawn grillable sausages.
-3. Buy a small fixed inventory count: normal grillable notes should not exceed that count.
-4. Fill the grill and hit a note: show `BLOCKED`, no simultaneous `PERFECT` and `MISS`.
+3. Buy a small fixed inventory count: note pattern should stay intact, but placement/sales still respect stock.
+4. Fill the grill and hit a note: existing sausages heat faster, no simultaneous `PERFECT` and `MISS`.
 5. Switch browser tab/window during grilling: BGM, notes, timers, workers, and customers all freeze.
 6. Right HUD stats match rhythm judgements.
 7. There is no "dismiss first customer" button in the queue UI.

@@ -442,7 +442,7 @@ export class BootScene extends Phaser.Scene {
           this.prologueImage.destroy();
           this.prologueImage = undefined;
         }
-        this.tweens.add({ targets: [hintText, ...dots], alpha: 0, duration: 300 });
+        this.tweens.add({ targets: [storyBg, storyText, hintText, ...dots], alpha: 0, duration: 300 });
         this.tweens.add({
           targets: modeCardObjects,
           alpha: 1,

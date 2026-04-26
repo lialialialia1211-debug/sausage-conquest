@@ -966,17 +966,29 @@ export class GrillScene extends Phaser.Scene {
     trackLine.strokePath();
     trackLine.setDepth(10);
 
-    // Judgement circle (white stroke only, no fill)
+    // Judgement target: brighter and larger so players read the timing point first.
     const judgeCircle = this.add.graphics();
-    judgeCircle.lineStyle(3, 0xffffff, 0.8);
-    judgeCircle.strokeCircle(this.NOTE_HIT_X, this.noteTrackY, 36);
+    judgeCircle.fillStyle(0xfff0a0, 0.10);
+    judgeCircle.fillCircle(this.NOTE_HIT_X, this.noteTrackY, 48);
+    judgeCircle.lineStyle(6, 0xffe066, 1);
+    judgeCircle.strokeCircle(this.NOTE_HIT_X, this.noteTrackY, 48);
+    judgeCircle.lineStyle(2, 0xffffff, 0.9);
+    judgeCircle.strokeCircle(this.NOTE_HIT_X, this.noteTrackY, 30);
+    judgeCircle.lineStyle(3, 0xff6b00, 0.95);
+    judgeCircle.beginPath();
+    judgeCircle.moveTo(this.NOTE_HIT_X - 58, this.noteTrackY);
+    judgeCircle.lineTo(this.NOTE_HIT_X + 58, this.noteTrackY);
+    judgeCircle.moveTo(this.NOTE_HIT_X, this.noteTrackY - 58);
+    judgeCircle.lineTo(this.NOTE_HIT_X, this.noteTrackY + 58);
+    judgeCircle.strokePath();
     judgeCircle.setDepth(10);
 
-    // Debug label below judgement circle
-    this.add.text(this.NOTE_HIT_X, this.noteTrackY + 44, '咚=D  喀=F', {
-      fontSize: '11px',
+    this.add.text(this.NOTE_HIT_X, this.noteTrackY + 66, 'HIT ZONE', {
+      fontSize: '14px',
       fontFamily: FONT,
-      color: '#888888',
+      color: '#ffe066',
+      stroke: '#000000',
+      strokeThickness: 4,
     }).setOrigin(0.5).setDepth(10);
 
     // ── Wave 6b: Keyboard input ──────────────────────────────────────────────
@@ -984,62 +996,26 @@ export class GrillScene extends Phaser.Scene {
     this.input.keyboard?.on('keydown-D', () => this.handleRhythmPress('don'));
     this.input.keyboard?.on('keydown-F', () => this.handleRhythmPress('ka'));
 
-    // ── Wave 6b: Touch buttons (Don = red left, Ka = blue right) ────────────
-    const btnY = height - 50;
-    const donX = width * 0.25;
-    const kaX  = width * 0.75;
-    const btnRadius = 60;
-
-    // Don button (red)
-    const donGfx = this.add.graphics();
-    donGfx.fillStyle(0xff3344, 0.85);
-    donGfx.fillCircle(donX, btnY, btnRadius);
-    donGfx.lineStyle(3, 0xffffff, 0.6);
-    donGfx.strokeCircle(donX, btnY, btnRadius);
-    donGfx.setDepth(50).setInteractive(
-      new Phaser.Geom.Circle(donX, btnY, btnRadius),
-      Phaser.Geom.Circle.Contains,
-    );
-    donGfx.on('pointerdown', () => this.handleRhythmPress('don'));
-
-    this.add.text(donX, btnY, '咚 D', {
-      fontSize: '18px',
+    // Bottom instruction text only. No large D/F button UI.
+    this.add.text(width / 2, height - 46, 'D = 咚     F = 喀', {
+      fontSize: '30px',
       fontFamily: FONT,
-      color: '#ffffff',
+      color: '#ffe066',
       stroke: '#000000',
-      strokeThickness: 3,
+      strokeThickness: 6,
       align: 'center',
     }).setOrigin(0.5).setDepth(51);
 
-    // Ka button (blue)
-    const kaGfx = this.add.graphics();
-    kaGfx.fillStyle(0x3388ff, 0.85);
-    kaGfx.fillCircle(kaX, btnY, btnRadius);
-    kaGfx.lineStyle(3, 0xffffff, 0.6);
-    kaGfx.strokeCircle(kaX, btnY, btnRadius);
-    kaGfx.setDepth(50).setInteractive(
-      new Phaser.Geom.Circle(kaX, btnY, btnRadius),
-      Phaser.Geom.Circle.Contains,
-    );
-    kaGfx.on('pointerdown', () => this.handleRhythmPress('ka'));
-
-    this.add.text(kaX, btnY, '喀 F', {
-      fontSize: '18px',
+    // ── Wave 6b: Combo display text (center, hidden until combo >= 2) ──────
+    this.rhythmComboText = this.add.text(width / 2, height * 0.28, '', {
+      fontSize: '46px',
       fontFamily: FONT,
-      color: '#ffffff',
-      stroke: '#000000',
-      strokeThickness: 3,
+      color: '#ffe066',
+      stroke: '#2a0800',
+      strokeThickness: 8,
+      fontStyle: '900',
       align: 'center',
-    }).setOrigin(0.5).setDepth(51);
-
-    // ── Wave 6b: Combo display text (top-left, hidden until combo >= 2) ──────
-    this.rhythmComboText = this.add.text(60, 100, '', {
-      fontSize: '32px',
-      fontFamily: FONT,
-      color: '#ffffff',
-      stroke: '#000000',
-      strokeThickness: 4,
-    }).setDepth(200).setAlpha(0);
+    }).setOrigin(0.5).setDepth(200).setAlpha(0);
   }
 
   /**
@@ -1169,16 +1145,21 @@ export class GrillScene extends Phaser.Scene {
     const slot = this.grillSlots.find(s => !s.sausage);
     if (!slot) {
       frontNote.markHit();
-      this.rhythmCombo = 0;
+      this.hitStats[judgement] += 1;
+      this.rhythmCombo += 1;
+      if (this.rhythmCombo > this.maxRhythmCombo) {
+        this.maxRhythmCombo = this.rhythmCombo;
+      }
       this.updateRhythmComboText();
       if (type === 'don') {
         sfx.playDon();
       } else {
         sfx.playKa();
       }
-      this.showJudgementBig('BLOCKED', '#ffaa00', 30, 500);
-      this.showFeedback('Grill full - serve or move sausages first', this.NOTE_HIT_X, this.noteTrackY - 70, '#ffaa00');
-      this.trackServiceComboHit(frontNote, 'miss');
+      this.boostGrillFromRhythm(judgement);
+      this.showJudgementBig('HEAT UP', '#ffcc33', 30, 500);
+      this.showFeedback('烤架已滿：敲擊加速熟成', this.NOTE_HIT_X, this.noteTrackY - 70, '#ffcc33');
+      this.trackServiceComboHit(frontNote, judgement);
       if (frontNote.active) frontNote.destroy();
       const blockedIdx = this.rhythmNotes.indexOf(frontNote);
       if (blockedIdx >= 0) this.rhythmNotes.splice(blockedIdx, 1);
@@ -1349,16 +1330,17 @@ export class GrillScene extends Phaser.Scene {
       return;
     }
     this.rhythmComboText
-      .setText(`${this.rhythmCombo} COMBO`)
+      .setText(`COMBO\nx${this.rhythmCombo}`)
       .setAlpha(1)
-      .setFontSize(Math.min(60, 32 + this.rhythmCombo));
+      .setFontSize(Math.min(72, 44 + this.rhythmCombo));
 
     // Bounce tween for feedback
     this.tweens.add({
       targets: this.rhythmComboText,
-      scaleX: 1.3,
-      scaleY: 1.3,
-      duration: 80,
+      scaleX: 1.18,
+      scaleY: 1.18,
+      angle: { from: -2, to: 2 },
+      duration: 90,
       yoyo: true,
       ease: 'Back.Out',
     });
@@ -1496,8 +1478,8 @@ export class GrillScene extends Phaser.Scene {
   }
 
   /**
-   * Redistribute non-service-combo note sausage types from actual inventory.
-   * Morning purchases control the type mix; stock count caps playable notes.
+   * Redistribute non-service-combo note sausage types from morning purchases.
+   * The rhythm chart length is preserved; inventory is still enforced when placing.
    */
   private redistributeNoteSausages(): void {
     if (!this.chart) return;
@@ -1524,19 +1506,15 @@ export class GrillScene extends Phaser.Scene {
       [stockPool[i], stockPool[j]] = [stockPool[j], stockPool[i]];
     }
 
-    const allocatedNotes: ChartNote[] = [];
-    const serviceNotes: ChartNote[] = [];
-    for (const note of chart.notes) {
-      if (note.isServiceCombo) {
-        serviceNotes.push(note);
-        continue;
-      }
-      const sausage = stockPool.pop();
-      if (!sausage) continue;
-      allocatedNotes.push({ ...note, sausage });
-    }
+    if (stockPool.length === 0) return;
 
-    const notes = [...allocatedNotes, ...serviceNotes].sort((a, b) => a.t - b.t);
+    let stockIdx = 0;
+    const notes = chart.notes.map(note => {
+      if (note.isServiceCombo) return note;
+      const sausage = stockPool[stockIdx % stockPool.length];
+      stockIdx++;
+      return { ...note, sausage };
+    });
     this.chart = {
       ...chart,
       notes,
@@ -1647,6 +1625,38 @@ export class GrillScene extends Phaser.Scene {
       if (!slot.sprite) continue;
       this.moveToWarming(slot, slot.sprite);
     }
+  }
+
+  private boostGrillFromRhythm(judgement: HitJudgement): void {
+    if (judgement === 'miss') return;
+    const boost =
+      judgement === 'perfect' ? 18 :
+      judgement === 'great' ? 13 :
+      9;
+
+    for (const slot of this.grillSlots) {
+      if (!slot.sausage || !slot.sprite || slot.sausage.served || !slot.sausage.rhythmAccuracy) continue;
+      const target = getAutoGrillTarget(slot.sausage.rhythmAccuracy);
+      const updated: GrillingSausage = {
+        ...slot.sausage,
+        topDoneness: Math.min(target, slot.sausage.topDoneness + boost),
+        bottomDoneness: Math.min(target, slot.sausage.bottomDoneness + boost),
+      };
+      updated.topStage = getCookingStage(updated.topDoneness);
+      updated.bottomStage = getCookingStage(updated.bottomDoneness);
+      slot.sausage = updated;
+      slot.sprite.updateData(updated);
+      this.tweens.add({
+        targets: slot.sprite,
+        scaleX: 1.08,
+        scaleY: 1.08,
+        duration: 80,
+        yoyo: true,
+        ease: 'Quad.Out',
+      });
+    }
+
+    this.autoServeReady();
   }
 
   /**
@@ -2166,8 +2176,8 @@ export class GrillScene extends Phaser.Scene {
     updateGameState({ warmingZone: [] });
   }
 
-  // S3: average sausages per order (used to derive customer count from chart totalNotes)
-  private readonly AVG_SAUSAGES_PER_ORDER = 3;
+  // S3: conservative target so QA pressure usually has extra sausages, not extra customers.
+  private readonly AVG_SAUSAGES_PER_ORDER = 8;
 
   private generateCustomerPool(): void {
     // Use slot-based traffic: playerSlot (1-9) maps to GRID_SLOTS by tier
@@ -2181,10 +2191,12 @@ export class GrillScene extends Phaser.Scene {
     const marketingBonus = (gameState.upgrades['neon-sign'] ? 0.15 : 0) + (gameState.dailyTrafficBonus ?? 0) + socialPrepBonus;
     updateGameState({ dailyTrafficBonus: 0 });
 
-    // S3.1 (B mode): Customer target = ceil(totalNotes / AVG_SAUSAGES_PER_ORDER)
-    // Apply socialPrep/marketing bonus on top of the chart-derived target
+    // Customer demand is capped by real stock so the default pressure is sausage surplus.
     const totalNotes = this.chart?.totalNotes ?? 286;
-    const baseTarget = Math.ceil(totalNotes / this.AVG_SAUSAGES_PER_ORDER);
+    const stockCount = Object.values(gameState.inventory).reduce((sum, qty) => sum + Math.max(0, qty), 0);
+    const chartTarget = Math.ceil(totalNotes / this.AVG_SAUSAGES_PER_ORDER);
+    const stockTarget = stockCount > 0 ? Math.max(1, Math.floor(stockCount / 4)) : chartTarget;
+    const baseTarget = Math.max(1, Math.min(chartTarget, stockTarget));
     const scaledTarget = Math.ceil(baseTarget * (1 + marketingBonus));
 
     // Generate pool; keep generating until we reach target
@@ -4097,7 +4109,7 @@ export class GrillScene extends Phaser.Scene {
     const doTransition = () => {
       if (transitioned) return;
       transitioned = true;
-      this.scene.start('EveningScene');
+      this.scene.start('SummaryScene');
     };
 
     try {
