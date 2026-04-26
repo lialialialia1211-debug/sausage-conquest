@@ -3,12 +3,17 @@ import Phaser from 'phaser';
 import type { ChartNote } from '../data/chart';
 import { SAUSAGE_MAP } from '../data/sausages';
 
-// Note body radius
+// Note body radius (normal)
 const NOTE_RADIUS = 28;
+// Service combo note radius (1.3× larger)
+const SERVICE_NOTE_RADIUS = 36;
 
 // Colours per note type
 const COLOR_DON = 0xff3344; // red — don (咚)
 const COLOR_KA  = 0x3388ff; // blue — ka (喀)
+// Service combo gold tones
+const COLOR_SERVICE = 0xffd700;
+const COLOR_SERVICE_HALO = 0xffaa00;
 
 export class RhythmNote extends Phaser.GameObjects.Container {
   /** The chart note data this object represents (readable by GrillScene). */
@@ -22,14 +27,23 @@ export class RhythmNote extends Phaser.GameObjects.Container {
     this.note = note;
 
     // ── Body circle ─────────────────────────────────────────────────────────
-    const bodyColor = note.type === 'don' ? COLOR_DON : COLOR_KA;
+    const isService = note.isServiceCombo === true;
+    const radius = isService ? SERVICE_NOTE_RADIUS : NOTE_RADIUS;
+    const bodyColor = isService ? COLOR_SERVICE : (note.type === 'don' ? COLOR_DON : COLOR_KA);
     const body = scene.add.graphics();
+
+    // Service combo: outer gold halo ring
+    if (isService) {
+      body.lineStyle(4, COLOR_SERVICE_HALO, 0.9);
+      body.strokeCircle(0, 0, radius + 7);
+    }
+
     // Fill
     body.fillStyle(bodyColor, 1);
-    body.fillCircle(0, 0, NOTE_RADIUS);
+    body.fillCircle(0, 0, radius);
     // White stroke
     body.lineStyle(3, 0xffffff, 0.9);
-    body.strokeCircle(0, 0, NOTE_RADIUS);
+    body.strokeCircle(0, 0, radius);
     this.add(body);
 
     // ── Sausage artwork or emoji fallback ────────────────────────────────────
@@ -37,7 +51,7 @@ export class RhythmNote extends Phaser.GameObjects.Container {
     if (scene.textures.exists(textureKey)) {
       // Scale the sausage PNG to fit inside the circle (target ~40×40)
       const artImage = scene.add.image(0, 0, textureKey);
-      const targetSize = NOTE_RADIUS * 1.3;
+      const targetSize = radius * 1.3;
       const scale = Math.min(targetSize / artImage.width, targetSize / artImage.height);
       artImage.setScale(scale);
       this.add(artImage);

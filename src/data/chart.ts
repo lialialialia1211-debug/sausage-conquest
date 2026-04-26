@@ -7,6 +7,8 @@ export interface ChartNote {
   t: number;        // hit time in seconds (from chart start)
   type: NoteType;
   sausage: string;  // sausage type id, e.g. "flying-fish-roe"
+  isServiceCombo?: boolean;       // true = 金色服務音符（每 15 秒一組）
+  serviceComboGroupId?: number;   // 同組 6 顆音符共用 id
 }
 
 export interface RhythmChart {

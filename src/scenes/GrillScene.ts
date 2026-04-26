@@ -6,7 +6,6 @@ import { GRID_SLOTS } from '../data/map';
 import { SAUSAGE_MAP } from '../data/sausages';
 import {
   createGrillingSausage,
-  updateSausage,
   flipSausage,
   judgeQuality,
   getQualityScore,
@@ -14,7 +13,6 @@ import {
   getStageDisplayInfo,
   getAutoGrillTarget,
   autoTickSausage,
-  type HeatLevel,
   type GrillingSausage,
   type GrillQuality,
   type CookingStage,
@@ -43,7 +41,7 @@ import { RhythmNote } from '../objects/RhythmNote';
 import type { RhythmChart } from '../data/chart';
 import { judgeHit, JUDGE_WINDOWS } from '../systems/RhythmEngine';
 import type { HitJudgement } from '../systems/RhythmEngine';
-import type { NoteType } from '../data/chart';
+import type { NoteType, ChartNote } from '../data/chart';
 
 // ── Layout constants ────────────────────────────────────────────────────────
 // Tier-based session duration: early tiers are shorter and less demanding
@@ -118,7 +116,6 @@ interface WarmingSlot {
 
 export class GrillScene extends Phaser.Scene {
   // ── Session state ───────────────────────────────────────────────────────
-  private heatLevel: HeatLevel = 'low';
   private timeLeft = GAME_DURATION;
   private speedMultiplier = 1;
   private salesLog: SaleRecord[] = [];
@@ -245,6 +242,14 @@ export class GrillScene extends Phaser.Scene {
   private hitStats = { perfect: 0, great: 0, good: 0, miss: 0 };
   private rhythmComboText: Phaser.GameObjects.Text | null = null;
 
+  // ── Wave 6e: Service combo state ─────────────────────────────────────────
+  // Total service combo groups injected this session (used for future summary display)
+  private totalServiceComboGroupCount = 0;
+  // hit = successful hits, seen = total notes processed (hit + miss)
+  private serviceComboGroupHits = new Map<number, { hit: number; seen: number; total: number }>();
+  // Track which groups have already fired triggerBatchServe (prevent double-fire)
+  private serviceComboBatchFired = new Set<number>();
+
   // ── Wave 6cd: BGM sync + rhythm gate ──────────────────────────────────────
   private rhythmStarted = false;
   // Wave 6cd-fix: BGM 直接用 Web Audio API 控制（避開 Phaser sound.seek 的時鐘漂移）
@@ -275,7 +280,6 @@ export class GrillScene extends Phaser.Scene {
     this.inventoryCopy = { ...gameState.inventory };
 
     // Reset session state
-    this.heatLevel = 'low';
     this.timeLeft = getSessionDuration();
     this.speedMultiplier = 1;
     this.salesLog = [];
@@ -553,12 +557,13 @@ export class GrillScene extends Phaser.Scene {
       const prevTopStage = slot.__prevTopStage ?? getCookingStage(slot.sausage.topDoneness);
       const prevBottomStage = slot.__prevBottomStage ?? getCookingStage(slot.sausage.bottomDoneness);
 
-      // Wave 6c: rhythm-spawned sausages use auto-tick; manual sausages use legacy path
+      // Wave 6cd+: all grill sausages go through rhythmAccuracy auto-tick path
       let updated: GrillingSausage;
       if (slot.sausage.rhythmAccuracy) {
         updated = autoTickSausage(slot.sausage, dt);
       } else {
-        updated = updateSausage(slot.sausage, this.heatLevel, dt, isSimulation);
+        // legacy path — should not happen post-Wave 6cd
+        continue;
       }
 
       slot.sausage = updated;
@@ -684,7 +689,7 @@ export class GrillScene extends Phaser.Scene {
         const actions = tickWorkerAI(
           this.grillSlots.map(s => ({ sausage: s.sausage, isEmpty: !s.sausage })),
           this.warmingSlots.length,
-          this.heatLevel,
+          'medium',
           dt,
           this.inventoryCopy,
           this.workerActionTimer
@@ -963,9 +968,18 @@ export class GrillScene extends Phaser.Scene {
         this.rhythmCombo = 0;
         this.updateRhythmComboText();
         sfx.playRhythmMiss();
-        this.showFeedback('MISS', this.NOTE_HIT_X, this.noteTrackY - 40, '#ff4444');
+        this.showJudgementBig('MISS', '#aa3333', 18, 350);
         // Visual: grey out + reduce alpha, note continues flying off-screen
         n.setAlpha(0.4);
+        // Wave 6e: service combo auto-MISS tracking
+        if (n.note.isServiceCombo && n.note.serviceComboGroupId !== undefined) {
+          const gid = n.note.serviceComboGroupId;
+          const stats = this.serviceComboGroupHits.get(gid) ?? { hit: 0, seen: 0, total: 6 };
+          stats.seen += 1;
+          // auto-miss: don't increment hit
+          this.serviceComboGroupHits.set(gid, stats);
+          this.checkServiceComboGroupComplete(gid);
+        }
         // Tint the note grey by overlaying a graphics rectangle — easiest approach
         // without touching the internal Container children directly.
         // (Full grey tint requires alpha; we keep it subtle so it's visible but faded.)
@@ -1047,19 +1061,14 @@ export class GrillScene extends Phaser.Scene {
       sfx.playRhythmGood();
     }
 
-    // Floating judgement text
-    const labelColor: Record<HitJudgement, string> = {
-      perfect: '#ffd700',
-      great:   '#c0c0c0',
-      good:    '#cd7f32',
-      miss:    '#ff4444',
-    };
-    this.showFeedback(
-      judgement.toUpperCase(),
-      this.NOTE_HIT_X,
-      this.noteTrackY - 40,
-      labelColor[judgement],
-    );
+    // Floating judgement text (音遊化大字)
+    if (judgement === 'perfect') {
+      this.showJudgementBig('PERFECT', '#ffd700', 48, 700);
+    } else if (judgement === 'great') {
+      this.showJudgementBig('GREAT', '#c0c0c0', 36, 600);
+    } else {
+      this.showJudgementBig('GOOD', '#cd7f32', 28, 500);
+    }
 
     // Wave 6c: fly hit note into grill slot
     // Overflow queue: if no empty slot, sausage continues cooking internally and will
@@ -1124,6 +1133,73 @@ export class GrillScene extends Phaser.Scene {
         this.noteTrackY - 70,
         '#aaaaff',
       );
+    }
+
+    // ── Wave 6e: Service combo hit tracking ─────────────────────────────────
+    this.trackServiceComboHit(frontNote, judgement);
+  }
+
+  /**
+   * Wave 6e: Record a hit or miss for service combo notes.
+   * When all notes in a group have been processed (seen == total), trigger batch serve.
+   */
+  private trackServiceComboHit(note: RhythmNote, judgement: HitJudgement): void {
+    if (!note.note.isServiceCombo || note.note.serviceComboGroupId === undefined) return;
+    const gid = note.note.serviceComboGroupId;
+    const stats = this.serviceComboGroupHits.get(gid) ?? { hit: 0, seen: 0, total: 6 };
+    stats.seen += 1;
+    if (judgement !== 'miss') stats.hit += 1;
+    this.serviceComboGroupHits.set(gid, stats);
+    this.checkServiceComboGroupComplete(gid);
+  }
+
+  /**
+   * Wave 6e: Check if all notes in a service combo group have been processed.
+   * When seen >= total, fires triggerBatchServe once.
+   */
+  private checkServiceComboGroupComplete(gid: number): void {
+    if (!this.chart) return;
+    if (this.serviceComboBatchFired.has(gid)) return;
+
+    const stats = this.serviceComboGroupHits.get(gid);
+    if (!stats) return;
+
+    if (stats.seen >= stats.total) {
+      this.serviceComboBatchFired.add(gid);
+      this.triggerBatchServe(stats.hit, stats.total);
+    }
+  }
+
+  /**
+   * Wave 6e: Batch serve from warming zone after a service combo group completes.
+   * serveCount is determined by hitCount / totalNotes ratio.
+   */
+  private triggerBatchServe(hitCount: number, totalNotes: number): void {
+    const ratio = hitCount / totalNotes;
+    let serveCount = 0;
+    if (ratio >= 0.83) serveCount = 5;       // 5/6 以上全中
+    else if (ratio >= 0.5) serveCount = 3;   // 3–4/6
+    else if (ratio >= 0.34) serveCount = 1;  // 2/6
+    else serveCount = 0;                     // 0–1/6
+
+    if (serveCount === 0) {
+      this.showJudgementBig('服務失敗', '#888888', 24);
+      return;
+    }
+
+    // Serve up to serveCount sausages from occupied warming slots
+    const occupied = this.warmingSlots.filter(ws => ws.sausage);
+    const toServe = occupied.slice(0, serveCount);
+    for (const ws of toServe) {
+      this.serveFromWarming(ws);
+    }
+
+    const served = toServe.length;
+    if (served > 0) {
+      this.showJudgementBig(`服務 ${served} 位客人！`, '#ffd700', 36);
+    } else {
+      // No sausages in warming zone
+      this.showJudgementBig('保溫區空！', '#888888', 24);
     }
   }
 
@@ -1193,12 +1269,62 @@ export class GrillScene extends Phaser.Scene {
       console.warn('[GrillScene] bgm start failed:', _e);
     }
 
+    // Inject service combo notes into the chart before starting
+    this.injectServiceComboNotes();
+
     this.rhythmStarted = true;
     this.nextNoteSpawnIdx = 0;
     this.rhythmNotes.forEach(n => { if (n.active) n.destroy(); });
     this.rhythmNotes = [];
     this.paused = false;
     EventBus.emit('scene-ready', 'GrillScene');
+  }
+
+  /**
+   * Wave 6e: Inject service combo note groups (6 gold notes every 15 seconds)
+   * into the chart after it loads, before the rhythm game begins.
+   */
+  private injectServiceComboNotes(): void {
+    if (!this.chart) return;
+
+    const SERVICE_INTERVAL = 15;      // seconds between service groups
+    const SERVICE_NOTE_COUNT = 6;     // notes per group
+    const SERVICE_NOTE_SPACING = 0.15; // seconds between notes in group
+    const duration = this.chart.duration;
+
+    const SERVICE_SAUSAGE_POOL = [
+      'flying-fish-roe', 'cheese', 'big-taste', 'big-wrap-small', 'great-wall',
+    ];
+
+    const newNotes: ChartNote[] = [];
+    let groupId = 0;
+
+    for (let t = SERVICE_INTERVAL; t < duration - 5; t += SERVICE_INTERVAL) {
+      for (let i = 0; i < SERVICE_NOTE_COUNT; i++) {
+        const noteT = t + i * SERVICE_NOTE_SPACING;
+        const noteType: NoteType = i % 2 === 0 ? 'don' : 'ka';
+        const sausageType =
+          SERVICE_SAUSAGE_POOL[Math.floor(Math.random() * SERVICE_SAUSAGE_POOL.length)];
+        newNotes.push({
+          t: noteT,
+          type: noteType,
+          sausage: sausageType,
+          isServiceCombo: true,
+          serviceComboGroupId: groupId,
+        });
+      }
+      groupId++;
+    }
+
+    this.chart = {
+      ...this.chart,
+      notes: [...this.chart.notes, ...newNotes].sort((a, b) => a.t - b.t),
+      totalNotes: this.chart.totalNotes + newNotes.length,
+    };
+    this.totalServiceComboGroupCount = groupId;
+    // Initialize hit tracker for each group
+    this.serviceComboGroupHits.clear();
+    this.serviceComboBatchFired.clear();
   }
 
   /** Play BGM from given offset (seconds). Creates a fresh AudioBufferSourceNode. */
@@ -1240,6 +1366,9 @@ export class GrillScene extends Phaser.Scene {
    * Waits 1 second buffer then triggers end-of-day.
    */
   private onChartComplete(): void {
+    console.debug(
+      `[GrillScene] Chart complete — serviceComboGroups: ${this.totalServiceComboGroupCount}`,
+    );
     this.time.delayedCall(1000, () => {
       if (this.isDone) return;
       this.endGrilling();
@@ -1297,8 +1426,8 @@ export class GrillScene extends Phaser.Scene {
   }
 
   /**
-   * Wave 6c: Auto-serve sausages that have reached their target doneness.
-   * Called every update() frame.
+   * Wave 6e: Auto-move sausages that have reached their target doneness into the warming zone.
+   * Two-stage serving: grill → warming (here), warming → customer (on service combo hit).
    */
   private autoServeReady(): void {
     for (const slot of this.grillSlots) {
@@ -1310,24 +1439,12 @@ export class GrillScene extends Phaser.Scene {
       const avg = (s.topDoneness + s.bottomDoneness) / 2;
       if (avg < target - 2) continue;
 
-      // Find waiting customer whose order matches
-      const waiting = this.customerQueue.getWaitingCustomers();
-      const matchedCustomer = waiting.find(c => c.order?.sausageType === s.sausageTypeId);
-      if (!matchedCustomer) continue;
-
-      // Auto-move to warming zone, then immediately auto-serve without waiting for player click
+      // Move to warming zone and wait there for service combo to trigger batch serve
       if (!slot.sprite) continue;
-      // Pre-grab the warming slot that moveToWarming will fill,
-      // so we can reference it in the delayed callback.
-      const targetWarmSlot =
-        this.warmingSlots.find(ws => !ws.sausage) ?? this.addWarmingSlot();
       this.moveToWarming(slot, slot.sprite);
-      // Trigger auto-serve after the fly animation finishes (~580 ms)
+      // After warming slot is filled, try to place an overflow sausage into the freed slot
       this.time.delayedCall(620, () => {
         if (this.isDone || !this.scene.isActive()) return;
-        if (!targetWarmSlot.sausage) return; // already served or cleared
-        this.serveFromWarming(targetWarmSlot);
-        // After serving, try to place an overflow sausage into the now-free slot
         this.fillSlotFromOverflow(slot);
       });
     }
@@ -1473,8 +1590,8 @@ export class GrillScene extends Phaser.Scene {
   }
 
   private tickFireParticles(dt: number): void {
-    // Spawn rate based on heat level
-    const spawnInterval = this.heatLevel === 'low' ? 0.8 : this.heatLevel === 'medium' ? 0.4 : 0.2;
+    // Fixed spawn interval (heatLevel removed post-Wave 6cd)
+    const spawnInterval = 0.4;
     this.fireParticleTimer += dt;
 
     if (this.fireParticleTimer >= spawnInterval) {
@@ -3634,6 +3751,50 @@ export class GrillScene extends Phaser.Scene {
       duration: 120,
       yoyo: true,
       ease: 'Back.Out',
+    });
+  }
+
+  /**
+   * Wave 6e: Big animated judgement text (PERFECT / GREAT / GOOD / MISS).
+   * Pops in with a scale bounce and floats upward before fading out.
+   */
+  private showJudgementBig(text: string, color: string, size: number, duration = 600): void {
+    const x = this.NOTE_HIT_X;
+    const y = this.noteTrackY - 60;
+    const txt = this.add.text(x, y, text, {
+      fontSize: `${size}px`,
+      fontFamily: FONT,
+      color,
+      stroke: '#000000',
+      strokeThickness: Math.max(2, Math.floor(size / 8)),
+      fontStyle: 'bold',
+    }).setOrigin(0.5).setDepth(220).setScale(0.5);
+
+    // Pop-in bounce
+    this.tweens.add({
+      targets: txt,
+      scaleX: 1.2,
+      scaleY: 1.2,
+      duration: 100,
+      ease: 'Back.Out',
+    });
+    // Settle to 1.0
+    this.tweens.add({
+      targets: txt,
+      scaleX: 1,
+      scaleY: 1,
+      duration: 200,
+      delay: 100,
+      ease: 'Power2',
+    });
+    // Float up + fade out
+    this.tweens.add({
+      targets: txt,
+      alpha: 0,
+      y: y - 30,
+      duration: duration - 200,
+      delay: 200,
+      onComplete: () => { if (txt.active) txt.destroy(); },
     });
   }
 
