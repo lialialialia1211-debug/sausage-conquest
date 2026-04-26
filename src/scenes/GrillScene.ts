@@ -43,24 +43,20 @@ import type { RhythmChart } from '../data/chart';
 import { JUDGE_WINDOWS } from '../systems/RhythmEngine';
 import type { HitJudgement } from '../systems/RhythmEngine';
 import type { NoteType, ChartNote } from '../data/chart';
+import {
+  getAutoServeConfig,
+  getBandArrivalInterval,
+  getCustomerBatchRange,
+  getInitialArrivalInterval,
+  getMaxSessionEvents,
+  getServiceComboConfig,
+  getSessionDuration,
+} from '../config/grillBalance';
 
 // ── Layout constants ────────────────────────────────────────────────────────
-// Tier-based session duration: early tiers are shorter and less demanding
-function getSessionDuration(): number {
-  const tier = gameState.playerSlot || 1;
-  if (tier <= 3) return 75;
-  if (tier <= 6) return 90;
-  return 105;
-}
-const GAME_DURATION = 90;      // seconds (kept as fallback reference)
 const MAX_GRILL_SLOTS = 8;     // 12 if grill-expand upgrade
 const GRILL_Y_FRAC = 0.50;    // grill vertical position as fraction of screen height (true center)
 // Warming zone has no fixed limit — slots are created dynamically
-// Customer arrival scales with day: early days are calmer
-const BASE_ARRIVAL_INTERVAL = 10; // day 1 interval
-const MIN_ARRIVAL_INTERVAL = 5;   // fastest interval (late game with upgrades)
-const CUSTOMER_BATCH_MIN = 2;
-const CUSTOMER_BATCH_MAX = 4;     // base max, scales up with day
 
 // ── Colors / fonts ──────────────────────────────────────────────────────────
 const COLOR_BG_TOP = 0x100500;
@@ -75,6 +71,8 @@ const FONT = 'Microsoft JhengHei, PingFang TC, sans-serif';
 // away   → player left stall (workers still run, patience still ticks)
 // null   → not paused
 type RhythmPauseReason = 'ui' | 'event' | 'away' | null;
+
+type CombatDoneResult = { undergroundRepDelta?: number; chaosPoints?: number };
 
 // ── Internal types ───────────────────────────────────────────────────────────
 interface GrillSlot {
@@ -122,7 +120,7 @@ interface WarmingSlot {
 
 export class GrillScene extends Phaser.Scene {
   // ── Session state ───────────────────────────────────────────────────────
-  private timeLeft = GAME_DURATION;
+  private timeLeft = getSessionDuration(1);
   private speedMultiplier = 1;
   private salesLog: SaleRecord[] = [];
   private grillStats = { perfect: 0, ok: 0, raw: 0, burnt: 0, 'half-cooked': 0, 'slightly-burnt': 0, carbonized: 0 };
@@ -177,14 +175,13 @@ export class GrillScene extends Phaser.Scene {
   private fireGlowGfx!: Phaser.GameObjects.Graphics;
   private timerFlashTween: Phaser.Tweens.Tween | null = null;
 
-  // ── Background overlay reference ─────────────────────────────────────────
-  // @ts-ignore — reserved for future bg manipulation
-  private bgGrillImage: Phaser.GameObjects.Image | null = null;
   private bgm: Phaser.Sound.BaseSound | null = null;
 
   // ── Combat state ─────────────────────────────────────────────────────────
   private currentCombatPanel: CombatPanel | null = null;
   private combatCustomersHandled: Set<string> = new Set();
+  private combatDoneHandler: ((result?: CombatDoneResult) => void) | null = null;
+  private blackMarketDoneHandler: (() => void) | null = null;
 
   // ── Player away state ─────────────────────────────────────────────────────
   private isPlayerAway: boolean = false;
@@ -247,11 +244,10 @@ export class GrillScene extends Phaser.Scene {
 
   // ── Auto-pack timer (3s baseline, 0 delay with auto-grill upgrade) ──────────
   private autoServeTimer = 0;
-  private readonly AUTO_SERVE_INTERVAL = 3; // seconds (was 5)
 
   // ── Unified session event counter (replaces grillEventTriggered) ─────────────
   private totalSessionEvents = 0;
-  private readonly MAX_SESSION_EVENTS = 3;
+  private maxSessionEvents = getMaxSessionEvents({ day: 1, tier: 1, difficulty: undefined });
 
   // ── Chart completion guard (prevents double end-of-day) ──────────────────────
   private chartCompleteFired = false;
@@ -277,6 +273,15 @@ export class GrillScene extends Phaser.Scene {
     super({ key: 'GrillScene' });
   }
 
+  private getBalanceInput() {
+    return {
+      day: gameState.day,
+      tier: gameState.playerSlot || 1,
+      difficulty: gameState.difficulty,
+      hasNeonSign: gameState.upgrades['neon-sign'],
+    };
+  }
+
   // ── Scene lifecycle ──────────────────────────────────────────────────────
 
   preload(): void {
@@ -291,7 +296,9 @@ export class GrillScene extends Phaser.Scene {
     this.inventoryCopy = { ...gameState.inventory };
 
     // Reset session state
-    this.timeLeft = getSessionDuration();
+    const balanceInput = this.getBalanceInput();
+    this.timeLeft = getSessionDuration(balanceInput.tier);
+    this.maxSessionEvents = getMaxSessionEvents(balanceInput);
     this.speedMultiplier = 1;
     this.salesLog = [];
     this.grillStats = { perfect: 0, ok: 0, raw: 0, burnt: 0, 'half-cooked': 0, 'slightly-burnt': 0, carbonized: 0 };
@@ -303,11 +310,7 @@ export class GrillScene extends Phaser.Scene {
     this.sessionRevenue = 0;
     this.sessionTrafficBonus = 0;
 
-    // Compute customer arrival interval for this session
-    const dayFactor = Math.min(1, (gameState.day - 1) / 14);
-    const hasNeonSign = gameState.upgrades['neon-sign'];
-    const upgradeBonus = hasNeonSign ? 1 : 0;
-    this.customerArrivalInterval = Math.max(MIN_ARRIVAL_INTERVAL, BASE_ARRIVAL_INTERVAL - dayFactor * 4 - upgradeBonus) * 0.6;
+    this.customerArrivalInterval = getInitialArrivalInterval(balanceInput);
     this.grillSlots = [];
     this.warmingSlots = [];
     this.feedbackTexts = [];
@@ -541,16 +544,14 @@ export class GrillScene extends Phaser.Scene {
       const now = this.getRhythmTime();
       const bands = this.chart.difficultyBands;
       const currentBand = bands.find(b => now >= b.t_start && now < b.t_end) ?? bands[bands.length - 1];
-      let intervalMultiplier = 1.0;
-      if (currentBand.label === 'medium') intervalMultiplier = 0.95;
-      else if (currentBand.label === 'hard') intervalMultiplier = 0.9;
-      else if (currentBand.label === 'extreme') intervalMultiplier = 0.85;
-      // Derive per-band interval from total customers / total duration
       const totalNotes = this.chart.totalNotes ?? 286;
-      const scaledTarget = Math.ceil(totalNotes / this.AVG_SAUSAGES_PER_ORDER);
-      const baseDuration = this.chart.duration;
-      const baseIntervalFromChart = baseDuration / Math.max(1, scaledTarget);
-      this.customerArrivalInterval = Math.max(2, baseIntervalFromChart * intervalMultiplier);
+      this.customerArrivalInterval = getBandArrivalInterval({
+        chartDuration: this.chart.duration,
+        totalNotes,
+        averageSausagesPerOrder: this.AVG_SAUSAGES_PER_ORDER,
+        bandLabel: currentBand.label,
+        difficulty: gameState.difficulty,
+      });
     }
 
     // Tick customer arrivals
@@ -560,9 +561,7 @@ export class GrillScene extends Phaser.Scene {
       this.pendingCustomerQueue.length > 0
     ) {
       this.customerArrivalTimer = 0;
-      // Batch size scales: day 1-5 = 2-4, day 6-14 = 2-5, day 15+ = 2-6
-      const dayBatchMax = gameState.day >= 15 ? 6 : gameState.day >= 6 ? 5 : CUSTOMER_BATCH_MAX;
-      const dayBatchMin = gameState.day >= 15 ? 2 : CUSTOMER_BATCH_MIN;
+      const { min: dayBatchMin, max: dayBatchMax } = getCustomerBatchRange(this.getBalanceInput());
       const batch = Math.min(
         Phaser.Math.Between(dayBatchMin, dayBatchMax),
         this.pendingCustomerQueue.length,
@@ -591,7 +590,7 @@ export class GrillScene extends Phaser.Scene {
             ['karen', 'enforcer', 'inspector', 'spy'].includes(c.personality) &&
             !this.combatCustomersHandled.has(c.id) &&
             gameState.day >= 5 &&                              // 前 4 天不觸發 personality combat
-            this.totalSessionEvents < this.MAX_SESSION_EVENTS  // 納入每場事件上限
+            this.totalSessionEvents < this.maxSessionEvents    // 納入每場事件上限
           ) {
             this.combatCustomersHandled.add(c.id);
             this.totalSessionEvents++;                         // 計入事件計數
@@ -886,10 +885,10 @@ export class GrillScene extends Phaser.Scene {
       this.autoServeReady();
     }
 
-    // ── Auto-pack timer: serve 1-2 sausages from warming zone every AUTO_SERVE_INTERVAL ──
+    // ── Auto-pack timer: serve a small warming-zone burst on a balance-controlled cadence ──
     if (this.rhythmStarted && !this.isGloballyPaused()) {
       this.autoServeTimer += dt;
-      const interval = gameState.upgrades['auto-grill'] ? 0.0001 : this.AUTO_SERVE_INTERVAL;
+      const { interval } = getAutoServeConfig(gameState.upgrades['auto-grill']);
       if (this.autoServeTimer >= interval) {
         this.autoServeTimer = 0;
         this.tryAutoPack();
@@ -1050,7 +1049,7 @@ export class GrillScene extends Phaser.Scene {
         // Wave 6e: service combo auto-MISS tracking
         if (n.note.isServiceCombo && n.note.serviceComboGroupId !== undefined) {
           const gid = n.note.serviceComboGroupId;
-          const stats = this.serviceComboGroupHits.get(gid) ?? { hit: 0, seen: 0, total: 6 };
+          const stats = this.serviceComboGroupHits.get(gid) ?? { hit: 0, seen: 0, total: this.getServiceComboGroupTotal(gid) };
           stats.seen += 1;
           // auto-miss: don't increment hit
           this.serviceComboGroupHits.set(gid, stats);
@@ -1241,7 +1240,7 @@ export class GrillScene extends Phaser.Scene {
   private trackServiceComboHit(note: RhythmNote, judgement: HitJudgement): void {
     if (!note.note.isServiceCombo || note.note.serviceComboGroupId === undefined) return;
     const gid = note.note.serviceComboGroupId;
-    const stats = this.serviceComboGroupHits.get(gid) ?? { hit: 0, seen: 0, total: 6 };
+    const stats = this.serviceComboGroupHits.get(gid) ?? { hit: 0, seen: 0, total: this.getServiceComboGroupTotal(gid) };
     stats.seen += 1;
     if (judgement !== 'miss') stats.hit += 1;
     this.serviceComboGroupHits.set(gid, stats);
@@ -1263,6 +1262,13 @@ export class GrillScene extends Phaser.Scene {
       this.serviceComboBatchFired.add(gid);
       this.triggerBatchServe(stats.hit, stats.total);
     }
+  }
+
+  private getServiceComboGroupTotal(gid: number): number {
+    if (!this.chart) return 1;
+    return Math.max(1, this.chart.notes.filter(
+      note => note.isServiceCombo && note.serviceComboGroupId === gid,
+    ).length);
   }
 
   /**
@@ -1392,10 +1398,12 @@ export class GrillScene extends Phaser.Scene {
   private injectServiceComboNotes(): void {
     if (!this.chart) return;
 
-    const SERVICE_INTERVAL = 15;        // seconds between service groups
-    const SERVICE_NOTE_COUNT = 6;       // notes per group
-    const SERVICE_NOTE_SPACING = 0.15;  // seconds between notes in group
-    const SERVICE_PROTECT_BUFFER = 0.4; // seconds of clear zone before/after each group
+    const {
+      interval: SERVICE_INTERVAL,
+      noteCount: SERVICE_NOTE_COUNT,
+      noteSpacing: SERVICE_NOTE_SPACING,
+      protectBuffer: SERVICE_PROTECT_BUFFER,
+    } = getServiceComboConfig(this.getBalanceInput());
     const duration = this.chart.duration;
 
     const SERVICE_SAUSAGE_POOL = [
@@ -1412,20 +1420,15 @@ export class GrillScene extends Phaser.Scene {
       const groupEnd   = t + (SERVICE_NOTE_COUNT - 1) * SERVICE_NOTE_SPACING + SERVICE_PROTECT_BUFFER;
 
       // Remove any non-service-combo notes in the protected time window
-      let removedCount = 0;
       for (let i = workingNotes.length - 1; i >= 0; i--) {
         const n = workingNotes[i];
         if (n.isServiceCombo) continue; // skip already-injected service notes
         if (n.t >= groupStart && n.t <= groupEnd) {
           workingNotes.splice(i, 1);
-          removedCount++;
         }
       }
-      console.log(
-        `[ServiceCombo] Group ${groupId} (t=${t}s): cleared ${removedCount} existing notes in [${groupStart.toFixed(2)}, ${groupEnd.toFixed(2)}]`,
-      );
 
-      // Insert 6 service combo notes
+      // Insert one compact service combo group.
       for (let i = 0; i < SERVICE_NOTE_COUNT; i++) {
         const noteT = t + i * SERVICE_NOTE_SPACING;
         const noteType: NoteType = i % 2 === 0 ? 'don' : 'ka';
@@ -1451,6 +1454,9 @@ export class GrillScene extends Phaser.Scene {
     this.totalServiceComboGroupCount = groupId;
     // Initialize hit tracker for each group
     this.serviceComboGroupHits.clear();
+    for (let gid = 0; gid < groupId; gid++) {
+      this.serviceComboGroupHits.set(gid, { hit: 0, seen: 0, total: SERVICE_NOTE_COUNT });
+    }
     this.serviceComboBatchFired.clear();
   }
 
@@ -1591,14 +1597,11 @@ export class GrillScene extends Phaser.Scene {
   }
 
   /**
-   * Auto-pack: serve 1-2 sausages from warming slots per tick.
-   * With auto-grill upgrade, serves 3 at once (near-instant burst).
-   * Called every AUTO_SERVE_INTERVAL seconds (3s baseline).
+   * Auto-pack: serve a small burst from warming slots on a balance-controlled timer.
    */
   private tryAutoPack(): void {
-    const count = gameState.upgrades['auto-grill']
-      ? 3
-      : (1 + Math.floor(Math.random() * 2)); // 1 or 2
+    const config = getAutoServeConfig(gameState.upgrades['auto-grill']);
+    const count = Phaser.Math.Between(config.minBurst, config.maxBurst);
     for (let n = 0; n < count; n++) {
       const slot = this.warmingSlots.find(ws => ws.sausage !== null);
       if (!slot) break;
@@ -1617,7 +1620,6 @@ export class GrillScene extends Phaser.Scene {
     if (this.textures.exists('bg-grill')) {
       const bgImg = this.add.image(width / 2, height / 2, 'bg-grill');
       bgImg.setDisplaySize(width, height).setAlpha(0.12).setDepth(0);
-      this.bgGrillImage = bgImg;
     }
 
     // NOTE: fire-flame and grill-mesh removed from here.
@@ -2288,8 +2290,8 @@ export class GrillScene extends Phaser.Scene {
     });
     panelArea.appendChild(this.currentCombatPanel.getElement());
 
-    EventBus.off('combat-done');
-    EventBus.once('combat-done', (result?: { undergroundRepDelta?: number; chaosPoints?: number }) => {
+    this.clearCombatDoneHandler();
+    this.combatDoneHandler = (result?: CombatDoneResult) => {
       if (this.currentCombatPanel) {
         const el = this.currentCombatPanel.getElement();
         if (el.parentElement) el.parentElement.removeChild(el);
@@ -2305,13 +2307,27 @@ export class GrillScene extends Phaser.Scene {
         addChaos(result.chaosPoints, `戰鬥後果`);
       }
       this.paused = false;
-    });
+      this.combatDoneHandler = null;
+    };
+    EventBus.once('combat-done', this.combatDoneHandler);
+  }
+
+  private clearCombatDoneHandler(): void {
+    if (!this.combatDoneHandler) return;
+    EventBus.off('combat-done', this.combatDoneHandler);
+    this.combatDoneHandler = null;
+  }
+
+  private clearBlackMarketDoneHandler(): void {
+    if (!this.blackMarketDoneHandler) return;
+    EventBus.off('black-market-done', this.blackMarketDoneHandler);
+    this.blackMarketDoneHandler = null;
   }
 
   // ── Grill event tick ──────────────────────────────────────────────────────
 
   private tickGrillEvents(dt: number): void {
-    if (this.totalSessionEvents >= this.MAX_SESSION_EVENTS) return;
+    if (this.totalSessionEvents >= this.maxSessionEvents) return;
 
     this.grillEventTimer += dt;
     if (this.grillEventTimer < this.grillEventNextTrigger) return;
@@ -3832,10 +3848,13 @@ export class GrillScene extends Phaser.Scene {
       if (this.leaveButton) this.leaveButton.setVisible(true);
 
       if (outcome.effects.openBlackMarket) {
-        EventBus.emit('show-panel', 'black-market');
-        EventBus.once('black-market-done', () => {
+        this.clearBlackMarketDoneHandler();
+        this.blackMarketDoneHandler = () => {
           EventBus.emit('hide-panel');
-        });
+          this.blackMarketDoneHandler = null;
+        };
+        EventBus.emit('show-panel', 'black-market');
+        EventBus.once('black-market-done', this.blackMarketDoneHandler);
       }
     });
     this.awayOverlay.add(continueBtn);
@@ -3886,7 +3905,7 @@ export class GrillScene extends Phaser.Scene {
         this.currentCombatPanel = null;
       }
       this.combatCustomersHandled.clear();
-      EventBus.off('combat-done');
+      this.clearCombatDoneHandler();
 
       // Stop timer flash tween if running
       if (this.timerFlashTween) {
@@ -4106,7 +4125,7 @@ export class GrillScene extends Phaser.Scene {
       this.currentCombatPanel = null;
     }
     this.combatCustomersHandled.clear();
-    EventBus.off('combat-done');
+    this.clearCombatDoneHandler();
 
     // S5.2: commentary UI cleanup removed
 
@@ -4158,7 +4177,7 @@ export class GrillScene extends Phaser.Scene {
     // Remove keyboard listeners (defensive: cameras/input may be torn down by Phaser already)
     try { this.input?.keyboard?.removeAllListeners?.(); } catch (_e) { /* ignore */ }
     try { this.cameras?.main?.removeAllListeners?.(); } catch (_e) { /* ignore */ }
-    EventBus.off('black-market-done');
+    this.clearBlackMarketDoneHandler();
   }
 
   // ── Task 5.1: Cheese Perfect — 起司爆漿瞬間 ─────────────────────────────
