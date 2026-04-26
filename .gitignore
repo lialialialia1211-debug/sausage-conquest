@@ -12,6 +12,9 @@ dist
 dist-ssr
 *.local
 
+# Local intermediate audio source files (production assets are in public/)
+scripts/source-*.wav
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
