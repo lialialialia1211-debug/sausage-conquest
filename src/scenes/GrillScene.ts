@@ -124,6 +124,7 @@ export class GrillScene extends Phaser.Scene {
   private isDone = false;
   private sessionRevenue = 0;
   private paused = true; // Start paused until player clicks "開始營業"
+  private externalPagePaused = false;
   // Session traffic bonus from events (multiplier added to base)
   private sessionTrafficBonus = 0;
 
@@ -175,6 +176,9 @@ export class GrillScene extends Phaser.Scene {
   private combatCustomersHandled: Set<string> = new Set();
   private combatDoneHandler: ((result?: CombatDoneResult) => void) | null = null;
   private blackMarketDoneHandler: (() => void) | null = null;
+  private handleWindowBlur: (() => void) | null = null;
+  private handleWindowFocus: (() => void) | null = null;
+  private handleVisibilityChange: (() => void) | null = null;
 
   // ── Player away state ─────────────────────────────────────────────────────
   private isPlayerAway: boolean = false;
@@ -290,9 +294,30 @@ export class GrillScene extends Phaser.Scene {
     // All textures preloaded in BootScene
   }
 
+  private registerExternalPauseHandlers(): void {
+    this.clearExternalPauseHandlers();
+    this.handleWindowBlur = () => { this.externalPagePaused = true; };
+    this.handleWindowFocus = () => { this.externalPagePaused = document.hidden; };
+    this.handleVisibilityChange = () => { this.externalPagePaused = document.hidden; };
+    window.addEventListener('blur', this.handleWindowBlur);
+    window.addEventListener('focus', this.handleWindowFocus);
+    document.addEventListener('visibilitychange', this.handleVisibilityChange);
+    this.externalPagePaused = document.hidden || !document.hasFocus();
+  }
+
+  private clearExternalPauseHandlers(): void {
+    if (this.handleWindowBlur) window.removeEventListener('blur', this.handleWindowBlur);
+    if (this.handleWindowFocus) window.removeEventListener('focus', this.handleWindowFocus);
+    if (this.handleVisibilityChange) document.removeEventListener('visibilitychange', this.handleVisibilityChange);
+    this.handleWindowBlur = null;
+    this.handleWindowFocus = null;
+    this.handleVisibilityChange = null;
+  }
+
   create(): void {
     this.events.on('shutdown', this.shutdown, this);
     const { width, height } = this.scale;
+    this.registerExternalPauseHandlers();
 
     // Copy inventory snapshot (actual deduction happens in sellSausage)
     this.inventoryCopy = { ...gameState.inventory };
@@ -503,6 +528,7 @@ export class GrillScene extends Phaser.Scene {
   private isGloballyPaused(): boolean {
     return this.isShowingGrillEvent
       || this.paused
+      || this.externalPagePaused
       || this.isShowingCondimentStation
       || this.isPlayerAway
       || this.currentCombatPanel !== null;
@@ -519,7 +545,7 @@ export class GrillScene extends Phaser.Scene {
       else if (!shouldPause && this.bgmPaused && !this.bgmFinished) this.resumeBgm();
     }
 
-    if (this.paused) return;
+    if (this.paused || this.externalPagePaused) return;
     // Freeze all game logic while a grill event overlay is shown
     if (this.isShowingGrillEvent) return;
     // Freeze while condiment station is open
@@ -1140,6 +1166,25 @@ export class GrillScene extends Phaser.Scene {
       return;
     }
 
+    const slot = this.grillSlots.find(s => !s.sausage);
+    if (!slot) {
+      frontNote.markHit();
+      this.rhythmCombo = 0;
+      this.updateRhythmComboText();
+      if (type === 'don') {
+        sfx.playDon();
+      } else {
+        sfx.playKa();
+      }
+      this.showJudgementBig('BLOCKED', '#ffaa00', 30, 500);
+      this.showFeedback('Grill full - serve or move sausages first', this.NOTE_HIT_X, this.noteTrackY - 70, '#ffaa00');
+      this.trackServiceComboHit(frontNote, 'miss');
+      if (frontNote.active) frontNote.destroy();
+      const blockedIdx = this.rhythmNotes.indexOf(frontNote);
+      if (blockedIdx >= 0) this.rhythmNotes.splice(blockedIdx, 1);
+      return;
+    }
+
     frontNote.markHit();
 
     // S1.1: Check inventory BEFORE counting stats. No stock → MISS, no combo credit.
@@ -1197,46 +1242,28 @@ export class GrillScene extends Phaser.Scene {
     }
 
     // Wave 6c: fly hit note into grill slot
-    // S2.2: full grid → direct MISS (overflowSausages removed in S1.5)
-    const slot = this.grillSlots.find(s => !s.sausage);
-
+    // Full grill was handled as BLOCKED before stats/inventory changes.
     // Capture for closures
     const hitNote = frontNote;
     const hitJudgement = judgement;
 
-    if (slot) {
-      // Normal path: fly note to slot then spawn sausage
-      this.tweens.add({
-        targets: hitNote,
-        x: slot.x,
-        y: slot.y,
-        scaleX: 0.7,
-        scaleY: 0.7,
-        duration: 280,
-        ease: 'Cubic.Out',
-        onComplete: () => {
-          if (hitNote.active) hitNote.destroy();
-          const idx = this.rhythmNotes.indexOf(hitNote);
-          if (idx >= 0) this.rhythmNotes.splice(idx, 1);
-          this.spawnSausageOnSlot(slot, hitNote.note.sausage, hitJudgement as 'perfect' | 'great' | 'good');
-        },
-      });
-    } else {
-      // S2.2: Grid full → direct MISS. Refund the inventory we just deducted.
-      this.inventoryCopy[noteTypeId] = (this.inventoryCopy[noteTypeId] ?? 0) + 1;
-      // Undo the hit stats we already counted, replace with miss
-      this.hitStats[hitJudgement as 'perfect' | 'great' | 'good'] -= 1;
-      this.hitStats.miss += 1;
-      this.rhythmCombo = 0;
-      this.updateRhythmComboText();
-      this.showJudgementBig('MISS', '#ff4444', 36, 500);
-      this.showFeedback('烤架已滿', this.NOTE_HIT_X, this.noteTrackY - 70, '#ff4444');
-      if (hitNote.active) hitNote.destroy();
-      const mIdx = this.rhythmNotes.indexOf(hitNote);
-      if (mIdx >= 0) this.rhythmNotes.splice(mIdx, 1);
-    }
+    // Normal path: fly note to slot then spawn sausage
+    this.tweens.add({
+      targets: hitNote,
+      x: slot.x,
+      y: slot.y,
+      scaleX: 0.7,
+      scaleY: 0.7,
+      duration: 280,
+      ease: 'Cubic.Out',
+      onComplete: () => {
+        if (hitNote.active) hitNote.destroy();
+        const idx = this.rhythmNotes.indexOf(hitNote);
+        if (idx >= 0) this.rhythmNotes.splice(idx, 1);
+        this.spawnSausageOnSlot(slot, hitNote.note.sausage, hitJudgement as 'perfect' | 'great' | 'good');
+      },
+    });
 
-    // ── Wave 6e: Service combo hit tracking ─────────────────────────────────
     this.trackServiceComboHit(frontNote, judgement);
   }
 
@@ -1386,6 +1413,7 @@ export class GrillScene extends Phaser.Scene {
 
     // Redistribute sausage types on notes based on player's morning purchases
     this.redistributeNoteSausages();
+    this.generateCustomerPool();
 
     this.rhythmStarted = true;
     this.nextNoteSpawnIdx = 0;
@@ -1468,34 +1496,52 @@ export class GrillScene extends Phaser.Scene {
   }
 
   /**
-   * Redistribute non-service-combo note sausage types based on player's
-   * morning purchases (purchaseQuantities). Service combo notes are skipped.
-   * If no purchases were made, chart defaults are preserved.
+   * Redistribute non-service-combo note sausage types from actual inventory.
+   * Morning purchases control the type mix; stock count caps playable notes.
    */
   private redistributeNoteSausages(): void {
     if (!this.chart) return;
-    const inventory = gameState.purchaseQuantities ?? {};
-    const totalPurchased = Object.values(inventory).reduce((a, b) => a + b, 0);
-    if (totalPurchased === 0) return; // no purchases → keep default chart sausage types
+    this.redistributeNoteSausagesFromStock();
+  }
 
-    // S1.3: Use gameState.inventory (actual stock) as the allocation cap.
-    // A sausage type with inventory = 0 cannot be assigned to any note.
-    const availableStock = { ...gameState.inventory };
+  private redistributeNoteSausagesFromStock(): void {
+    if (!this.chart) return;
+    const chart = this.chart;
+    const actualStock = { ...gameState.inventory };
+    const purchases = gameState.purchaseQuantities ?? {};
+    const hasPurchases = Object.values(purchases).some(q => q > 0);
+    const sourceEntries = hasPurchases ? Object.entries(purchases) : Object.entries(actualStock);
 
-    // Build weighted pool proportional to purchase quantities, filtered to available stock
-    const pool: string[] = [];
-    for (const [sausageId, qty] of Object.entries(inventory)) {
-      const stockQty = availableStock[sausageId] ?? 0;
-      if (stockQty <= 0) continue; // skip zero-stock types
-      for (let n = 0; n < qty; n++) pool.push(sausageId);
+    const stockPool: string[] = [];
+    for (const [sausageId, requestedQty] of sourceEntries) {
+      const availableQty = actualStock[sausageId] ?? 0;
+      const allocQty = Math.min(Math.max(0, Math.floor(requestedQty)), availableQty);
+      for (let n = 0; n < allocQty; n++) stockPool.push(sausageId);
     }
-    if (pool.length === 0) return;
 
-    // Reassign sausage type on each non-service-combo note from the pool
-    for (const note of this.chart.notes) {
-      if (note.isServiceCombo) continue; // preserve service combo sausage variety
-      note.sausage = pool[Math.floor(Math.random() * pool.length)];
+    for (let i = stockPool.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [stockPool[i], stockPool[j]] = [stockPool[j], stockPool[i]];
     }
+
+    const allocatedNotes: ChartNote[] = [];
+    const serviceNotes: ChartNote[] = [];
+    for (const note of chart.notes) {
+      if (note.isServiceCombo) {
+        serviceNotes.push(note);
+        continue;
+      }
+      const sausage = stockPool.pop();
+      if (!sausage) continue;
+      allocatedNotes.push({ ...note, sausage });
+    }
+
+    const notes = [...allocatedNotes, ...serviceNotes].sort((a, b) => a.t - b.t);
+    this.chart = {
+      ...chart,
+      notes,
+      totalNotes: notes.length,
+    };
   }
 
   /** Play BGM from given offset (seconds). Creates a fresh AudioBufferSourceNode. */
@@ -2033,22 +2079,6 @@ export class GrillScene extends Phaser.Scene {
       fontFamily: FONT,
       color: COLOR_DIM,
     }).setOrigin(1, 0).setDepth(10).setVisible(false);
-
-    // Dismiss button — remove first customer in queue at cost of -1 reputation
-    const dismissBtn = this.add.text(
-      width - 10, queueY - 10,
-      '趕走第一位',
-      { fontSize: '12px', color: '#ff6666', backgroundColor: '#1a1a1a', padding: { x: 6, y: 3 } }
-    ).setOrigin(1, 1).setInteractive({ useHandCursor: true }).setDepth(10);
-
-    dismissBtn.on('pointerdown', () => {
-      const next = this.customerQueue.getNextCustomer();
-      if (!next) return;
-      this.customerQueue.serveCustomer(next.id, false);
-      this.customers = this.customers.filter(c => c.id !== next.id);
-      changeReputation(-1);
-      this.showFeedback('趕走了客人 聲望-1', this.scale.width / 2, this.queueY - 30, '#ff6666');
-    });
   }
 
 
@@ -3498,12 +3528,8 @@ export class GrillScene extends Phaser.Scene {
   }
 
   private updateStatsDisplay(): void {
-    const { perfect, ok, burnt, carbonized } = this.grillStats;
-    const halfCooked = this.grillStats['half-cooked'];
-    const slightlyBurnt = this.grillStats['slightly-burnt'];
-    this.statsText.setText(
-      `完美${perfect} 普通${ok} 微焦${slightlyBurnt} 焦${burnt} 碳化${carbonized} 半熟${halfCooked}`
-    );
+    const rhythmStats = this.hitStats;
+    this.statsText.setText(`PERFECT ${rhythmStats.perfect}  GREAT ${rhythmStats.great}  GOOD ${rhythmStats.good}  MISS ${rhythmStats.miss}`);
     this.revenueText.setText(`$${this.sessionRevenue}`);
   }
 
@@ -4277,6 +4303,7 @@ export class GrillScene extends Phaser.Scene {
     // Remove keyboard listeners (defensive: cameras/input may be torn down by Phaser already)
     try { this.input?.keyboard?.removeAllListeners?.(); } catch (_e) { /* ignore */ }
     try { this.cameras?.main?.removeAllListeners?.(); } catch (_e) { /* ignore */ }
+    this.clearExternalPauseHandlers();
     this.clearBlackMarketDoneHandler();
   }
 
