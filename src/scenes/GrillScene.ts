@@ -507,6 +507,13 @@ export class GrillScene extends Phaser.Scene {
     // Tick customer patience
     this.customerQueue.tick(dt);
 
+    // Auto-replenish pending queue so customers keep coming throughout the session
+    if (this.rhythmStarted && !this.isDone && this.pendingCustomerQueue.length < 5) {
+      const toAdd = 5 - this.pendingCustomerQueue.length;
+      const refill = generateCustomers(1, 0).slice(0, toAdd);
+      this.pendingCustomerQueue.push(...refill);
+    }
+
     // Tick customer arrivals
     this.customerArrivalTimer += dt;
     if (
@@ -730,9 +737,13 @@ export class GrillScene extends Phaser.Scene {
 
     // Wave 6 rhythm mode: scene end is driven by BGM completion (onChartComplete),
     // NOT by timeLeft countdown or "no customer" auto-end.
-    // timeLeft is kept as a display-only counter (HUD), no longer triggers endGrilling.
-    this.timeLeft -= dt;
-    if (this.timeLeft < 0) this.timeLeft = 0;
+    // timeLeft is kept as a display-only counter (HUD) synced to BGM remaining time.
+    if (this.rhythmStarted && this.bgmAudioBuffer && this.bgmAudioBuffer.duration > 0) {
+      this.timeLeft = Math.max(0, this.bgmAudioBuffer.duration - this.getRhythmTime());
+    } else {
+      this.timeLeft -= dt;
+      if (this.timeLeft < 0) this.timeLeft = 0;
+    }
     this.updateTimerDisplay();
 
     this.tickCustomerCommentary(dt);
@@ -836,17 +847,16 @@ export class GrillScene extends Phaser.Scene {
     judgeCircle.setDepth(10);
 
     // Debug label below judgement circle
-    this.add.text(this.NOTE_HIT_X, this.noteTrackY + 44, 'Don=F/J  Ka=D/K', {
+    this.add.text(this.NOTE_HIT_X, this.noteTrackY + 44, '咚=D  喀=F', {
       fontSize: '11px',
       fontFamily: FONT,
       color: '#888888',
     }).setOrigin(0.5).setDepth(10);
 
     // ── Wave 6b: Keyboard input ──────────────────────────────────────────────
-    this.input.keyboard?.on('keydown-F', () => this.handleRhythmPress('don'));
-    this.input.keyboard?.on('keydown-J', () => this.handleRhythmPress('don'));
-    this.input.keyboard?.on('keydown-D', () => this.handleRhythmPress('ka'));
-    this.input.keyboard?.on('keydown-K', () => this.handleRhythmPress('ka'));
+    // D = 咚 DON (red), F = 喀 KA (blue) — left index/middle finger alternation
+    this.input.keyboard?.on('keydown-D', () => this.handleRhythmPress('don'));
+    this.input.keyboard?.on('keydown-F', () => this.handleRhythmPress('ka'));
 
     // ── Wave 6b: Touch buttons (Don = red left, Ka = blue right) ────────────
     const btnY = height - 50;
@@ -866,7 +876,7 @@ export class GrillScene extends Phaser.Scene {
     );
     donGfx.on('pointerdown', () => this.handleRhythmPress('don'));
 
-    this.add.text(donX, btnY, '咚\nDon', {
+    this.add.text(donX, btnY, '咚 D', {
       fontSize: '18px',
       fontFamily: FONT,
       color: '#ffffff',
@@ -887,7 +897,7 @@ export class GrillScene extends Phaser.Scene {
     );
     kaGfx.on('pointerdown', () => this.handleRhythmPress('ka'));
 
-    this.add.text(kaX, btnY, '喀\nKa', {
+    this.add.text(kaX, btnY, '喀 F', {
       fontSize: '18px',
       fontFamily: FONT,
       color: '#ffffff',
@@ -1259,25 +1269,46 @@ export class GrillScene extends Phaser.Scene {
   private injectServiceComboNotes(): void {
     if (!this.chart) return;
 
-    const SERVICE_INTERVAL = 15;      // seconds between service groups
-    const SERVICE_NOTE_COUNT = 6;     // notes per group
-    const SERVICE_NOTE_SPACING = 0.15; // seconds between notes in group
+    const SERVICE_INTERVAL = 15;        // seconds between service groups
+    const SERVICE_NOTE_COUNT = 6;       // notes per group
+    const SERVICE_NOTE_SPACING = 0.15;  // seconds between notes in group
+    const SERVICE_PROTECT_BUFFER = 0.4; // seconds of clear zone before/after each group
     const duration = this.chart.duration;
 
     const SERVICE_SAUSAGE_POOL = [
       'flying-fish-roe', 'cheese', 'big-taste', 'big-wrap-small', 'great-wall',
     ];
 
-    const newNotes: ChartNote[] = [];
+    // Start with a mutable copy of existing chart notes
+    const workingNotes: ChartNote[] = [...this.chart.notes];
+    const serviceNotes: ChartNote[] = [];
     let groupId = 0;
 
     for (let t = SERVICE_INTERVAL; t < duration - 5; t += SERVICE_INTERVAL) {
+      const groupStart = t - SERVICE_PROTECT_BUFFER;
+      const groupEnd   = t + (SERVICE_NOTE_COUNT - 1) * SERVICE_NOTE_SPACING + SERVICE_PROTECT_BUFFER;
+
+      // Remove any non-service-combo notes in the protected time window
+      let removedCount = 0;
+      for (let i = workingNotes.length - 1; i >= 0; i--) {
+        const n = workingNotes[i];
+        if (n.isServiceCombo) continue; // skip already-injected service notes
+        if (n.t >= groupStart && n.t <= groupEnd) {
+          workingNotes.splice(i, 1);
+          removedCount++;
+        }
+      }
+      console.log(
+        `[ServiceCombo] Group ${groupId} (t=${t}s): cleared ${removedCount} existing notes in [${groupStart.toFixed(2)}, ${groupEnd.toFixed(2)}]`,
+      );
+
+      // Insert 6 service combo notes
       for (let i = 0; i < SERVICE_NOTE_COUNT; i++) {
         const noteT = t + i * SERVICE_NOTE_SPACING;
         const noteType: NoteType = i % 2 === 0 ? 'don' : 'ka';
         const sausageType =
           SERVICE_SAUSAGE_POOL[Math.floor(Math.random() * SERVICE_SAUSAGE_POOL.length)];
-        newNotes.push({
+        serviceNotes.push({
           t: noteT,
           type: noteType,
           sausage: sausageType,
@@ -1288,10 +1319,11 @@ export class GrillScene extends Phaser.Scene {
       groupId++;
     }
 
+    const allNotes = [...workingNotes, ...serviceNotes].sort((a, b) => a.t - b.t);
     this.chart = {
       ...this.chart,
-      notes: [...this.chart.notes, ...newNotes].sort((a, b) => a.t - b.t),
-      totalNotes: this.chart.totalNotes + newNotes.length,
+      notes: allNotes,
+      totalNotes: allNotes.length,
     };
     this.totalServiceComboGroupCount = groupId;
     // Initialize hit tracker for each group
@@ -4302,7 +4334,7 @@ export class GrillScene extends Phaser.Scene {
 
     // Controls
     const controlsText = this.add.text(cx, height * 0.30,
-      '【咚 紅】  鍵盤 F 或 J\n【喀 藍】  鍵盤 D 或 K', {
+      '【咚 紅】  按 D 鍵\n【喀 藍】  按 F 鍵', {
         fontSize: '20px',
         fontFamily: FONT,
         color: '#ffaaaa',
