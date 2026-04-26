@@ -255,7 +255,7 @@ export class GrillScene extends Phaser.Scene {
 
   // ── Unified session event counter (replaces grillEventTriggered) ─────────────
   private totalSessionEvents = 0;
-  private readonly MAX_SESSION_EVENTS = 2;
+  private readonly MAX_SESSION_EVENTS = 3;
 
   // ── Chart completion guard (prevents double end-of-day) ──────────────────────
   private chartCompleteFired = false;
@@ -793,16 +793,29 @@ export class GrillScene extends Phaser.Scene {
       }
     }
 
-    // Spawn timer：每 4–8 秒從 customerQueue 取 1 位 shallow-copy 加入圍觀
+    // Spawn timer：每 3–6 秒產一位圍觀者（不依賴 waiting customers）
     this.spectatorSpawnTimer += dt;
     if (this.spectatorSpawnTimer >= this.spectatorNextSpawnInterval) {
       this.spectatorSpawnTimer = 0;
-      this.spectatorNextSpawnInterval = 4 + Math.random() * 4;
-      const waiting = this.customerQueue.getWaitingCustomers();
-      if (waiting.length > 0) {
+      this.spectatorNextSpawnInterval = 3 + Math.random() * 3;
+      // Priority: pendingCustomerQueue sample → waitingCustomers[0] → transient generated customer
+      let spectatorSource: import('../types').Customer | null = null;
+      if (this.pendingCustomerQueue.length > 0) {
+        const idx = Math.floor(Math.random() * this.pendingCustomerQueue.length);
+        spectatorSource = this.pendingCustomerQueue[idx];
+      } else {
+        const waiting = this.customerQueue.getWaitingCustomers();
+        if (waiting.length > 0) {
+          spectatorSource = waiting[0];
+        } else {
+          // Transient sample: generate a throwaway customer just for the visual
+          const transient = generateCustomers(1, 0);
+          if (transient.length > 0) spectatorSource = transient[0];
+        }
+      }
+      if (spectatorSource) {
         // shallow copy：複製 Customer 基礎資料，不搬動原始物件
-        const original = waiting[0];
-        const clone: import('../types').Customer = { ...original };
+        const clone: import('../types').Customer = { ...spectatorSource };
         this.spectatorCrowd.addSpectator(clone);
       }
     }

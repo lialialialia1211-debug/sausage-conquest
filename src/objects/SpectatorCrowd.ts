@@ -8,10 +8,12 @@ import { pickRandomQuote } from '../data/spectatorQuotes';
 interface SpectatorDisplay {
   customer: Customer;
   container: Phaser.GameObjects.Container;
-  reactionBubble: Phaser.GameObjects.Text | null;
+  reactionBubble: Phaser.GameObjects.Text | null;   // 短反應氣泡（PERFECT / MISS 等）
   arrivedAt: number;           // scene time (ms) 用來計算排隊時間
-  bubbleTimer: number;         // 氣泡剩餘顯示秒數（倒計時）
+  bubbleTimer: number;         // 短反應氣泡剩餘顯示秒數（倒計時）
   naturalLeaveTimer: number;   // 自然離場倒計時（秒）
+  quoteBubble: Phaser.GameObjects.Text | null;      // 長對白氣泡（獨立 slot，不被短氣泡覆蓋）
+  quoteBubbleTimer: number;    // 長對白氣泡剩餘顯示秒數
 }
 
 // 可觸發的事件類型
@@ -120,6 +122,8 @@ export class SpectatorCrowd extends Phaser.GameObjects.Container {
       arrivedAt: this.scene.time.now,
       bubbleTimer: 0,
       naturalLeaveTimer: NATURAL_LEAVE_MIN + Math.random() * (NATURAL_LEAVE_MAX - NATURAL_LEAVE_MIN),
+      quoteBubble: null,
+      quoteBubbleTimer: 0,
     };
 
     this.spectators.push(display);
@@ -176,7 +180,7 @@ export class SpectatorCrowd extends Phaser.GameObjects.Container {
     const toRemove: SpectatorDisplay[] = [];
 
     for (const sp of this.spectators) {
-      // 氣泡倒計時
+      // 短反應氣泡倒計時
       if (sp.reactionBubble && sp.bubbleTimer > 0) {
         sp.bubbleTimer -= deltaSec;
         if (sp.bubbleTimer <= 0) {
@@ -184,6 +188,17 @@ export class SpectatorCrowd extends Phaser.GameObjects.Container {
             sp.reactionBubble.destroy();
           }
           sp.reactionBubble = null;
+        }
+      }
+
+      // 長對白氣泡倒計時（獨立於短反應氣泡）
+      if (sp.quoteBubble && sp.quoteBubbleTimer > 0) {
+        sp.quoteBubbleTimer -= deltaSec;
+        if (sp.quoteBubbleTimer <= 0) {
+          if (sp.quoteBubble?.active) {
+            sp.quoteBubble.destroy();
+          }
+          sp.quoteBubble = null;
         }
       }
 
@@ -205,6 +220,7 @@ export class SpectatorCrowd extends Phaser.GameObjects.Container {
   clear(): void {
     for (const sp of this.spectators) {
       if (sp.reactionBubble?.active) sp.reactionBubble.destroy();
+      if (sp.quoteBubble?.active) sp.quoteBubble.destroy();
       if (sp.container?.active) sp.container.destroy();
     }
     this.spectators = [];
@@ -252,6 +268,12 @@ export class SpectatorCrowd extends Phaser.GameObjects.Container {
 
     if (!sp.container?.active) return;
 
+    // Destroy both bubble slots on removal
+    if (sp.reactionBubble?.active) sp.reactionBubble.destroy();
+    sp.reactionBubble = null;
+    if (sp.quoteBubble?.active) sp.quoteBubble.destroy();
+    sp.quoteBubble = null;
+
     if (animate) {
       this.scene.tweens.add({
         targets: sp.container,
@@ -260,31 +282,30 @@ export class SpectatorCrowd extends Phaser.GameObjects.Container {
         duration: 400,
         ease: 'Power2',
         onComplete: () => {
-          if (sp.reactionBubble?.active) sp.reactionBubble.destroy();
           if (sp.container?.active) sp.container.destroy();
         },
       });
     } else {
-      if (sp.reactionBubble?.active) sp.reactionBubble.destroy();
       sp.container.destroy();
     }
   }
 
   /**
-   * 長文對白氣泡（不動 showBubble，獨立實作）
+   * 長文對白氣泡（使用獨立 quoteBubble slot，不覆蓋 reactionBubble）
    * 字型 13px + wordWrap 220px，顯示 4.5 秒，簡單淡入
    */
   private showLongBubble(sp: SpectatorDisplay, text: string): void {
     if (!sp.container?.active) return;
 
-    if (sp.reactionBubble?.active) {
-      sp.reactionBubble.destroy();
-      sp.reactionBubble = null;
+    // Destroy previous quote bubble if still showing
+    if (sp.quoteBubble?.active) {
+      sp.quoteBubble.destroy();
+      sp.quoteBubble = null;
     }
 
     const bubble = this.scene.add.text(
       sp.container.x + this.x,
-      sp.container.y + this.y - SPECTATOR_SIZE / 2 - 10,
+      sp.container.y + this.y - SPECTATOR_SIZE / 2 - 30,
       text,
       {
         fontSize: '13px',
@@ -296,10 +317,11 @@ export class SpectatorCrowd extends Phaser.GameObjects.Container {
         wordWrap: { width: 220 },
         align: 'center',
       },
-    ).setOrigin(0.5, 1).setDepth(200);
+    ).setOrigin(0.5, 1).setDepth(201);
 
-    sp.reactionBubble = bubble;
-    sp.bubbleTimer = 4.5;
+    // Store in quoteBubble slot — independent from reactionBubble
+    sp.quoteBubble = bubble;
+    sp.quoteBubbleTimer = 4.5;
 
     bubble.setAlpha(0);
     this.scene.tweens.add({
