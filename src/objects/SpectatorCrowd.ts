@@ -2,6 +2,7 @@
 // 最多 6 位圍觀者，依烤制事件浮出反應氣泡，給玩家心理壓力感
 import Phaser from 'phaser';
 import type { Customer } from '../types';
+import { SPECTATOR_QUOTES } from '../data/spectatorQuotes';
 
 // 每個圍觀者的顯示資料
 interface SpectatorDisplay {
@@ -138,6 +139,16 @@ export class SpectatorCrowd extends Phaser.GameObjects.Container {
   }
 
   /**
+   * 隨機抽一位圍觀客人，浮出一條隨機對白（長文氣泡）
+   */
+  public showRandomQuote(): void {
+    if (this.spectators.length === 0) return;
+    const sp = this.spectators[Math.floor(Math.random() * this.spectators.length)];
+    const quote = SPECTATOR_QUOTES[Math.floor(Math.random() * SPECTATOR_QUOTES.length)];
+    this.showLongBubble(sp, quote);
+  }
+
+  /**
    * 注目度 = 圍觀人數 × 平均等待緊迫度（0–10 範圍）
    * 緊迫度 = 1 - patience_ratio（耐心越少、緊迫度越高）
    */
@@ -257,6 +268,45 @@ export class SpectatorCrowd extends Phaser.GameObjects.Container {
       if (sp.reactionBubble?.active) sp.reactionBubble.destroy();
       sp.container.destroy();
     }
+  }
+
+  /**
+   * 長文對白氣泡（不動 showBubble，獨立實作）
+   * 字型 13px + wordWrap 220px，顯示 4.5 秒，簡單淡入
+   */
+  private showLongBubble(sp: SpectatorDisplay, text: string): void {
+    if (!sp.container?.active) return;
+
+    if (sp.reactionBubble?.active) {
+      sp.reactionBubble.destroy();
+      sp.reactionBubble = null;
+    }
+
+    const bubble = this.scene.add.text(
+      sp.container.x + this.x,
+      sp.container.y + this.y - SPECTATOR_SIZE / 2 - 10,
+      text,
+      {
+        fontSize: '13px',
+        color: '#ffffff',
+        backgroundColor: '#000000cc',
+        padding: { x: 8, y: 5 },
+        stroke: '#000000',
+        strokeThickness: 2,
+        wordWrap: { width: 220 },
+        align: 'center',
+      },
+    ).setOrigin(0.5, 1).setDepth(200);
+
+    sp.reactionBubble = bubble;
+    sp.bubbleTimer = 4.5;
+
+    bubble.setAlpha(0);
+    this.scene.tweens.add({
+      targets: bubble,
+      alpha: 1,
+      duration: 150,
+    });
   }
 
   /**

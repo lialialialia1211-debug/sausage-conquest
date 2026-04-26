@@ -220,6 +220,9 @@ export class GrillScene extends Phaser.Scene {
   private pressureLevelText: Phaser.GameObjects.Text | null = null;
   private pressureUpdateTimer = 0; // 每 500ms 更新一次壓力顯示
   private patienceCheckTimer = 0;  // 每秒檢查一次 patience
+  // 圍觀客人隨機對白計時
+  private quoteTimer = 0;
+  private quoteNextTrigger = 0;
 
   // ── Wave 6a: Rhythm track state ──────────────────────────────────────────
   private chart: RhythmChart | null = null;
@@ -777,6 +780,16 @@ export class GrillScene extends Phaser.Scene {
     // ── Wave 4c: SpectatorCrowd tick ────────────────────────────────────────
     this.spectatorCrowd.tick(dt);
 
+    // 圍觀客人隨機對白：每 5-8 秒觸發一次
+    if (this.spectatorCrowd && this.rhythmStarted && !this.isGloballyPaused()) {
+      this.quoteTimer += dt;
+      if (this.quoteTimer >= this.quoteNextTrigger) {
+        this.quoteTimer = 0;
+        this.quoteNextTrigger = 5 + Math.random() * 3;
+        this.spectatorCrowd.showRandomQuote();
+      }
+    }
+
     // Spawn timer：每 4–8 秒從 customerQueue 取 1 位 shallow-copy 加入圍觀
     this.spectatorSpawnTimer += dt;
     if (this.spectatorSpawnTimer >= this.spectatorNextSpawnInterval) {
@@ -1304,6 +1317,9 @@ export class GrillScene extends Phaser.Scene {
     this.rhythmNotes.forEach(n => { if (n.active) n.destroy(); });
     this.rhythmNotes = [];
     this.paused = false;
+    // 重置對白計時
+    this.quoteTimer = 0;
+    this.quoteNextTrigger = 5 + Math.random() * 3;
     EventBus.emit('scene-ready', 'GrillScene');
   }
 
