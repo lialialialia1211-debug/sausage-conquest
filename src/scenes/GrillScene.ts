@@ -1172,23 +1172,15 @@ export class GrillScene extends Phaser.Scene {
 
     frontNote.markHit();
 
-    // Stock gates spawning, not rhythm judgement: an accurate sold-out hit is not a MISS.
+    // Rhythm hits should always resolve as rhythm hits. Stock is consumed while available,
+    // but shortage must not interrupt the music lane or replace a correct judgement.
     const noteTypeId = frontNote.note.sausage;
     const noteStock = this.inventoryCopy[noteTypeId] ?? 0;
-    if (noteStock <= 0) {
-      sfx.playDon(); // keep auditory feedback so player knows the key was pressed
-      this.burstHitZone(judgement);
-      this.showJudgementBig('SOLD OUT', '#ff8844', 30, 500);
-      this.showFeedback('庫存不足：節奏命中但無法上架', this.NOTE_HIT_X, this.noteTrackY - 50, '#ff8844');
-      if (frontNote.active) frontNote.destroy();
-      const nIdx = this.rhythmNotes.indexOf(frontNote);
-      if (nIdx >= 0) this.rhythmNotes.splice(nIdx, 1);
-      return;
-    }
-    // Deduct inventory before spawning
-    this.inventoryCopy[noteTypeId]--;
-    if (this.inventoryCopy[noteTypeId] <= 0) {
-      delete this.inventoryCopy[noteTypeId];
+    if (noteStock > 0) {
+      this.inventoryCopy[noteTypeId]--;
+      if (this.inventoryCopy[noteTypeId] <= 0) {
+        delete this.inventoryCopy[noteTypeId];
+      }
     }
 
     // Update stats and combo
@@ -3574,39 +3566,80 @@ export class GrillScene extends Phaser.Scene {
       judgement === 'perfect' ? 0xfff066 :
       judgement === 'great' ? 0x66ddff :
       0xff8844;
+    const secondaryColor =
+      judgement === 'perfect' ? 0xff6b00 :
+      judgement === 'great' ? 0xffffff :
+      0xffcc66;
     const x = this.NOTE_HIT_X;
     const y = this.noteTrackY;
 
+    const flash = this.add.graphics().setDepth(204);
+    flash.fillStyle(color, 0.35);
+    flash.fillCircle(x, y, 58);
+    flash.fillStyle(0xffffff, 0.25);
+    flash.fillCircle(x, y, 34);
+    this.tweens.add({
+      targets: flash,
+      alpha: 0,
+      scaleX: 2.4,
+      scaleY: 2.4,
+      duration: 180,
+      ease: 'Cubic.Out',
+      onComplete: () => flash.destroy(),
+    });
+
     const ring = this.add.graphics().setDepth(205);
-    ring.lineStyle(5, color, 0.95);
-    ring.strokeCircle(x, y, 28);
-    ring.lineStyle(2, 0xffffff, 0.75);
-    ring.strokeCircle(x, y, 16);
+    ring.lineStyle(9, color, 1);
+    ring.strokeCircle(x, y, 34);
+    ring.lineStyle(4, secondaryColor, 0.95);
+    ring.strokeCircle(x, y, 52);
+    ring.lineStyle(2, 0xffffff, 0.9);
+    ring.strokeCircle(x, y, 18);
     this.tweens.add({
       targets: ring,
       alpha: 0,
-      scaleX: 2.15,
-      scaleY: 2.15,
-      duration: 260,
+      scaleX: 2.8,
+      scaleY: 2.8,
+      duration: 320,
       ease: 'Cubic.Out',
       onComplete: () => ring.destroy(),
     });
 
-    for (let i = 0; i < 12; i++) {
-      const angle = (Math.PI * 2 * i) / 12;
+    for (let i = 0; i < 24; i++) {
+      const angle = (Math.PI * 2 * i) / 24;
+      const distance = Phaser.Math.Between(54, 118);
       const spark = this.add.graphics().setDepth(206);
-      spark.fillStyle(i % 3 === 0 ? 0xffffff : color, 1);
-      spark.fillCircle(x, y, i % 2 === 0 ? 4 : 3);
+      spark.fillStyle(i % 4 === 0 ? 0xffffff : (i % 2 === 0 ? color : secondaryColor), 1);
+      spark.fillCircle(x, y, i % 3 === 0 ? 6 : 4);
       this.tweens.add({
         targets: spark,
-        x: Math.cos(angle) * Phaser.Math.Between(34, 72),
-        y: Math.sin(angle) * Phaser.Math.Between(24, 56),
+        x: Math.cos(angle) * distance,
+        y: Math.sin(angle) * distance,
         alpha: 0,
-        duration: 220 + i * 8,
+        duration: 260 + i * 6,
         ease: 'Quad.Out',
         onComplete: () => spark.destroy(),
       });
     }
+
+    const shock = this.add.text(x, y, 'BOOM', {
+      fontSize: judgement === 'perfect' ? '34px' : '26px',
+      fontFamily: FONT,
+      color: '#ffffff',
+      stroke: '#ff3300',
+      strokeThickness: 5,
+      fontStyle: '900',
+    }).setOrigin(0.5).setDepth(207).setAlpha(0.95);
+    this.tweens.add({
+      targets: shock,
+      y: y - 18,
+      scaleX: 1.35,
+      scaleY: 1.35,
+      alpha: 0,
+      duration: 260,
+      ease: 'Back.Out',
+      onComplete: () => shock.destroy(),
+    });
   }
 
   /**
