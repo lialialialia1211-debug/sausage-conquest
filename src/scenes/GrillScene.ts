@@ -76,11 +76,9 @@ interface GrillSlot {
   y: number;
   placeholderGfx: GrillSlotGraphics | null;
   serveBtn: Phaser.GameObjects.Text | null;
-  serveHint: Phaser.GameObjects.Text | null;
   // Runtime state flags attached during play
   __carbonWarnShown?: boolean;
   __burntWarnShown?: boolean;
-  __lastClickTime?: number;
   // Stage tracking for visual/audio feedback (Wave 4a)
   __prevTopStage?: CookingStage;
   __prevBottomStage?: CookingStage;
@@ -674,15 +672,6 @@ export class GrillScene extends Phaser.Scene {
       slot.__prevTopStage = newTopStage;
       slot.__prevBottomStage = newBottomStage;
       // ────────────────────────────────────────────────────────────────────────
-
-      // ── Contextual feedback ──
-      // Show "雙擊起鍋" persistent hint when both sides are cooked enough
-      if (!slot.serveHint && updated.topDoneness >= 30 && updated.bottomDoneness >= 30) {
-        slot.serveHint = this.add.text(slot.x, slot.y - 45, '雙擊起鍋', {
-          fontSize: '10px', color: '#88ff88', backgroundColor: '#1a2a1a22',
-          padding: { x: 3, y: 1 }
-        }).setOrigin(0.5).setDepth(8);
-      }
 
       // Show warning for overcooked
       const currentQuality = judgeQuality(updated, isSimulation);
@@ -1791,7 +1780,7 @@ export class GrillScene extends Phaser.Scene {
 
     for (let i = 0; i < slotCount; i++) {
       const x = startX + i * slotSpacing;
-      const slot: GrillSlot = { sprite: null, sausage: null, x, y: grillY, placeholderGfx: null, serveBtn: null, serveHint: null };
+      const slot: GrillSlot = { sprite: null, sausage: null, x, y: grillY, placeholderGfx: null, serveBtn: null };
       this.grillSlots.push(slot);
       this.drawEmptySlotPlaceholder(slot);
     }
@@ -1823,7 +1812,7 @@ export class GrillScene extends Phaser.Scene {
     const startX = (width - totalW) / 2 + slotSpacing / 2;
     const i = this.grillSlots.length; // index of the new slot
     const x = startX + i * slotSpacing;
-    const slot: GrillSlot = { sprite: null, sausage: null, x, y: grillY, placeholderGfx: null, serveBtn: null, serveHint: null };
+    const slot: GrillSlot = { sprite: null, sausage: null, x, y: grillY, placeholderGfx: null, serveBtn: null };
     this.grillSlots.push(slot);
     this.drawEmptySlotPlaceholder(slot);
   }
@@ -2627,7 +2616,6 @@ export class GrillScene extends Phaser.Scene {
           slot.sprite.playBurntAnimation();
         }
         if (slot.serveBtn) { slot.serveBtn.destroy(); slot.serveBtn = null; }
-        if (slot.serveHint) { slot.serveHint.destroy(); slot.serveHint = null; }
         slot.sausage = { ...slot.sausage, served: true };
         slot.sprite = null;
         const capturedSlot = slot;
@@ -2785,20 +2773,11 @@ export class GrillScene extends Phaser.Scene {
     sprite.setDepth(4); // S7.8: depth 4, above rackBack(2) — no rackFront currently
     const slotIndex = this.grillSlots.indexOf(slot);
 
-    // Single click = flip; double-click = move to warming zone
+    // Legacy manual placement only supports single-click flip. Rhythm mode handles serving.
     sprite.onClick(() => {
       const currentSlot = this.grillSlots.find(s => s.sprite === sprite);
       if (!currentSlot) return;
-      const now = Date.now();
-      const lastClickTime = currentSlot.__lastClickTime ?? 0;
-      const isDoubleClick = (now - lastClickTime) < 350;
-      if (isDoubleClick) {
-        currentSlot.__lastClickTime = 0;
-        if (currentSlot.sprite) this.moveToWarming(currentSlot, currentSlot.sprite);
-      } else {
-        currentSlot.__lastClickTime = now;
-        this.doFlipSlot(currentSlot);
-      }
+      this.doFlipSlot(currentSlot);
     });
 
     // Hover tracking for spacebar flip
@@ -2869,11 +2848,6 @@ export class GrillScene extends Phaser.Scene {
       slot.serveBtn.destroy();
       slot.serveBtn = null;
     }
-    if (slot.serveHint) {
-      slot.serveHint.destroy();
-      slot.serveHint = null;
-    }
-
     // Wave 4b: clean up interaction buttons
     this.destroySlotInteractionBtns(slot);
 

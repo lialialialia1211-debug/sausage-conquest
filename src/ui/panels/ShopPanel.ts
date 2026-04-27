@@ -313,24 +313,20 @@ export class ShopPanel {
     const descEl = document.createElement('div');
     descEl.className = 'shop-item-desc';
     descEl.style.fontStyle = 'italic';
-    descEl.style.fontSize = '0.85em';
     descEl.textContent = worker.description;
 
     const buffEl = document.createElement('div');
     buffEl.className = 'shop-item-buff';
     buffEl.style.color = 'var(--color-success, #4caf50)';
-    buffEl.style.fontSize = '0.82em';
     buffEl.textContent = worker.buff;
 
     const debuffEl = document.createElement('div');
     debuffEl.className = 'shop-item-debuff';
     debuffEl.style.color = 'var(--color-warning, #ff9800)';
-    debuffEl.style.fontSize = '0.82em';
     debuffEl.textContent = worker.debuff;
 
     const salaryEl = document.createElement('div');
     salaryEl.className = 'shop-item-salary';
-    salaryEl.style.fontSize = '0.82em';
     salaryEl.style.color = 'var(--text-dim)';
     salaryEl.textContent = `日薪 $${worker.dailySalary}`;
 
