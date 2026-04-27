@@ -9,6 +9,7 @@ const CUSTOMER_SLOT_W = 200;
 const PATIENCE_BAR_H = 10;
 const PATIENCE_BAR_W = 150;
 export const MAX_VISIBLE_CUSTOMERS = 6;
+const SIDE_CUSTOMER_COUNT = 2;
 
 // Patience indicator based on fraction
 function getCustomerEmoji(frac: number): string {
@@ -36,9 +37,11 @@ interface CustomerDisplay {
 export class CustomerQueue extends Phaser.GameObjects.Container {
   private displays: CustomerDisplay[] = [];
   private onCustomerTimeoutCb: ((customerId: string) => void) | null = null;
+  private readonly topY: number;
 
-  constructor(scene: Phaser.Scene, x: number, y: number) {
-    super(scene, x, y);
+  constructor(scene: Phaser.Scene, _x: number, y: number) {
+    super(scene, 0, 0);
+    this.topY = y;
     scene.add.existing(this);
   }
 
@@ -50,10 +53,10 @@ export class CustomerQueue extends Phaser.GameObjects.Container {
   addCustomer(customer: Customer): void {
     // Spawn far right, then tween to proper slot position
     const slotIndex = this.displays.filter(d => d.state === 'waiting').length;
-    const targetX = slotIndex * CUSTOMER_SLOT_W;
-    const spawnX = targetX + 560; // enter from right
+    const target = this.getSlotPosition(slotIndex);
+    const spawnX = this.scene.scale.width + 140; // enter from right
 
-    const container = this.scene.add.container(spawnX, 0);
+    const container = this.scene.add.container(spawnX, target.y);
     this.add(container);
 
     const emojiText = this.scene.add.text(0, 0, getCustomerEmoji(1), {
@@ -202,7 +205,8 @@ export class CustomerQueue extends Phaser.GameObjects.Container {
     if (!isHidden) {
       this.scene.tweens.add({
         targets: container,
-        x: targetX,
+        x: target.x,
+        y: target.y,
         duration: 320,
         ease: 'Back.Out',
       });
@@ -369,10 +373,11 @@ export class CustomerQueue extends Phaser.GameObjects.Container {
     let slotIndex = 0;
     for (const d of this.displays) {
       if (d.state === 'waiting') {
-        const targetX = slotIndex * CUSTOMER_SLOT_W;
+        const target = this.getSlotPosition(slotIndex);
         this.scene.tweens.add({
           targets: d.container,
-          x: targetX,
+          x: target.x,
+          y: target.y,
           duration: 220,
           ease: 'Power1',
         });
@@ -415,5 +420,26 @@ export class CustomerQueue extends Phaser.GameObjects.Container {
       display.patBarFill.fillStyle(color, 1);
       display.patBarFill.fillRect(-PATIENCE_BAR_W / 2, 74, fillW, PATIENCE_BAR_H);
     }
+  }
+
+  private getSlotPosition(slotIndex: number): { x: number; y: number } {
+    const { width, height } = this.scene.scale;
+    const topSlots = Math.max(1, MAX_VISIBLE_CUSTOMERS - SIDE_CUSTOMER_COUNT);
+    if (slotIndex < topSlots) {
+      const usableSlotW = Math.min(CUSTOMER_SLOT_W, Math.max(148, width / topSlots));
+      const startX = width / 2 - ((topSlots - 1) * usableSlotW) / 2;
+      return {
+        x: startX + slotIndex * usableSlotW,
+        y: this.topY,
+      };
+    }
+
+    const sideIndex = slotIndex - topSlots;
+    const sideMargin = Math.max(84, Math.min(124, width * 0.09));
+    const sideY = Math.min(height - 190, Math.max(this.topY + 120, height * 0.62));
+    return {
+      x: sideIndex % 2 === 0 ? sideMargin : width - sideMargin,
+      y: sideY,
+    };
   }
 }

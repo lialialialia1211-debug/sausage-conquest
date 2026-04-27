@@ -1159,6 +1159,7 @@ export class GrillScene extends Phaser.Scene {
       } else {
         sfx.playKa();
       }
+      this.burstHitZone(judgement);
       this.boostGrillFromRhythm(judgement);
       this.showJudgementBig('HEAT UP', '#ffcc33', 30, 500);
       this.showFeedback('烤架已滿：敲擊加速熟成', this.NOTE_HIT_X, this.noteTrackY - 70, '#ffcc33');
@@ -1171,16 +1172,14 @@ export class GrillScene extends Phaser.Scene {
 
     frontNote.markHit();
 
-    // S1.1: Check inventory BEFORE counting stats. No stock → MISS, no combo credit.
+    // Stock gates spawning, not rhythm judgement: an accurate sold-out hit is not a MISS.
     const noteTypeId = frontNote.note.sausage;
     const noteStock = this.inventoryCopy[noteTypeId] ?? 0;
     if (noteStock <= 0) {
-      this.hitStats.miss += 1;
-      this.rhythmCombo = 0;
-      this.updateRhythmComboText();
       sfx.playDon(); // keep auditory feedback so player knows the key was pressed
-      this.showJudgementBig('MISS', '#ff4444', 36, 500);
-      this.showFeedback('庫存不足', this.NOTE_HIT_X, this.noteTrackY - 50, '#ff4444');
+      this.burstHitZone(judgement);
+      this.showJudgementBig('SOLD OUT', '#ff8844', 30, 500);
+      this.showFeedback('庫存不足：節奏命中但無法上架', this.NOTE_HIT_X, this.noteTrackY - 50, '#ff8844');
       if (frontNote.active) frontNote.destroy();
       const nIdx = this.rhythmNotes.indexOf(frontNote);
       if (nIdx >= 0) this.rhythmNotes.splice(nIdx, 1);
@@ -1215,6 +1214,7 @@ export class GrillScene extends Phaser.Scene {
     } else {
       sfx.playRhythmGood();
     }
+    this.burstHitZone(judgement);
 
     // Floating judgement text (音遊化大字)
     if (judgement === 'perfect') {
@@ -3567,6 +3567,46 @@ export class GrillScene extends Phaser.Scene {
       yoyo: true,
       ease: 'Back.Out',
     });
+  }
+
+  private burstHitZone(judgement: HitJudgement): void {
+    const color =
+      judgement === 'perfect' ? 0xfff066 :
+      judgement === 'great' ? 0x66ddff :
+      0xff8844;
+    const x = this.NOTE_HIT_X;
+    const y = this.noteTrackY;
+
+    const ring = this.add.graphics().setDepth(205);
+    ring.lineStyle(5, color, 0.95);
+    ring.strokeCircle(x, y, 28);
+    ring.lineStyle(2, 0xffffff, 0.75);
+    ring.strokeCircle(x, y, 16);
+    this.tweens.add({
+      targets: ring,
+      alpha: 0,
+      scaleX: 2.15,
+      scaleY: 2.15,
+      duration: 260,
+      ease: 'Cubic.Out',
+      onComplete: () => ring.destroy(),
+    });
+
+    for (let i = 0; i < 12; i++) {
+      const angle = (Math.PI * 2 * i) / 12;
+      const spark = this.add.graphics().setDepth(206);
+      spark.fillStyle(i % 3 === 0 ? 0xffffff : color, 1);
+      spark.fillCircle(x, y, i % 2 === 0 ? 4 : 3);
+      this.tweens.add({
+        targets: spark,
+        x: Math.cos(angle) * Phaser.Math.Between(34, 72),
+        y: Math.sin(angle) * Phaser.Math.Between(24, 56),
+        alpha: 0,
+        duration: 220 + i * 8,
+        ease: 'Quad.Out',
+        onComplete: () => spark.destroy(),
+      });
+    }
   }
 
   /**
