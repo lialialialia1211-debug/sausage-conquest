@@ -227,6 +227,11 @@ export class BootScene extends Phaser.Scene {
     // Helper: start the game with a chosen mode + difficulty
     const startGame = (mode: string, difficulty: 'hardcore' | 'casual') => {
       sfx.initOnUserGesture();
+      if (difficulty === 'hardcore') {
+        sfx.playHardcoreIntroVoice();
+      } else {
+        sfx.playKiyokuwaVoice();
+      }
       resetCustomerEngine();
       resetAutoChessEngine();
       resetCasinoEngine();
@@ -350,6 +355,7 @@ export class BootScene extends Phaser.Scene {
     const enableModeZones = () => {
       leftZone.setInteractive({ cursor: 'pointer' });
       rightZone.setInteractive({ cursor: 'pointer' });
+      sfx.playComePlayVoice();
     };
 
     // Collect for fade-in

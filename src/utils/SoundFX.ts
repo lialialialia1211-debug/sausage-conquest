@@ -419,6 +419,14 @@ class SoundFX {
     this.playSample('sausage_sa_hachi.wav', undefined, { volume: 1, cooldownMs: 2500 });
   }
 
+  playComePlayVoice(): void {
+    this.playSample('sausage_comeplay.wav', undefined, { volume: 1, cooldownMs: 5000, retryOnGesture: true });
+  }
+
+  playKiyokuwaVoice(): void {
+    this.playSample('sausage_kiyokuwa.wav', undefined, { volume: 1, cooldownMs: 5000 });
+  }
+
   playHardcoreIntroVoice(): void {
     this.playSample('sausage_muzukashi.wav', undefined, { volume: 1, cooldownMs: 2500 });
   }
@@ -427,12 +435,20 @@ class SoundFX {
     this.playSample('sausage_10combo.wav', undefined, { volume: 1, cooldownMs: 3000 });
   }
 
+  playCombo10ChtVoice(): void {
+    this.playSample('sausage_10combo_CHT.wav', undefined, { volume: 1, cooldownMs: 3000 });
+  }
+
   playCombo20Voice(): void {
     this.playSample('sausage_20combo.wav', undefined, { volume: 1, cooldownMs: 3000 });
   }
 
   playCombo50Voice(): void {
     this.playSample('sausage_50combo.wav', undefined, { volume: 1, cooldownMs: 4000 });
+  }
+
+  playCombo50ChtVoice(): void {
+    this.playSample('sausage_50combo_CHT.wav', undefined, { volume: 1, cooldownMs: 4000 });
   }
 
   playCombo100Voice(): void {

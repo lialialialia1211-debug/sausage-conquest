@@ -1167,6 +1167,7 @@ export class GrillScene extends Phaser.Scene {
       }
       this.burstHitZone(judgement);
       this.boostGrillFromRhythm(judgement);
+      sfx.playCrazyVoice();
       this.showJudgementBig('HEAT UP', '#ffcc33', 30, 500);
       this.showFeedback('烤架已滿：敲擊加速熟成', this.NOTE_HIT_X, this.noteTrackY - 70, '#ffcc33');
       this.trackServiceComboHit(frontNote, judgement);
@@ -1314,6 +1315,7 @@ export class GrillScene extends Phaser.Scene {
 
     const served = toServe.length;
     if (served > 0) {
+      sfx.playCombo10ChtVoice();
       this.showJudgementBig(`服務 ${served} 位客人！`, '#ffd700', 36);
     } else {
       // No sausages in warming zone
@@ -3738,11 +3740,13 @@ export class GrillScene extends Phaser.Scene {
   private triggerComboMilestone(combo: number, serveX: number, serveY: number): void {
     const { width, height } = this.scale;
     if (combo === 5) {
+      sfx.playCombo50ChtVoice();
       // Stronger golden vignette + floating text
       this.showFeedback('神之手! 1.5x + 耐心回滿', width / 2, height * 0.12, '#ffd700');
       this.customerQueue.resetAllPatience();
       this.flashScreenEdge(0xffd700, 0.45, 600);
     } else if (combo === 3) {
+      sfx.playCombo10ChtVoice();
       this.showFeedback('Combo x3! 收入 1.2x', width / 2, height * 0.12, '#ffd700');
       this.flashScreenEdge(0xffd700, 0.3, 400);
     } else if (combo >= 2 && combo !== 3 && combo !== 5) {
