@@ -8,6 +8,7 @@ class SoundFX {
   private muted = false;
   private masterGain: GainNode | null = null;
   private sampleCooldownUntil = new Map<string, number>();
+  private activeSamples = new Set<HTMLAudioElement>();
 
   initOnUserGesture(): void {
     if (!this.ctx) {
@@ -407,43 +408,43 @@ class SoundFX {
   // ================================================================
 
   playTitleVoice(): void {
-    this.playSample('sausage_titlewav.wav', undefined, { volume: 0.72, cooldownMs: 12000, retryOnGesture: true });
+    this.playSample('sausage_titlewav.wav', undefined, { volume: 0.95, cooldownMs: 12000, retryOnGesture: true });
   }
 
   playStartCookingVoice(): void {
-    this.playSample('sausage_playtogether.wav', undefined, { volume: 0.86, cooldownMs: 2500 });
+    this.playSample('sausage_playtogether.wav', undefined, { volume: 1, cooldownMs: 2500 });
   }
 
   playSongIntroVoice(): void {
-    this.playSample('sausage_sa_hachi.wav', undefined, { volume: 0.86, cooldownMs: 2500 });
+    this.playSample('sausage_sa_hachi.wav', undefined, { volume: 1, cooldownMs: 2500 });
   }
 
   playHardcoreIntroVoice(): void {
-    this.playSample('sausage_muzukashi.wav', undefined, { volume: 0.86, cooldownMs: 2500 });
+    this.playSample('sausage_muzukashi.wav', undefined, { volume: 1, cooldownMs: 2500 });
   }
 
   playCombo10Voice(): void {
-    this.playSample('sausage_10combo.wav', undefined, { volume: 0.85, cooldownMs: 3000 });
+    this.playSample('sausage_10combo.wav', undefined, { volume: 1, cooldownMs: 3000 });
   }
 
   playCombo20Voice(): void {
-    this.playSample('sausage_20combo.wav', undefined, { volume: 0.85, cooldownMs: 3000 });
+    this.playSample('sausage_20combo.wav', undefined, { volume: 1, cooldownMs: 3000 });
   }
 
   playCombo50Voice(): void {
-    this.playSample('sausage_50combo.wav', undefined, { volume: 0.85, cooldownMs: 4000 });
+    this.playSample('sausage_50combo.wav', undefined, { volume: 1, cooldownMs: 4000 });
   }
 
   playCombo100Voice(): void {
-    this.playSample('sausage_good.wav', undefined, { volume: 0.9, cooldownMs: 4000 });
+    this.playSample('sausage_good.wav', undefined, { volume: 1, cooldownMs: 4000 });
   }
 
   playFullComboVoice(): void {
-    this.playSample('sausage_fullcombo.wav', undefined, { volume: 0.9, cooldownMs: 8000 });
+    this.playSample('sausage_fullcombo.wav', undefined, { volume: 1, cooldownMs: 8000 });
   }
 
   playCrazyVoice(): void {
-    this.playSample('sausage_crazy.wav', undefined, { volume: 0.82, cooldownMs: 7000 });
+    this.playSample('sausage_crazy.wav', undefined, { volume: 1, cooldownMs: 7000 });
   }
 
   /**
@@ -451,7 +452,7 @@ class SoundFX {
    * Mimics a taiko drum centre hit (don / 咚).
    */
   playDon(): void {
-    this.playSample('sausage_drum_don.wav', () => this.playDonFallback(), { volume: 0.82 });
+    this.playSample('sausage_drum_don.wav', () => this.playDonFallback(), { volume: 1 });
   }
 
   private playDonFallback(): void {
@@ -479,7 +480,7 @@ class SoundFX {
    * Mimics a taiko drum rim hit (ka / 喀).
    */
   playKa(): void {
-    this.playSample('sausage_drum_ka.wav', () => this.playKaFallback(), { volume: 0.82 });
+    this.playSample('sausage_drum_ka.wav', () => this.playKaFallback(), { volume: 1 });
   }
 
   private playKaFallback(): void {
@@ -579,18 +580,27 @@ class SoundFX {
     const now = Date.now();
     const cooldownUntil = this.sampleCooldownUntil.get(fileName) ?? 0;
     if (cooldownUntil > now) return;
-    if (options.cooldownMs && options.cooldownMs > 0) {
-      this.sampleCooldownUntil.set(fileName, now + options.cooldownMs);
-    }
-
     const audio = new Audio(`sfx/${fileName}`);
     audio.preload = 'auto';
     audio.volume = Math.max(0, Math.min(1, options.volume ?? 1));
+    audio.addEventListener('ended', () => this.activeSamples.delete(audio), { once: true });
+    audio.addEventListener('error', () => this.activeSamples.delete(audio), { once: true });
+    this.activeSamples.add(audio);
 
     const playPromise = audio.play();
-    if (!playPromise) return;
+    if (!playPromise) {
+      if (options.cooldownMs && options.cooldownMs > 0) {
+        this.sampleCooldownUntil.set(fileName, now + options.cooldownMs);
+      }
+      return;
+    }
 
-    playPromise.catch(() => {
+    playPromise.then(() => {
+      if (options.cooldownMs && options.cooldownMs > 0) {
+        this.sampleCooldownUntil.set(fileName, Date.now() + options.cooldownMs);
+      }
+    }).catch(() => {
+      this.activeSamples.delete(audio);
       if (options.retryOnGesture) {
         const retry = () => {
           window.removeEventListener('pointerdown', retry);

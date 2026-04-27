@@ -166,6 +166,14 @@ export class BootScene extends Phaser.Scene {
       repeatDelay: 2000,
     });
     sfx.playTitleVoice();
+    this.input.once('pointerdown', () => {
+      sfx.initOnUserGesture();
+      sfx.playTitleVoice();
+    });
+    this.input.keyboard?.once('keydown', () => {
+      sfx.initOnUserGesture();
+      sfx.playTitleVoice();
+    });
 
     // Story card background — pushed down to avoid blocking the enlarged LOGO
     const storyY = height * 0.78;

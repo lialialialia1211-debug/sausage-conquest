@@ -989,8 +989,20 @@ export class GrillScene extends Phaser.Scene {
 
     // ── Wave 6b: Keyboard input ──────────────────────────────────────────────
     // D = 咚 DON (red), F = 喀 KA (blue) — left index/middle finger alternation
-    this.input.keyboard?.on('keydown-D', () => this.handleRhythmPress('don'));
-    this.input.keyboard?.on('keydown-F', () => this.handleRhythmPress('ka'));
+    this.input.keyboard?.on('keydown-D', () => {
+      if (!this.rhythmStarted || this.isGloballyPaused()) {
+        sfx.playDon();
+        return;
+      }
+      this.handleRhythmPress('don');
+    });
+    this.input.keyboard?.on('keydown-F', () => {
+      if (!this.rhythmStarted || this.isGloballyPaused()) {
+        sfx.playKa();
+        return;
+      }
+      this.handleRhythmPress('ka');
+    });
 
     // Bottom instruction text only. No large D/F button UI.
     this.add.text(width / 2, height - 46, 'D = 咚     F = 喀', {
@@ -4287,9 +4299,13 @@ export class GrillScene extends Phaser.Scene {
       if (dismissed) return;
       dismissed = true;
       overlayContainer.destroy();
+      sfx.initOnUserGesture();
       sfx.playStartCookingVoice();
-      sfx.playSongIntroVoice();
-      this.time.delayedCall(2200, () => {
+      this.time.delayedCall(900, () => {
+        if (!this.scene.isActive()) return;
+        sfx.playSongIntroVoice();
+      });
+      this.time.delayedCall(3200, () => {
         if (!this.scene.isActive()) return;
         this.startRhythmGame();
       });
@@ -4302,8 +4318,13 @@ export class GrillScene extends Phaser.Scene {
     );
     bg.once('pointerdown', dismiss);
 
-    // Any keydown
-    const onKey = () => { dismiss(); };
+    // Any keydown. D/F can be tapped on the tutorial screen as a sound check.
+    const onKey = (event: KeyboardEvent) => {
+      const key = event.key.toLowerCase();
+      if (key === 'd') sfx.playDon();
+      if (key === 'f') sfx.playKa();
+      dismiss();
+    };
     this.input.keyboard?.once('keydown', onKey);
   }
 
