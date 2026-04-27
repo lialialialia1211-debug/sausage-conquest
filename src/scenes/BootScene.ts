@@ -6,7 +6,6 @@ import { PROLOGUE_PAGES } from '../data/dialogue';
 import { sfx } from '../utils/SoundFX';
 import { resetCustomerEngine } from '../systems/CustomerEngine';
 import { resetAutoChessEngine } from '../systems/AutoChessEngine';
-import { resetEventTracking } from '../systems/EventEngine';
 import { resetCasinoEngine } from '../systems/CasinoEngine';
 import { resetAchievements } from '../systems/AchievementEngine';
 
@@ -43,7 +42,6 @@ export class BootScene extends Phaser.Scene {
     // ── Backgrounds ──
     this.load.image('bg-grill', 'bg-grill.png');
     this.load.image('bg-shop', 'bg-shop.png');
-    this.load.image('bg-event', 'bg-event.png');
 
     // ── Grill scene assets ──
     this.load.image('grill-mesh', 'grill-mesh.png');
@@ -62,7 +60,6 @@ export class BootScene extends Phaser.Scene {
     this.load.image('event-food-critic', 'event-food-critic.png');
     this.load.image('event-food-festival', 'event-food-festival.png');
     this.load.image('event-inspector', 'event-inspector.png');
-    this.load.image('event-rain', 'event-rain.png');
     this.load.image('event-thugs', 'event-thugs.png');
     this.load.image('card-frame', 'card-frame.png');
     this.load.image('nightmarket-map', 'nightmarket-map.png');
@@ -223,7 +220,6 @@ export class BootScene extends Phaser.Scene {
       sfx.initOnUserGesture();
       resetCustomerEngine();
       resetAutoChessEngine();
-      resetEventTracking();
       resetCasinoEngine();
       resetAchievements();
       const initialMap: Record<number, string> = {};

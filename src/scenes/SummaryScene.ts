@@ -13,6 +13,7 @@ const MAX_DAYS = 30;
 
 export class SummaryScene extends Phaser.Scene {
   private readyForNext = false;
+  private restartHandler: (() => void) | null = null;
 
   constructor() {
     super({ key: 'SummaryScene' });
@@ -126,7 +127,7 @@ export class SummaryScene extends Phaser.Scene {
     EventBus.emit('scene-ready', 'SummaryScene');
 
     // Listen for restart
-    EventBus.once('restart-game', () => {
+    this.restartHandler = () => {
       EventBus.emit('hide-panel');
       let restarted = false;
       const doRestart = () => {
@@ -146,7 +147,8 @@ export class SummaryScene extends Phaser.Scene {
         if (!this.scene.isActive()) return;
         doRestart();
       });
-    }, this);
+    };
+    EventBus.once('restart-game', this.restartHandler);
   }
 
   private onSummaryDone = (): void => {
@@ -212,6 +214,9 @@ export class SummaryScene extends Phaser.Scene {
 
   shutdown(): void {
     EventBus.off('summary-done', this.onSummaryDone, this);
-    EventBus.off('restart-game');
+    if (this.restartHandler) {
+      EventBus.off('restart-game', this.restartHandler);
+      this.restartHandler = null;
+    }
   }
 }

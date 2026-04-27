@@ -1,6 +1,37 @@
 import type { GrillEvent } from '../types';
 import { gameState } from '../state/GameState';
 
+const GRILL_EVENT_IMAGE_KEYS: Record<string, string> = {
+  karen: 'karen-alert',
+  thug: 'event-thugs',
+  beggar: 'event-drunk-uncle',
+  inspector: 'event-inspector',
+  'costco-guy': 'event-costco-guy',
+  'food-critic': 'event-food-critic',
+  'competitor-spy': 'karen-alert',
+  'expired-ingredient-gamble': 'karen-alert',
+  'protection-fee': 'event-thugs',
+  'territory-threat': 'event-thugs',
+  'gang-offer': 'event-thugs',
+  'underground-delivery': 'event-thugs',
+  'management-fee-weekly': 'event-inspector',
+  'inspector-surprise': 'event-inspector',
+  'media-crisis-exposed': 'event-food-critic',
+  'food-festival': 'event-food-festival',
+  'celebrity-visit': 'event-food-festival',
+};
+
+const GRILL_EVENT_CATEGORY_IMAGE_KEYS: Record<GrillEvent['category'], string> = {
+  nuisance: 'karen-alert',
+  thug: 'event-thugs',
+  beggar: 'event-drunk-uncle',
+  authority: 'event-inspector',
+};
+
+export function getGrillEventImageKey(event: GrillEvent): string {
+  return GRILL_EVENT_IMAGE_KEYS[event.id] ?? GRILL_EVENT_CATEGORY_IMAGE_KEYS[event.category];
+}
+
 export const GRILL_EVENTS: GrillEvent[] = [
   // ── 奧客 (Karen) ─────────────────────────────────────────────────────────────
   {

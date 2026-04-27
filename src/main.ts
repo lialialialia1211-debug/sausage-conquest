@@ -4,7 +4,6 @@ import { MorningScene } from './scenes/MorningScene';
 import { EveningScene } from './scenes/EveningScene';
 import { GrillScene } from './scenes/GrillScene';
 import { BattleScene } from './scenes/BattleScene';
-import { EventScene } from './scenes/EventScene';
 import { SummaryScene } from './scenes/SummaryScene';
 import { ShopScene } from './scenes/ShopScene';
 import { UIManager } from './ui/UIManager';
@@ -29,7 +28,6 @@ const config: Phaser.Types.Core.GameConfig = {
     EveningScene,
     GrillScene,
     BattleScene,
-    EventScene,
     SummaryScene,
     ShopScene,
   ],

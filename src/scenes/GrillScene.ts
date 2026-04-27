@@ -26,7 +26,7 @@ import type { SaleRecord, Customer, WarmingSausage, GrillEvent, GrillEventChoice
 import { scoreOrder, starsToString, getScoreColor } from '../systems/OrderEngine';
 import { recordVisit } from '../systems/LoyaltyEngine';
 import { sfx } from '../utils/SoundFX';
-import { rollGrillEvent } from '../data/grill-events';
+import { getGrillEventImageKey, rollGrillEvent } from '../data/grill-events';
 import { CombatPanel } from '../ui/panels/CombatPanel';
 // getPersonalityEmoji removed — emoji display removed from combat feedback
 import { useBlackMarketItem, BLACK_MARKET_ITEMS } from '../systems/BlackMarketEngine';
@@ -2429,52 +2429,7 @@ export class GrillScene extends Phaser.Scene {
     this.pauseBgm();
     const { width: w, height: h } = this.scale;
 
-    // S7.7: satisfies ensures all GrillEventId entries are present — tsc will error on missing keys
-    type GrillEventId = 'karen' | 'thug' | 'beggar' | 'inspector' | 'costco-guy'
-                      | 'food-critic' | 'competitor-spy' | 'expired-ingredient-gamble'
-                      | 'protection-fee' | 'territory-threat' | 'gang-offer'
-                      | 'underground-delivery' | 'management-fee-weekly'
-                      | 'inspector-surprise' | 'media-crisis-exposed'
-                      | 'food-festival' | 'celebrity-visit';
-
-    const eventImageById = {
-      // nuisance category
-      'karen': 'karen-alert',
-      'costco-guy': 'event-costco-guy',
-      'food-critic': 'event-food-critic',
-      'competitor-spy': 'karen-alert',           // no specific image
-      'expired-ingredient-gamble': 'karen-alert', // no specific image
-      // thug category
-      'thug': 'event-thugs',
-      'protection-fee': 'event-thugs',
-      'territory-threat': 'event-thugs',
-      'gang-offer': 'event-thugs',
-      'underground-delivery': 'event-thugs',
-      // beggar category
-      'beggar': 'event-drunk-uncle',
-      'food-festival': 'event-food-festival',
-      'celebrity-visit': 'event-food-festival',  // no specific image, reuse food-festival
-      // authority category
-      'inspector': 'event-inspector',
-      'management-fee-weekly': 'event-inspector',
-      'inspector-surprise': 'event-inspector',
-      'media-crisis-exposed': 'event-food-critic',
-    } satisfies Record<GrillEventId, string>;
-
-    const categoryFallback: Record<string, string> = {
-      'nuisance': 'karen-alert',
-      'thug': 'event-thugs',
-      'beggar': 'event-drunk-uncle',
-      'authority': 'event-inspector',
-    };
-
-    const splashKey = (eventImageById as Record<string, string>)[event.id]
-      ?? categoryFallback[event.category]
-      ?? 'karen-alert';
-    // S7.7: DEV warn if falling back to category (unknown event id or no specific image)
-    if (!(event.id in eventImageById) && import.meta.env.DEV) {
-      console.warn(`[grill-event] no specific image for id=${event.id}, fallback to category`);
-    }
+    const splashKey = getGrillEventImageKey(event);
     if (splashKey && this.textures.exists(splashKey)) {
       // Show character splash with SHAKE + ZOOM animation (no black overlay)
       const splash = this.add.image(w / 2, h / 2, splashKey).setDepth(300);
@@ -2517,6 +2472,8 @@ export class GrillScene extends Phaser.Scene {
 
   private buildGrillEventPanel(event: GrillEvent): void {
     const { width, height } = this.scale;
+    const imageKey = getGrillEventImageKey(event);
+    const hasEventImage = imageKey && this.textures.exists(imageKey);
 
     const container = this.add.container(0, 0).setDepth(300);
     this.grillEventOverlay = container;
@@ -2528,13 +2485,14 @@ export class GrillScene extends Phaser.Scene {
     container.add(overlay);
 
     // Panel dimensions
-    const panelW = width * 0.7;
+    const panelW = width * 0.74;
     const panelX = (width - panelW) / 2;
-    const panelY = height * 0.15;
+    const panelY = height * 0.08;
+    const imageAreaH = hasEventImage ? Math.min(170, height * 0.22) : 0;
 
     // Measure content height: header ~80px + description ~60px + choices * 50px + padding
     const choiceCount = event.choices.length;
-    const panelH = 80 + 70 + choiceCount * 58 + 30;
+    const panelH = 90 + imageAreaH + 80 + choiceCount * 58 + 34;
 
     // Panel background
     const panelGfx = this.add.graphics();
@@ -2555,8 +2513,18 @@ export class GrillScene extends Phaser.Scene {
     }).setOrigin(0.5, 0);
     container.add(headerTxt);
 
-    // Description (no inline image — splash already showed it)
-    const descTxt = this.add.text(cx, panelY + 58, event.description, {
+    if (hasEventImage) {
+      const eventImage = this.add.image(cx, panelY + 62 + imageAreaH / 2, imageKey);
+      const maxScale = Math.min((panelW * 0.56) / eventImage.width, imageAreaH / eventImage.height);
+      eventImage.setScale(maxScale).setAlpha(0.95);
+      container.add(eventImage);
+    } else if (import.meta.env.DEV) {
+      console.warn(`[grill-event] missing texture for id=${event.id}, key=${imageKey}`);
+    }
+
+    // Description
+    const descY = panelY + 58 + imageAreaH + 8;
+    const descTxt = this.add.text(cx, descY, event.description, {
       fontSize: '13px',
       fontFamily: FONT,
       color: '#ffeecc',
@@ -2566,7 +2534,7 @@ export class GrillScene extends Phaser.Scene {
     container.add(descTxt);
 
     // Choice buttons
-    const choiceStartY = panelY + 130;
+    const choiceStartY = descY + 72;
     event.choices.forEach((choice, idx) => {
       const by = choiceStartY + idx * 58;
       const btnH = 46;

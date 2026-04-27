@@ -1,7 +1,6 @@
 // BlackMarketEngine — pure logic, no Phaser dependency, no UI code
 import type { BlackMarketItem } from '../types';
 import { gameState, updateGameState, spendMoney, changeReputation, changeUndergroundRep, addChaos } from '../state/GameState';
-import { EventBus } from '../utils/EventBus';
 
 export const BLACK_MARKET_ITEMS: BlackMarketItem[] = [
   {
@@ -86,7 +85,6 @@ export function buyBlackMarket(itemId: string, quantity: number = 1): { success:
   // Check if caught (unless inspector is bribed)
   const caught = Math.random() < item.catchChance && !gameState.managementFee.bribedInspector;
   if (caught) {
-    EventBus.emit('inspector-triggered');
     return { success: true, caught: true, message: `買到了，但是被稽查員盯上了！` };
   }
 

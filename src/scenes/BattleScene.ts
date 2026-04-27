@@ -1646,7 +1646,5 @@ export class BattleScene extends Phaser.Scene {
     }
     if (this.specialCutsceneContainer) { this.specialCutsceneContainer.destroy(); this.specialCutsceneContainer = null; }
     this.specialCutsceneActive = false;
-    EventBus.off('battle-start');
-    EventBus.off('battle-skip');
   }
 }
