@@ -228,6 +228,8 @@ export class GrillScene extends Phaser.Scene {
   private maxRhythmCombo = 0;
   private hitStats = { perfect: 0, great: 0, good: 0, miss: 0 };
   private rhythmComboText: Phaser.GameObjects.Text | null = null;
+  private rhythmComboSfxPlayed = new Set<number>();
+  private fullComboSfxPlayed = false;
 
   // ── Wave 6e: Service combo state ─────────────────────────────────────────
   // Total service combo groups injected this session (used for future summary display)
@@ -395,6 +397,8 @@ export class GrillScene extends Phaser.Scene {
     this.maxRhythmCombo = 0;
     this.hitStats = { perfect: 0, great: 0, good: 0, miss: 0 };
     this.rhythmComboText = null;
+    this.rhythmComboSfxPlayed = new Set<number>();
+    this.fullComboSfxPlayed = false;
 
     // ── Auto-pack timer reset ──
     this.autoServeTimer = 0;
@@ -1143,6 +1147,7 @@ export class GrillScene extends Phaser.Scene {
         this.maxRhythmCombo = this.rhythmCombo;
       }
       this.updateRhythmComboText();
+      this.playRhythmComboMilestoneSfx();
       if (type === 'don') {
         sfx.playDon();
       } else {
@@ -1179,6 +1184,7 @@ export class GrillScene extends Phaser.Scene {
       this.maxRhythmCombo = this.rhythmCombo;
     }
     this.updateRhythmComboText();
+    this.playRhythmComboMilestoneSfx();
 
     // Play drum hit sound (don/ka) simultaneously with judgement tone
     if (type === 'don') {
@@ -1331,6 +1337,31 @@ export class GrillScene extends Phaser.Scene {
   }
 
   // ── Wave 6cd: BGM sync helpers ────────────────────────────────────────────
+
+  private playRhythmComboMilestoneSfx(): void {
+    if (this.rhythmCombo < 10) return;
+
+    const milestone = this.rhythmCombo >= 100
+      ? 100
+      : this.rhythmCombo >= 50
+        ? 50
+        : this.rhythmCombo >= 20
+          ? 20
+          : 10;
+
+    if (this.rhythmCombo !== milestone || this.rhythmComboSfxPlayed.has(milestone)) return;
+
+    this.rhythmComboSfxPlayed.add(milestone);
+    if (milestone === 10) {
+      sfx.playCombo10Voice();
+    } else if (milestone === 20) {
+      sfx.playCombo20Voice();
+    } else if (milestone === 50) {
+      sfx.playCombo50Voice();
+    } else if (milestone === 100) {
+      sfx.playCombo100Voice();
+    }
+  }
 
   /** Returns current rhythm clock in seconds (Web Audio API, μs precision).
    *  After BGM ends, audioContext.currentTime keeps running — used to advance
@@ -4096,6 +4127,10 @@ export class GrillScene extends Phaser.Scene {
         grade,
       };
       updateGameState({ dailyRhythmStats: rhythmStats });
+      if (!this.fullComboSfxPlayed && totalNotesPlayed > 0 && miss === 0 && perfect + great + good > 0) {
+        this.fullComboSfxPlayed = true;
+        sfx.playFullComboVoice();
+      }
 
       // Count waste
       const grillRemaining = this.grillSlots.filter(s => s.sausage && !s.sausage.served).length;
@@ -4252,7 +4287,12 @@ export class GrillScene extends Phaser.Scene {
       if (dismissed) return;
       dismissed = true;
       overlayContainer.destroy();
-      this.startRhythmGame();
+      sfx.playStartCookingVoice();
+      sfx.playSongIntroVoice();
+      this.time.delayedCall(2200, () => {
+        if (!this.scene.isActive()) return;
+        this.startRhythmGame();
+      });
     };
 
     // Any pointer on the overlay background

@@ -7,6 +7,7 @@ class SoundFX {
   private ctx: AudioContext | null = null;
   private muted = false;
   private masterGain: GainNode | null = null;
+  private sampleCooldownUntil = new Map<string, number>();
 
   initOnUserGesture(): void {
     if (!this.ctx) {
@@ -405,11 +406,55 @@ class SoundFX {
   // Taiko-style rhythm game sounds (Wave 6b+)
   // ================================================================
 
+  playTitleVoice(): void {
+    this.playSample('sausage_titlewav.wav', undefined, { volume: 0.72, cooldownMs: 12000, retryOnGesture: true });
+  }
+
+  playStartCookingVoice(): void {
+    this.playSample('sausage_playtogether.wav', undefined, { volume: 0.86, cooldownMs: 2500 });
+  }
+
+  playSongIntroVoice(): void {
+    this.playSample('sausage_sa_hachi.wav', undefined, { volume: 0.86, cooldownMs: 2500 });
+  }
+
+  playHardcoreIntroVoice(): void {
+    this.playSample('sausage_muzukashi.wav', undefined, { volume: 0.86, cooldownMs: 2500 });
+  }
+
+  playCombo10Voice(): void {
+    this.playSample('sausage_10combo.wav', undefined, { volume: 0.85, cooldownMs: 3000 });
+  }
+
+  playCombo20Voice(): void {
+    this.playSample('sausage_20combo.wav', undefined, { volume: 0.85, cooldownMs: 3000 });
+  }
+
+  playCombo50Voice(): void {
+    this.playSample('sausage_50combo.wav', undefined, { volume: 0.85, cooldownMs: 4000 });
+  }
+
+  playCombo100Voice(): void {
+    this.playSample('sausage_good.wav', undefined, { volume: 0.9, cooldownMs: 4000 });
+  }
+
+  playFullComboVoice(): void {
+    this.playSample('sausage_fullcombo.wav', undefined, { volume: 0.9, cooldownMs: 8000 });
+  }
+
+  playCrazyVoice(): void {
+    this.playSample('sausage_crazy.wav', undefined, { volume: 0.82, cooldownMs: 7000 });
+  }
+
   /**
    * Don hit sound — low sine pulse (100 Hz, 80ms) + mid bandpass noise burst (800 Hz, 40ms).
    * Mimics a taiko drum centre hit (don / 咚).
    */
   playDon(): void {
+    this.playSample('sausage_drum_don.wav', () => this.playDonFallback(), { volume: 0.82 });
+  }
+
+  private playDonFallback(): void {
     const ctx = this.ensureContext();
     const now = ctx.currentTime;
 
@@ -434,6 +479,10 @@ class SoundFX {
    * Mimics a taiko drum rim hit (ka / 喀).
    */
   playKa(): void {
+    this.playSample('sausage_drum_ka.wav', () => this.playKaFallback(), { volume: 0.82 });
+  }
+
+  private playKaFallback(): void {
     const ctx = this.ensureContext();
     const now = ctx.currentTime;
 
@@ -519,6 +568,42 @@ class SoundFX {
   // ================================================================
   // Helper methods
   // ================================================================
+
+  private playSample(
+    fileName: string,
+    fallback?: () => void,
+    options: { volume?: number; cooldownMs?: number; retryOnGesture?: boolean } = {},
+  ): void {
+    if (this.muted) return;
+
+    const now = Date.now();
+    const cooldownUntil = this.sampleCooldownUntil.get(fileName) ?? 0;
+    if (cooldownUntil > now) return;
+    if (options.cooldownMs && options.cooldownMs > 0) {
+      this.sampleCooldownUntil.set(fileName, now + options.cooldownMs);
+    }
+
+    const audio = new Audio(`sfx/${fileName}`);
+    audio.preload = 'auto';
+    audio.volume = Math.max(0, Math.min(1, options.volume ?? 1));
+
+    const playPromise = audio.play();
+    if (!playPromise) return;
+
+    playPromise.catch(() => {
+      if (options.retryOnGesture) {
+        const retry = () => {
+          window.removeEventListener('pointerdown', retry);
+          window.removeEventListener('keydown', retry);
+          this.playSample(fileName, undefined, { ...options, retryOnGesture: false, cooldownMs: 0 });
+        };
+        window.addEventListener('pointerdown', retry, { once: true });
+        window.addEventListener('keydown', retry, { once: true });
+        return;
+      }
+      fallback?.();
+    });
+  }
 
   /**
    * Schedule a simple oscillator tone at a specific AudioContext timestamp.

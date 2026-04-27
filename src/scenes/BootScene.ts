@@ -165,6 +165,7 @@ export class BootScene extends Phaser.Scene {
       delay: 3000,
       repeatDelay: 2000,
     });
+    sfx.playTitleVoice();
 
     // Story card background — pushed down to avoid blocking the enlarged LOGO
     const storyY = height * 0.78;
