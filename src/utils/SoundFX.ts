@@ -412,10 +412,21 @@ class SoundFX {
   playDon(): void {
     const ctx = this.ensureContext();
     const now = ctx.currentTime;
-    // Low-frequency sine pulse
-    this.playToneAt(ctx, now, 100, 'sine', 0.5, 0.08);
-    // Mid-frequency noise transient (drum skin resonance)
-    this.playNoiseAt(ctx, now, 0.04, 800, 'bandpass', 0.3);
+
+    const body = ctx.createOscillator();
+    const bodyGain = ctx.createGain();
+    body.type = 'triangle';
+    body.frequency.setValueAtTime(155, now);
+    body.frequency.exponentialRampToValueAtTime(72, now + 0.11);
+    bodyGain.gain.setValueAtTime(0.58, now);
+    bodyGain.gain.exponentialRampToValueAtTime(0.001, now + 0.13);
+    body.connect(bodyGain);
+    bodyGain.connect(this.masterGain!);
+    body.start(now);
+    body.stop(now + 0.14);
+
+    // Short skin slap so D still cuts through the BGM.
+    this.playNoiseAt(ctx, now, 0.035, 520, 'bandpass', 0.22);
   }
 
   /**
@@ -425,10 +436,21 @@ class SoundFX {
   playKa(): void {
     const ctx = this.ensureContext();
     const now = ctx.currentTime;
-    // High-frequency rim noise
-    this.playNoiseAt(ctx, now, 0.04, 1200, 'bandpass', 0.35);
-    // Short low sine "body" tail
-    this.playToneAt(ctx, now, 200, 'sine', 0.2, 0.02);
+
+    const rim = ctx.createOscillator();
+    const rimGain = ctx.createGain();
+    rim.type = 'square';
+    rim.frequency.setValueAtTime(1180, now);
+    rim.frequency.exponentialRampToValueAtTime(760, now + 0.045);
+    rimGain.gain.setValueAtTime(0.18, now);
+    rimGain.gain.exponentialRampToValueAtTime(0.001, now + 0.055);
+    rim.connect(rimGain);
+    rimGain.connect(this.masterGain!);
+    rim.start(now);
+    rim.stop(now + 0.06);
+
+    // Bright rim crack, shorter and sharper than Don.
+    this.playNoiseAt(ctx, now, 0.026, 2400, 'highpass', 0.28);
   }
 
   /**

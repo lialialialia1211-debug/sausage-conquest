@@ -6,7 +6,7 @@ export const BANK_LOAN: LoanConfig = {
   dailyRate: 0.00016, // ~6% annual
   maxAmount: 3000,
   termDays: 10,
-  requiresReputation: 60,
+  requiresReputation: 0,
   upfrontFeeRate: 0,
   repayMultiplier: 1, // exact principal + accrued interest
 };

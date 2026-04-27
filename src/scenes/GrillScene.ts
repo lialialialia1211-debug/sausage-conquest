@@ -261,7 +261,9 @@ export class GrillScene extends Phaser.Scene {
   // ── S2.3: Drain phase — after last note, wait for grill/warming to empty ───
   private isDrainPhase = false;
   private drainPhaseTimer = 0;
-  private readonly DRAIN_PHASE_MAX = 10; // seconds max before force-endGrilling
+  private readonly DRAIN_PHASE_MAX = 5; // seconds of post-chart grilling before summary
+  private readonly MIN_PENDING_CUSTOMERS = 18;
+  private readonly MIN_VISIBLE_CUSTOMERS = 3;
 
   // ── Wave 6cd: BGM sync + rhythm gate ──────────────────────────────────────
   private rhythmStarted = false;
@@ -573,16 +575,19 @@ export class GrillScene extends Phaser.Scene {
     }
 
     // Tick customer arrivals
+    this.refillCustomerQueue();
     this.customerArrivalTimer += dt;
-    if (
-      this.customerArrivalTimer >= this.customerArrivalInterval &&
-      this.pendingCustomerQueue.length > 0
-    ) {
+    const waitingCount = this.customerQueue.getWaitingCustomers().length;
+    const needsVisibleFloor = waitingCount < this.MIN_VISIBLE_CUSTOMERS;
+    if ((this.customerArrivalTimer >= this.customerArrivalInterval || needsVisibleFloor) && this.pendingCustomerQueue.length > 0) {
       this.customerArrivalTimer = 0;
       const { min: dayBatchMin, max: dayBatchMax } = getCustomerBatchRange(this.getBalanceInput());
+      const visibleRoom = Math.max(0, MAX_VISIBLE_CUSTOMERS - waitingCount);
+      const floorBatch = Math.max(0, this.MIN_VISIBLE_CUSTOMERS - waitingCount);
       const batch = Math.min(
-        Phaser.Math.Between(dayBatchMin, dayBatchMax),
+        Math.max(floorBatch, Phaser.Math.Between(dayBatchMin, dayBatchMax)),
         this.pendingCustomerQueue.length,
+        visibleRoom,
       );
       for (let i = 0; i < batch; i++) {
         const c = this.pendingCustomerQueue.shift();
@@ -906,9 +911,7 @@ export class GrillScene extends Phaser.Scene {
     // ── S2.3: Drain phase tick ────────────────────────────────────────────────
     if (this.isDrainPhase && !this.isDone) {
       this.drainPhaseTimer += dt;
-      const grillEmpty = this.grillSlots.every(s => !s.sausage);
-      const warmingEmpty = this.warmingSlots.every(ws => ws.sausage === null);
-      if ((grillEmpty && warmingEmpty) || this.drainPhaseTimer >= this.DRAIN_PHASE_MAX) {
+      if (this.drainPhaseTimer >= this.DRAIN_PHASE_MAX) {
         this.onChartComplete();
       }
     }
@@ -1558,7 +1561,7 @@ export class GrillScene extends Phaser.Scene {
   }
 
   /**
-   * Called when chart is complete (last note + 3s buffer has passed, or fallback on BGM end).
+   * Called when chart is complete and the 5s post-chart grilling window has passed.
    * Guards against double-invocation — only the first call triggers end-of-day.
    */
   private onChartComplete(): void {
@@ -1567,10 +1570,7 @@ export class GrillScene extends Phaser.Scene {
     console.debug(
       `[GrillScene] Chart complete — serviceComboGroups: ${this.totalServiceComboGroupCount}`,
     );
-    this.time.delayedCall(1000, () => {
-      if (this.isDone) return;
-      this.endGrilling();
-    });
+    this.endGrilling();
   }
 
   /**
@@ -2176,27 +2176,39 @@ export class GrillScene extends Phaser.Scene {
     updateGameState({ warmingZone: [] });
   }
 
-  // S3: conservative target so QA pressure usually has extra sausages, not extra customers.
-  private readonly AVG_SAUSAGES_PER_ORDER = 8;
+  // S3: target order density for customer pacing.
+  private readonly AVG_SAUSAGES_PER_ORDER = 4;
 
-  private generateCustomerPool(): void {
-    // Use slot-based traffic: playerSlot (1-9) maps to GRID_SLOTS by tier
+  private getCustomerTrafficNorm(): number {
     const playerSlotData = GRID_SLOTS.find(s => s.tier === gameState.playerSlot) ?? GRID_SLOTS[0];
     const baseTraffic = playerSlotData.baseTraffic * playerSlotData.trafficMultiplier;
-    // baseTraffic 30-80 (×multiplier) → divide by 20 → 1.5-4.0 range
     const rawTraffic = baseTraffic / 20;
-    const trafficNorm = Math.max(1, Math.min(5, rawTraffic));
+    return Math.max(1, Math.min(5, rawTraffic));
+  }
+
+  private refillCustomerQueue(minPending = this.MIN_PENDING_CUSTOMERS): void {
+    if (this.pendingCustomerQueue.length >= minPending) return;
+
+    let pool = generateCustomers(this.getCustomerTrafficNorm(), this.sessionTrafficBonus);
+    while (this.pendingCustomerQueue.length + pool.length < minPending) {
+      pool = pool.concat(generateCustomers(this.getCustomerTrafficNorm(), this.sessionTrafficBonus));
+    }
+
+    const needed = minPending - this.pendingCustomerQueue.length;
+    this.pendingCustomerQueue.push(...pool.slice(0, needed));
+  }
+
+  private generateCustomerPool(): void {
+    const trafficNorm = this.getCustomerTrafficNorm();
 
     const socialPrepBonus = gameState.morningPrep === 'social' ? 0.1 : 0;
     const marketingBonus = (gameState.upgrades['neon-sign'] ? 0.15 : 0) + (gameState.dailyTrafficBonus ?? 0) + socialPrepBonus;
+    this.sessionTrafficBonus = marketingBonus;
     updateGameState({ dailyTrafficBonus: 0 });
 
-    // Customer demand is capped by real stock so the default pressure is sausage surplus.
     const totalNotes = this.chart?.totalNotes ?? 286;
-    const stockCount = Object.values(gameState.inventory).reduce((sum, qty) => sum + Math.max(0, qty), 0);
     const chartTarget = Math.ceil(totalNotes / this.AVG_SAUSAGES_PER_ORDER);
-    const stockTarget = stockCount > 0 ? Math.max(1, Math.floor(stockCount / 4)) : chartTarget;
-    const baseTarget = Math.max(1, Math.min(chartTarget, stockTarget));
+    const baseTarget = Math.max(this.MIN_PENDING_CUSTOMERS, chartTarget);
     const scaledTarget = Math.ceil(baseTarget * (1 + marketingBonus));
 
     // Generate pool; keep generating until we reach target
@@ -2208,6 +2220,7 @@ export class GrillScene extends Phaser.Scene {
     pool = pool.slice(0, scaledTarget);
 
     this.pendingCustomerQueue = pool;
+    this.refillCustomerQueue();
   }
 
   // ── Flip helper (retained for potential future use) ──────────────────────

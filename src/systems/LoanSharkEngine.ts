@@ -18,7 +18,7 @@ const POTENTIAL_BORROWERS = [
 ] as const;
 
 export function isLoanSharkUnlocked(): boolean {
-  return gameState.undergroundRep >= 30;
+  return gameState.day >= 2;
 }
 
 /**
@@ -36,11 +36,6 @@ export function getRandomBorrower(): { name: string; emoji: string; reliability:
 
   // Roll once for the day
   _dailyBorrowerDay = gameState.day;
-  // 40% chance someone comes asking each day
-  if (Math.random() > 0.4) {
-    _dailyBorrower = null;
-    return null;
-  }
 
   const b = POTENTIAL_BORROWERS[Math.floor(Math.random() * POTENTIAL_BORROWERS.length)];
   const requestAmount = Math.round(b.maxAmount * (0.5 + Math.random() * 0.5));

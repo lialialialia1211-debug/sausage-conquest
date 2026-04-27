@@ -834,7 +834,7 @@ export class ShopPanel {
     titleEl.textContent = '地下賭場';
     section.appendChild(titleEl);
 
-    const isUnlocked = gameState.day >= 3;
+    const isUnlocked = gameState.day >= 2;
 
     if (!isUnlocked) {
       const lockEl = document.createElement('div');
