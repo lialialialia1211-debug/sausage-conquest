@@ -600,6 +600,9 @@ export class MorningPanel {
   }
 
   private setQuantity(sausage: SausageType, qty: number, display: HTMLElement, subtotalEl: HTMLElement): void {
+    this.selectedSausageId = sausage.id;
+    this.highlightSelected();
+
     const MAX_QUANTITY = 99;
     const reserve = this.getRentReserve();
     const otherSpend = this.calcTotalCost() - this.quantities[sausage.id] * sausage.cost;
@@ -617,9 +620,7 @@ export class MorningPanel {
     subtotalEl.textContent = `小計 $${clamped * sausage.cost}`;
     this.updateSummary();
     // 數量改變時，若該香腸正被選中 → 重繪詳情更新比例
-    if (sausage.id === this.selectedSausageId) {
-      this.renderDetail();
-    }
+    this.renderDetail();
   }
 
   private calcTotalCost(): number {
