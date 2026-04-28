@@ -1028,21 +1028,23 @@ export class GrillScene extends Phaser.Scene {
     }).setOrigin(0.5).setDepth(51);
 
     // ── Wave 6b: Combo display text (center, hidden until combo >= 2) ──────
+    const comboX = width * 0.5;
+    const comboY = Math.max(118, this.noteTrackY - 132);
     if (this.textures.exists('ui-combo-badge')) {
-      this.rhythmComboBadge = this.add.image(width / 2, height * 0.29, 'ui-combo-badge')
-        .setDisplaySize(260, 130)
-        .setDepth(198)
+      this.rhythmComboBadge = this.add.image(comboX, comboY, 'ui-combo-badge')
+        .setDisplaySize(150, 75)
+        .setDepth(48)
         .setAlpha(0);
     }
-    this.rhythmComboText = this.add.text(width / 2, height * 0.29, '', {
-      fontSize: '46px',
+    this.rhythmComboText = this.add.text(comboX, comboY, '', {
+      fontSize: '30px',
       fontFamily: FONT,
       color: '#ffe066',
       stroke: '#2a0800',
-      strokeThickness: 8,
+      strokeThickness: 5,
       fontStyle: '900',
       align: 'center',
-    }).setOrigin(0.5).setDepth(200).setAlpha(0);
+    }).setOrigin(0.5).setDepth(49).setAlpha(0);
   }
 
   /**
@@ -1355,9 +1357,9 @@ export class GrillScene extends Phaser.Scene {
     }
     this.rhythmComboBadge?.setAlpha(0.95);
     this.rhythmComboText
-      .setText(`COMBO\nx${this.rhythmCombo}`)
+      .setText(`x${this.rhythmCombo}`)
       .setAlpha(1)
-      .setFontSize(Math.min(62, 34 + this.rhythmCombo));
+      .setFontSize(Math.min(38, 26 + Math.floor(this.rhythmCombo / 4)));
 
     // Bounce tween for feedback
     this.tweens.add({
@@ -1950,6 +1952,13 @@ export class GrillScene extends Phaser.Scene {
     this.wzX = (width - this.wzSlotW) / 2;    // centered horizontally
     this.wzY = height * 0.72;                 // below grill rack
 
+    if (this.textures.exists('ui-warming-slot')) {
+      this.add.image(this.wzX + this.wzSlotW / 2, this.wzY + 64, 'ui-warming-slot')
+        .setDisplaySize(this.wzSlotW + 44, 150)
+        .setAlpha(0.58)
+        .setDepth(3.5);
+    }
+
     // Zone label
     this.add.text(this.wzX + this.wzSlotW / 2, this.wzY - 16, '保溫區（點擊出餐）', {
       fontSize: '11px',
@@ -1975,13 +1984,6 @@ export class GrillScene extends Phaser.Scene {
     const sy = this.wzY + row * (this.wzSlotH + gap);
     const wx = sx + slotW / 2;
     const wy = sy + this.wzSlotH / 2;
-
-    if (this.textures.exists('ui-warming-slot')) {
-      this.add.image(wx, wy, 'ui-warming-slot')
-        .setDisplaySize(slotW, this.wzSlotH + 10)
-        .setAlpha(0.42)
-        .setDepth(4);
-    }
 
     const bgGfx = this.add.graphics();
     bgGfx.lineStyle(1, 0x664422, 0.5);
