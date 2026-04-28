@@ -1,7 +1,6 @@
 // RhythmNote.ts — Sausage-shaped flying note for the taiko-style rhythm track (Wave 6a+)
 import Phaser from 'phaser';
 import type { ChartNote } from '../data/chart';
-import { SAUSAGE_MAP } from '../data/sausages';
 
 // Note body radius (normal)
 const NOTE_RADIUS = 28;
@@ -47,20 +46,21 @@ export class RhythmNote extends Phaser.GameObjects.Container {
     this.add(body);
 
     // ── Sausage artwork or emoji fallback ────────────────────────────────────
-    const textureKey = `sausage-${note.sausage}`;
+    const textureKey = note.type === 'don' ? 'ui-note-don' : 'ui-note-ka';
     if (scene.textures.exists(textureKey)) {
       // Scale the sausage PNG to fit inside the circle (target ~40×40)
       const artImage = scene.add.image(0, 0, textureKey);
-      const targetSize = radius * 1.3;
-      const scale = Math.min(targetSize / artImage.width, targetSize / artImage.height);
-      artImage.setScale(scale);
+      const targetSize = isService ? radius * 2.05 : radius * 1.9;
+      artImage.setDisplaySize(targetSize, targetSize);
       this.add(artImage);
     } else {
-      // Fallback: show sausage emoji from data
-      const sausageType = SAUSAGE_MAP[note.sausage];
-      const fallbackEmoji = sausageType?.emoji ?? '';
-      const emojiText = scene.add.text(0, 0, fallbackEmoji, {
-        fontSize: '22px',
+      // Fallback: show key label when generated note art is unavailable.
+      const emojiText = scene.add.text(0, 0, note.type === 'don' ? 'D' : 'F', {
+        fontSize: '26px',
+        color: '#ffffff',
+        stroke: '#000000',
+        strokeThickness: 4,
+        fontStyle: '900',
       }).setOrigin(0.5);
       this.add(emojiText);
     }

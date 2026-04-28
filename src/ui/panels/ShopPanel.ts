@@ -186,7 +186,7 @@ export class ShopPanel {
     if (upgrade.image) {
       const imgEl = document.createElement('img');
       imgEl.src = upgrade.image;
-      imgEl.style.cssText = 'width:48px; height:48px; object-fit:contain; border-radius:6px;';
+      imgEl.style.cssText = 'width:60px; height:60px; object-fit:contain; border-radius:6px; flex-shrink:0;';
       infoEl.appendChild(imgEl);
     } else {
       infoEl.appendChild(emojiEl);
@@ -513,7 +513,7 @@ export class ShopPanel {
     if (item.image) {
       const imgEl = document.createElement('img');
       imgEl.src = item.image;
-      imgEl.style.cssText = 'width:48px; height:48px; object-fit:contain; border-radius:6px;';
+      imgEl.style.cssText = 'width:60px; height:60px; object-fit:contain; border-radius:6px; flex-shrink:0;';
       topRow.appendChild(imgEl);
     } else {
       topRow.appendChild(emojiEl);

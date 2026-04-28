@@ -53,6 +53,7 @@ import {
   getServiceComboConfig,
   getSessionDuration,
 } from '../config/grillBalance';
+import { JUDGEMENT_ASSET_BY_RESULT } from '../data/uiAssets';
 
 // ── Layout constants ────────────────────────────────────────────────────────
 const MAX_GRILL_SLOTS = 8;     // 12 if grill-expand upgrade
@@ -94,6 +95,7 @@ interface GrillSlot {
 // Extended Graphics object that carries the associated hit zone
 interface GrillSlotGraphics extends Phaser.GameObjects.Graphics {
   __hitZone?: Phaser.GameObjects.Zone;
+  __frameImage?: Phaser.GameObjects.Image;
 }
 
 interface WarmingSlot {
@@ -228,6 +230,7 @@ export class GrillScene extends Phaser.Scene {
   private maxRhythmCombo = 0;
   private hitStats = { perfect: 0, great: 0, good: 0, miss: 0 };
   private rhythmComboText: Phaser.GameObjects.Text | null = null;
+  private rhythmComboBadge: Phaser.GameObjects.Image | null = null;
   private rhythmComboSfxPlayed = new Set<number>();
   private fullComboSfxPlayed = false;
 
@@ -276,6 +279,7 @@ export class GrillScene extends Phaser.Scene {
   private bgmElapsedAtPause = 0;   // elapsed seconds at pause
   private bgmPaused = false;
   private bgmFinished = false;
+  private externalPauseOverlay: Phaser.GameObjects.Container | null = null;
 
   constructor() {
     super({ key: 'GrillScene' });
@@ -397,6 +401,7 @@ export class GrillScene extends Phaser.Scene {
     this.maxRhythmCombo = 0;
     this.hitStats = { perfect: 0, great: 0, good: 0, miss: 0 };
     this.rhythmComboText = null;
+    this.rhythmComboBadge = null;
     this.rhythmComboSfxPlayed = new Set<number>();
     this.fullComboSfxPlayed = false;
 
@@ -413,6 +418,7 @@ export class GrillScene extends Phaser.Scene {
     this.bgmElapsedAtPause = 0;
     this.bgmPaused = false;
     this.bgmFinished = false;
+    this.externalPauseOverlay = null;
     // appliedGarlic fixed to true — condiment station removed in Wave 6c
     this.appliedGarlic = true;
 
@@ -548,6 +554,7 @@ export class GrillScene extends Phaser.Scene {
       if (shouldPause && !this.bgmPaused && !this.bgmFinished) this.pauseBgm();
       else if (!shouldPause && this.bgmPaused && !this.bgmFinished) this.resumeBgm();
     }
+    this.syncExternalPauseOverlay();
 
     if (this.paused || this.externalPagePaused) return;
     // Freeze all game logic while a grill event overlay is shown
@@ -963,21 +970,27 @@ export class GrillScene extends Phaser.Scene {
     trackLine.setDepth(10);
 
     // Judgement target: brighter and larger so players read the timing point first.
-    const judgeCircle = this.add.graphics();
-    judgeCircle.fillStyle(0xfff0a0, 0.10);
-    judgeCircle.fillCircle(this.NOTE_HIT_X, this.noteTrackY, 48);
-    judgeCircle.lineStyle(6, 0xffe066, 1);
-    judgeCircle.strokeCircle(this.NOTE_HIT_X, this.noteTrackY, 48);
-    judgeCircle.lineStyle(2, 0xffffff, 0.9);
-    judgeCircle.strokeCircle(this.NOTE_HIT_X, this.noteTrackY, 30);
-    judgeCircle.lineStyle(3, 0xff6b00, 0.95);
-    judgeCircle.beginPath();
-    judgeCircle.moveTo(this.NOTE_HIT_X - 58, this.noteTrackY);
-    judgeCircle.lineTo(this.NOTE_HIT_X + 58, this.noteTrackY);
-    judgeCircle.moveTo(this.NOTE_HIT_X, this.noteTrackY - 58);
-    judgeCircle.lineTo(this.NOTE_HIT_X, this.noteTrackY + 58);
-    judgeCircle.strokePath();
-    judgeCircle.setDepth(10);
+    if (this.textures.exists('ui-hit-zone')) {
+      this.add.image(this.NOTE_HIT_X, this.noteTrackY, 'ui-hit-zone')
+        .setDisplaySize(112, 112)
+        .setDepth(11);
+    } else {
+      const judgeCircle = this.add.graphics();
+      judgeCircle.fillStyle(0xfff0a0, 0.10);
+      judgeCircle.fillCircle(this.NOTE_HIT_X, this.noteTrackY, 48);
+      judgeCircle.lineStyle(6, 0xffe066, 1);
+      judgeCircle.strokeCircle(this.NOTE_HIT_X, this.noteTrackY, 48);
+      judgeCircle.lineStyle(2, 0xffffff, 0.9);
+      judgeCircle.strokeCircle(this.NOTE_HIT_X, this.noteTrackY, 30);
+      judgeCircle.lineStyle(3, 0xff6b00, 0.95);
+      judgeCircle.beginPath();
+      judgeCircle.moveTo(this.NOTE_HIT_X - 58, this.noteTrackY);
+      judgeCircle.lineTo(this.NOTE_HIT_X + 58, this.noteTrackY);
+      judgeCircle.moveTo(this.NOTE_HIT_X, this.noteTrackY - 58);
+      judgeCircle.lineTo(this.NOTE_HIT_X, this.noteTrackY + 58);
+      judgeCircle.strokePath();
+      judgeCircle.setDepth(10);
+    }
 
     this.add.text(this.NOTE_HIT_X, this.noteTrackY + 66, 'HIT ZONE', {
       fontSize: '14px',
@@ -1015,7 +1028,13 @@ export class GrillScene extends Phaser.Scene {
     }).setOrigin(0.5).setDepth(51);
 
     // ── Wave 6b: Combo display text (center, hidden until combo >= 2) ──────
-    this.rhythmComboText = this.add.text(width / 2, height * 0.28, '', {
+    if (this.textures.exists('ui-combo-badge')) {
+      this.rhythmComboBadge = this.add.image(width / 2, height * 0.29, 'ui-combo-badge')
+        .setDisplaySize(260, 130)
+        .setDepth(198)
+        .setAlpha(0);
+    }
+    this.rhythmComboText = this.add.text(width / 2, height * 0.29, '', {
       fontSize: '46px',
       fontFamily: FONT,
       color: '#ffe066',
@@ -1331,16 +1350,18 @@ export class GrillScene extends Phaser.Scene {
     if (!this.rhythmComboText) return;
     if (this.rhythmCombo < 2) {
       this.rhythmComboText.setAlpha(0);
+      this.rhythmComboBadge?.setAlpha(0);
       return;
     }
+    this.rhythmComboBadge?.setAlpha(0.95);
     this.rhythmComboText
       .setText(`COMBO\nx${this.rhythmCombo}`)
       .setAlpha(1)
-      .setFontSize(Math.min(72, 44 + this.rhythmCombo));
+      .setFontSize(Math.min(62, 34 + this.rhythmCombo));
 
     // Bounce tween for feedback
     this.tweens.add({
-      targets: this.rhythmComboText,
+      targets: [this.rhythmComboText, this.rhythmComboBadge].filter(Boolean),
       scaleX: 1.18,
       scaleY: 1.18,
       angle: { from: -2, to: 2 },
@@ -1865,10 +1886,18 @@ export class GrillScene extends Phaser.Scene {
   private drawEmptySlotPlaceholder(slot: GrillSlot): void {
     // Remove old placeholder if exists
     if (slot.placeholderGfx) {
+      slot.placeholderGfx.__frameImage?.destroy();
       slot.placeholderGfx.destroy();
       slot.placeholderGfx = null;
     }
     if (slot.sausage) return; // occupied — no placeholder
+
+    const frameImage = this.textures.exists('ui-grill-slot')
+      ? this.add.image(slot.x, slot.y, 'ui-grill-slot')
+          .setDisplaySize(76, 58)
+          .setAlpha(0.72)
+          .setDepth(2.5)
+      : null;
 
     const g = this.add.graphics();
     g.lineStyle(2, 0xff6b00, 0.3);
@@ -1896,6 +1925,7 @@ export class GrillScene extends Phaser.Scene {
     // Store graphics in slot (zone needs to be tracked too — attach to graphics)
     const gfx = g as GrillSlotGraphics;
     gfx.__hitZone = hitZone;
+    if (frameImage) gfx.__frameImage = frameImage;
     slot.placeholderGfx = gfx;
   }
 
@@ -1903,6 +1933,7 @@ export class GrillScene extends Phaser.Scene {
     if (slot.placeholderGfx) {
       const zone = slot.placeholderGfx.__hitZone;
       if (zone) zone.destroy();
+      slot.placeholderGfx.__frameImage?.destroy();
       slot.placeholderGfx.destroy();
       slot.placeholderGfx = null;
     }
@@ -1944,6 +1975,13 @@ export class GrillScene extends Phaser.Scene {
     const sy = this.wzY + row * (this.wzSlotH + gap);
     const wx = sx + slotW / 2;
     const wy = sy + this.wzSlotH / 2;
+
+    if (this.textures.exists('ui-warming-slot')) {
+      this.add.image(wx, wy, 'ui-warming-slot')
+        .setDisplaySize(slotW, this.wzSlotH + 10)
+        .setAlpha(0.42)
+        .setDepth(4);
+    }
 
     const bgGfx = this.add.graphics();
     bgGfx.lineStyle(1, 0x664422, 0.5);
@@ -2120,6 +2158,13 @@ export class GrillScene extends Phaser.Scene {
 
   private setupHUD(width: number, _height: number): void {
     // ── Top left: timer ──────────────────────────────────────────────────
+    if (this.textures.exists('ui-fire-meter')) {
+      this.add.image(112, 64, 'ui-fire-meter')
+        .setDisplaySize(190, 48)
+        .setAlpha(0.62)
+        .setDepth(9);
+    }
+
     this.timerText = this.add.text(16, 55, `${this.timeLeft}s`, {
       fontSize: '18px',
       fontFamily: FONT,
@@ -3507,6 +3552,39 @@ export class GrillScene extends Phaser.Scene {
 
   // ── Display helpers ────────────────────────────────────────────────────────
 
+  private syncExternalPauseOverlay(): void {
+    if (!this.externalPagePaused) {
+      this.externalPauseOverlay?.destroy();
+      this.externalPauseOverlay = null;
+      return;
+    }
+
+    if (this.externalPauseOverlay) return;
+
+    const { width, height } = this.scale;
+    const overlay = this.add.container(0, 0).setDepth(9998);
+    const dim = this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.58);
+    overlay.add(dim);
+
+    if (this.textures.exists('ui-pause-overlay-icon')) {
+      const icon = this.add.image(width / 2, height / 2 - 20, 'ui-pause-overlay-icon')
+        .setDisplaySize(190, 190);
+      overlay.add(icon);
+    }
+
+    const label = this.add.text(width / 2, height / 2 + 118, '暫停中', {
+      fontSize: '32px',
+      fontFamily: FONT,
+      color: '#ffe066',
+      stroke: '#000000',
+      strokeThickness: 6,
+      fontStyle: '900',
+    }).setOrigin(0.5);
+    overlay.add(label);
+
+    this.externalPauseOverlay = overlay;
+  }
+
   private updateTimerDisplay(): void {
     const secs = Math.ceil(this.timeLeft);
     this.timerText.setText(`${secs}s`);
@@ -3636,6 +3714,58 @@ export class GrillScene extends Phaser.Scene {
   private showJudgementBig(text: string, color: string, size: number, duration = 600): void {
     const x = this.NOTE_HIT_X;
     const y = this.noteTrackY - 60;
+    const assetKey = this.getPopupAssetKey(text);
+    if (assetKey && this.textures.exists(assetKey)) {
+      const container = this.add.container(x, y).setDepth(220).setScale(0.55);
+      const image = this.add.image(0, 0, assetKey);
+      const isWideJudgement = assetKey.startsWith('judge-');
+      const displayWidth = assetKey === 'ui-heat-up'
+        ? 260
+        : assetKey === 'ui-service-combo'
+          ? 250
+          : isWideJudgement
+            ? 235
+            : 210;
+      const displayHeight = assetKey === 'ui-heat-up'
+        ? 130
+        : assetKey === 'ui-service-combo'
+          ? 125
+          : isWideJudgement
+            ? 78
+            : 120;
+      image.setDisplaySize(displayWidth, displayHeight);
+      container.add(image);
+
+      if (!isWideJudgement && text !== 'HEAT UP') {
+        const caption = this.add.text(0, 42, text, {
+          fontSize: `${Math.max(16, Math.floor(size * 0.7))}px`,
+          fontFamily: FONT,
+          color,
+          stroke: '#000000',
+          strokeThickness: 4,
+          fontStyle: '900',
+        }).setOrigin(0.5);
+        container.add(caption);
+      }
+
+      this.tweens.add({
+        targets: container,
+        scaleX: 1,
+        scaleY: 1,
+        duration: 120,
+        ease: 'Back.Out',
+      });
+      this.tweens.add({
+        targets: container,
+        alpha: 0,
+        y: y - 28,
+        duration: Math.max(120, duration - 180),
+        delay: 180,
+        onComplete: () => { if (container.active) container.destroy(); },
+      });
+      return;
+    }
+
     const txt = this.add.text(x, y, text, {
       fontSize: `${size}px`,
       fontFamily: FONT,
@@ -3671,6 +3801,16 @@ export class GrillScene extends Phaser.Scene {
       delay: 200,
       onComplete: () => { if (txt.active) txt.destroy(); },
     });
+  }
+
+  private getPopupAssetKey(text: string): string | null {
+    const normalized = text.toLowerCase();
+    if (normalized === 'perfect' || normalized === 'great' || normalized === 'good' || normalized === 'miss') {
+      return JUDGEMENT_ASSET_BY_RESULT[normalized] ?? null;
+    }
+    if (text === 'HEAT UP') return 'ui-heat-up';
+    if (text.includes('服務')) return 'ui-service-combo';
+    return null;
   }
 
   private showFeedback(msg: string, x: number, y: number, color: string): void {

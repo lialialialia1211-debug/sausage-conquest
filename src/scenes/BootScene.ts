@@ -8,6 +8,7 @@ import { resetCustomerEngine } from '../systems/CustomerEngine';
 import { resetAutoChessEngine } from '../systems/AutoChessEngine';
 import { resetCasinoEngine } from '../systems/CasinoEngine';
 import { resetAchievements } from '../systems/AchievementEngine';
+import { UI_ASSETS } from '../data/uiAssets';
 
 // Bump this string whenever chart-grill-theme.json changes so browsers pick up the new chart
 const CHART_VERSION = '2026042604';
@@ -99,6 +100,9 @@ export class BootScene extends Phaser.Scene {
     // ── HUD icons ──
     this.load.image('hud-money', 'hud-money.png');
     this.load.image('hud-day', 'hud-day.png');
+
+    // ── Generated UI assets ──
+    UI_ASSETS.forEach(asset => this.load.image(asset.key, asset.path));
 
     // ── BGM ──
     this.load.audio('bgm-grill', 'bgm-grill.mp3');
