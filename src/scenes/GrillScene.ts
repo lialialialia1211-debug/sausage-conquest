@@ -1953,10 +1953,16 @@ export class GrillScene extends Phaser.Scene {
     this.wzY = height * 0.72;                 // below grill rack
 
     if (this.textures.exists('ui-warming-slot')) {
-      this.add.image(this.wzX + this.wzSlotW / 2, this.wzY + 64, 'ui-warming-slot')
-        .setDisplaySize(this.wzSlotW + 44, 150)
-        .setAlpha(0.58)
-        .setDepth(3.5);
+      const boxW = this.wzSlotW / 2 + 38;
+      const boxH = 150;
+      const leftBoxX = this.wzX + this.wzSlotW * 0.25;
+      const rightBoxX = this.wzX + this.wzSlotW * 0.75;
+      [leftBoxX, rightBoxX].forEach(boxX => {
+        this.add.image(boxX, this.wzY + 64, 'ui-warming-slot')
+          .setDisplaySize(boxW, boxH)
+          .setAlpha(0.58)
+          .setDepth(3.5);
+      });
     }
 
     // Zone label
