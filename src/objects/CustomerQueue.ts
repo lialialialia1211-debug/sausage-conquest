@@ -91,6 +91,11 @@ export class CustomerQueue extends Phaser.GameObjects.Container {
     const patBarBg = this.scene.add.graphics();
     patBarBg.fillStyle(0x333333, 1);
     patBarBg.fillRect(-PATIENCE_BAR_W / 2, 74, PATIENCE_BAR_W, PATIENCE_BAR_H);
+    const patBarFrame = this.scene.textures.exists('ui-customer-patience-bar')
+      ? this.scene.add.image(0, 79, 'ui-customer-patience-bar')
+          .setDisplaySize(PATIENCE_BAR_W + 20, 28)
+          .setAlpha(0.8)
+      : null;
 
     const patBarFill = this.scene.add.graphics();
 
@@ -171,7 +176,9 @@ export class CustomerQueue extends Phaser.GameObjects.Container {
       });
     }
 
-    const toAdd: Phaser.GameObjects.GameObject[] = [frameGfx, emojiText, patBarBg, patBarFill];
+    const toAdd: Phaser.GameObjects.GameObject[] = [frameGfx, emojiText];
+    if (patBarFrame) toAdd.push(patBarFrame);
+    toAdd.push(patBarBg, patBarFill);
     if (orderBubble) toAdd.push(orderBubble);
     if (badgeBubble) toAdd.push(badgeBubble);
     if (nameTag) toAdd.push(nameTag);

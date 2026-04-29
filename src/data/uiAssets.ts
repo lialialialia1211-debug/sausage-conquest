@@ -22,6 +22,12 @@ export const UI_ASSETS: UiAssetDefinition[] = [
   { key: 'ui-grill-slot', path: 'ui/ui-grill-slot.png', width: 512, height: 256, category: 'grill-hud', usage: 'Grill slot frame' },
   { key: 'ui-fire-meter', path: 'ui/ui-fire-meter.png', width: 512, height: 128, category: 'grill-hud', usage: 'Heat / fire meter frame' },
   { key: 'ui-pause-overlay-icon', path: 'ui/ui-pause-overlay-icon.png', width: 256, height: 256, category: 'grill-hud', usage: 'External pause overlay icon' },
+  { key: 'ui-customer-queue-bg', path: 'ui/ui-customer-queue-bg.png', width: 1024, height: 256, category: 'grill-hud', usage: 'Customer queue background frame' },
+  { key: 'ui-customer-patience-bar', path: 'ui/ui-customer-patience-bar.png', width: 512, height: 128, category: 'grill-hud', usage: 'Customer patience meter frame' },
+  { key: 'ui-rhythm-stats-panel', path: 'ui/ui-rhythm-stats-panel.png', width: 768, height: 256, category: 'grill-hud', usage: 'Rhythm judgement stats panel frame' },
+  { key: 'ui-money-chip', path: 'ui/ui-money-chip.png', width: 512, height: 256, category: 'grill-hud', usage: 'Revenue HUD chip frame' },
+  { key: 'ui-day-chip', path: 'ui/ui-day-chip.png', width: 512, height: 256, category: 'grill-hud', usage: 'Day HUD chip frame' },
+  { key: 'ui-summary-grade-badge', path: 'ui/ui-summary-grade-badge.png', width: 512, height: 512, category: 'grill-hud', usage: 'Summary grade badge frame' },
 
   { key: 'judge-perfect', path: 'ui/judge-perfect.png', width: 768, height: 256, category: 'judgement', usage: 'PERFECT hit judgement popup' },
   { key: 'judge-great', path: 'ui/judge-great.png', width: 768, height: 256, category: 'judgement', usage: 'GREAT hit judgement popup' },

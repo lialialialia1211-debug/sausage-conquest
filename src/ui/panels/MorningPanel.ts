@@ -10,6 +10,17 @@ import { GRID_SLOTS } from '../../data/map';
 import type { SausageType } from '../../types';
 
 const MIN_RENT_RESERVE_FLOOR = 200;
+const UI_PATH = 'ui/';
+
+function uiFrameStyle(image: string, extra = ''): string {
+  return [
+    `background-image:linear-gradient(rgba(6,4,4,0.72),rgba(6,4,4,0.72)),url("${UI_PATH}${image}")`,
+    'background-size:100% 100%',
+    'background-repeat:no-repeat',
+    'background-position:center',
+    extra,
+  ].filter(Boolean).join(';');
+}
 
 export interface SpoilageInfo {
   spoilage: Record<string, number>;
@@ -125,8 +136,8 @@ export class MorningPanel {
       const btnWrap = document.createElement('div');
       btnWrap.style.cssText = [
         'display:flex;flex-direction:column;',
-        'background:#111827;',
-        'border:2px solid #333;',
+        uiFrameStyle('ui-prep-option-card.png'),
+        'border:2px solid #4a2a10;',
         'border-radius:8px;',
         'padding:12px 10px;',
         'cursor:pointer;',
@@ -159,13 +170,13 @@ export class MorningPanel {
       btnWrap.addEventListener('pointerover', () => {
         if (this.selectedPrep !== action.id) {
           btnWrap.style.borderColor = '#ff6b00';
-          btnWrap.style.background = '#1a0e00';
+          btnWrap.style.backgroundColor = '#1a0e00';
         }
       });
       btnWrap.addEventListener('pointerout', () => {
         if (this.selectedPrep !== action.id) {
           btnWrap.style.borderColor = '#333';
-          btnWrap.style.background = '#111827';
+          btnWrap.style.backgroundColor = '#111827';
         }
       });
 
@@ -175,11 +186,11 @@ export class MorningPanel {
         for (const [id, b] of this.prepBtns) {
           if (id === action.id) {
             b.style.borderColor = '#ff6b00';
-            b.style.background = '#1a0e00';
+            b.style.backgroundColor = '#1a0e00';
             (b.querySelector('div') as HTMLElement).style.color = '#ff6b00';
           } else {
             b.style.borderColor = '#333';
-            b.style.background = '#111827';
+            b.style.backgroundColor = '#111827';
             (b.querySelector('div') as HTMLElement).style.color = '#ffffff';
           }
         }
@@ -236,7 +247,7 @@ export class MorningPanel {
       'display:flex;flex-direction:row;',
       'gap:18px;',
       'padding:18px 24px;',
-      'background:linear-gradient(180deg, #0d0d18 0%, #14141f 100%);',
+      uiFrameStyle('ui-morning-detail-panel.png', 'background-color:#0d0d18'),
       'overflow:hidden;',
       'min-height:0;',
     ].join('');
@@ -287,7 +298,8 @@ export class MorningPanel {
 
     this.confirmBtn = document.createElement('button');
     this.confirmBtn.style.cssText = [
-      'background:#ffffff;color:#1a1a1a;',
+      uiFrameStyle('ui-buy-button.png'),
+      'color:#fff5c4;',
       'border:none;border-radius:10px;',
       'padding:14px 36px;',
       'font-size:22px;font-weight:bold;',
@@ -325,7 +337,7 @@ export class MorningPanel {
     cell.style.cssText = [
       'display:flex;flex-direction:column;align-items:center;',
       'min-width:110px;flex:1;max-width:140px;',
-      'background:#111827;',
+      uiFrameStyle('ui-morning-sausage-card.png'),
       'border-radius:10px;',
       `border:2px solid ${isRecommended ? '#ff6b00' : '#2a2a3a'};`,
       'padding:8px 6px 6px;',
@@ -422,14 +434,15 @@ export class MorningPanel {
     const makeBtn = (label: string, delta: number, color = '#1e1e2e'): HTMLButtonElement => {
       const btn = document.createElement('button');
       btn.style.cssText = [
-        `background:${color};border:1px solid #444;border-radius:4px;`,
-        'color:#ccc;font-size:11px;font-weight:bold;',
+        uiFrameStyle('ui-quantity-stepper.png'),
+        'border:1px solid #6d3b16;border-radius:4px;',
+        'color:#fff0bc;font-size:11px;font-weight:bold;',
         'padding:3px 5px;cursor:pointer;min-width:26px;',
         'transition:background 0.1s;',
       ].join('');
       btn.textContent = label;
-      btn.addEventListener('pointerover', () => { btn.style.background = '#ff6b0033'; });
-      btn.addEventListener('pointerout',  () => { btn.style.background = color; });
+      btn.addEventListener('pointerover', () => { btn.style.backgroundColor = '#ff6b0033'; });
+      btn.addEventListener('pointerout',  () => { btn.style.backgroundColor = color; });
       btn.addEventListener('click', (ev) => {
         ev.stopPropagation();  // 不觸發 cell 的選中
         const maxAffordable = calcMaxAffordable();
@@ -482,11 +495,11 @@ export class MorningPanel {
     for (const [id, cell] of this.sausageCells) {
       if (id === this.selectedSausageId) {
         cell.style.borderColor = '#ffe600';
-        cell.style.background = '#1a1808';
+        cell.style.backgroundColor = '#1a1808';
       } else {
         const isRecommended = cell.querySelector('div')?.textContent === '總公司推薦';
         cell.style.borderColor = isRecommended ? '#ff6b00' : '#2a2a3a';
-        cell.style.background = '#111827';
+        cell.style.backgroundColor = '#111827';
       }
     }
   }

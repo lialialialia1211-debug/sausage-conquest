@@ -96,8 +96,11 @@ export class SummaryPanel {
       'font-size:54px',
       'font-weight:900',
       'color:#ffd36a',
-      'border:2px solid #ffb13b',
-      'background:#210d03',
+      'border:none',
+      'background-image:linear-gradient(rgba(18,6,0,0.28),rgba(18,6,0,0.28)),url("ui/ui-summary-grade-badge.png")',
+      'background-size:contain',
+      'background-repeat:no-repeat',
+      'background-position:center',
       'text-shadow:0 0 12px #ff7a18',
     ].join(';');
 

@@ -2137,7 +2137,12 @@ export class GrillScene extends Phaser.Scene {
 
   private setupCustomerQueue(width: number, _height: number): void {
     const queueY = this.queueY;
-    if (this.textures.exists('queue-bg')) {
+    if (this.textures.exists('ui-customer-queue-bg')) {
+      this.add.image(width / 2, queueY + 8, 'ui-customer-queue-bg')
+        .setDisplaySize(Math.min(width * 0.88, 1180), 118)
+        .setAlpha(0.5)
+        .setDepth(0);
+    } else if (this.textures.exists('queue-bg')) {
       const qbg = this.add.image(width / 2, queueY, 'queue-bg');
       qbg.setDisplaySize(width, 100).setAlpha(0.5).setDepth(0);
     }
@@ -2173,7 +2178,7 @@ export class GrillScene extends Phaser.Scene {
         .setDepth(9);
     }
 
-    this.timerText = this.add.text(16, 55, `${this.timeLeft}s`, {
+    this.timerText = this.add.text(24, 55, `${this.timeLeft}s`, {
       fontSize: '18px',
       fontFamily: FONT,
       color: '#ffcc44',
@@ -2182,28 +2187,49 @@ export class GrillScene extends Phaser.Scene {
     }).setDepth(10);
 
     // ── Top right: day / status ──────────────────────────────────────────
-    this.add.text(width - 14, 14, `營業中 Day ${gameState.day}`, {
+    if (this.textures.exists('ui-day-chip')) {
+      this.add.image(width - 110, 24, 'ui-day-chip')
+        .setDisplaySize(180, 54)
+        .setAlpha(0.72)
+        .setDepth(9);
+    }
+    this.add.text(width - 44, 14, `Day ${gameState.day}`, {
       fontSize: '15px',
       fontFamily: FONT,
-      color: COLOR_ORANGE,
+      color: '#ffe8a3',
+      stroke: '#000000',
+      strokeThickness: 3,
     }).setOrigin(1, 0).setDepth(10);
 
     // ── Top-right stats display ──────────────────────────────────────────
     const statsX = width - 10;
     const statsY = 55; // below the status bar
+    if (this.textures.exists('ui-rhythm-stats-panel')) {
+      this.add.image(statsX - 178, statsY + 23, 'ui-rhythm-stats-panel')
+        .setDisplaySize(350, 76)
+        .setAlpha(0.74)
+        .setDepth(14);
+    }
 
     this.statsText = this.add.text(statsX, statsY, '', {
-      fontSize: '14px',
+      fontSize: '12px',
       fontFamily: FONT,
       color: '#ffffff',
-      backgroundColor: '#000000aa',
       padding: { x: 8, y: 4 },
     }).setOrigin(1, 0).setDepth(15);
 
-    this.revenueText = this.add.text(width / 2, statsY, '$0', {
+    if (this.textures.exists('ui-money-chip')) {
+      this.add.image(width / 2, statsY + 16, 'ui-money-chip')
+        .setDisplaySize(152, 60)
+        .setAlpha(0.74)
+        .setDepth(9);
+    }
+    this.revenueText = this.add.text(width / 2 + 8, statsY + 4, '$0', {
       fontSize: '14px',
       fontFamily: FONT,
-      color: COLOR_ORANGE,
+      color: '#ffe8a3',
+      stroke: '#000000',
+      strokeThickness: 3,
     }).setOrigin(0.5, 0).setDepth(10);
 
     // ── Combo counter (hidden until combo >= 2) ──────────────────────────
