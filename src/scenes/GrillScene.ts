@@ -1032,16 +1032,16 @@ export class GrillScene extends Phaser.Scene {
     const comboY = Math.max(118, this.noteTrackY - 132);
     if (this.textures.exists('ui-combo-badge')) {
       this.rhythmComboBadge = this.add.image(comboX, comboY, 'ui-combo-badge')
-        .setDisplaySize(150, 75)
+        .setDisplaySize(96, 48)
         .setDepth(48)
         .setAlpha(0);
     }
-    this.rhythmComboText = this.add.text(comboX, comboY, '', {
-      fontSize: '30px',
+    this.rhythmComboText = this.add.text(comboX, comboY - 2, '', {
+      fontSize: '22px',
       fontFamily: FONT,
       color: '#ffe066',
       stroke: '#2a0800',
-      strokeThickness: 5,
+      strokeThickness: 4,
       fontStyle: '900',
       align: 'center',
     }).setOrigin(0.5).setDepth(49).setAlpha(0);
@@ -1355,17 +1355,17 @@ export class GrillScene extends Phaser.Scene {
       this.rhythmComboBadge?.setAlpha(0);
       return;
     }
-    this.rhythmComboBadge?.setAlpha(0.95);
+    this.rhythmComboBadge?.setAlpha(0.58);
     this.rhythmComboText
       .setText(`x${this.rhythmCombo}`)
       .setAlpha(1)
-      .setFontSize(Math.min(38, 26 + Math.floor(this.rhythmCombo / 4)));
+      .setFontSize(Math.min(28, 20 + Math.floor(this.rhythmCombo / 8)));
 
     // Bounce tween for feedback
     this.tweens.add({
       targets: [this.rhythmComboText, this.rhythmComboBadge].filter(Boolean),
-      scaleX: 1.18,
-      scaleY: 1.18,
+      scaleX: 1.08,
+      scaleY: 1.08,
       angle: { from: -2, to: 2 },
       duration: 90,
       yoyo: true,
