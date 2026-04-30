@@ -41,8 +41,13 @@ import { CUSTOMER_REACTIONS } from '../data/customerReactions';
 import { SpectatorCrowd } from '../objects/SpectatorCrowd';
 import { RhythmNote } from '../objects/RhythmNote';
 import type { RhythmChart } from '../data/chart';
-import { JUDGE_WINDOWS } from '../systems/RhythmEngine';
 import type { HitJudgement } from '../systems/RhythmEngine';
+import {
+  getComboMilestone,
+  getGoodWindowSeconds,
+  getRhythmHeatBoost,
+  judgeRhythmHit,
+} from '../systems/RhythmGrillRules';
 import type { NoteType, ChartNote } from '../data/chart';
 import {
   getAutoServeConfig,
@@ -219,8 +224,8 @@ export class GrillScene extends Phaser.Scene {
   private rhythmNotes: RhythmNote[] = [];
   private nextNoteSpawnIdx = 0;      // pointer into chart.notes[]
   private readonly NOTE_LEAD_TIME = 1.8;  // seconds ahead of hit time for note to spawn
-  private readonly NOTE_SPAWN_X = 1100;   // right edge spawn x
-  private readonly NOTE_HIT_X = 280;      // judgement circle x
+  private noteSpawnX = 0;                 // set from viewport width in setupRhythmTrack
+  private noteHitX = 0;                   // set from viewport width in setupRhythmTrack
   // NOTE_TRACK_Y is computed in create() relative to this.scale.height
   // (between warming zone bottom ~0.68 and spectator crowd ~0.76)
   private noteTrackY = 0;
@@ -959,6 +964,8 @@ export class GrillScene extends Phaser.Scene {
     // NOTE_TRACK_Y: above grill rack (grill at 0.50), between customer queue (~0.17) and grill.
     // 0.40 places the track just above the grill so notes look like they fly into the rack.
     this.noteTrackY = height * 0.42; // S5.1: down 2% so notes land closer to rack
+    this.noteHitX = width / 2;
+    this.noteSpawnX = width + 90;
 
     // Debug: track line (semi-transparent dark grey)
     const trackLine = this.add.graphics();
@@ -971,28 +978,42 @@ export class GrillScene extends Phaser.Scene {
 
     // Judgement target: brighter and larger so players read the timing point first.
     if (this.textures.exists('ui-hit-zone')) {
-      this.add.image(this.NOTE_HIT_X, this.noteTrackY, 'ui-hit-zone')
-        .setDisplaySize(112, 112)
+      this.add.image(this.noteHitX, this.noteTrackY, 'ui-hit-zone')
+        .setDisplaySize(132, 132)
         .setDepth(11);
     } else {
       const judgeCircle = this.add.graphics();
       judgeCircle.fillStyle(0xfff0a0, 0.10);
-      judgeCircle.fillCircle(this.NOTE_HIT_X, this.noteTrackY, 48);
+      judgeCircle.fillCircle(this.noteHitX, this.noteTrackY, 48);
       judgeCircle.lineStyle(6, 0xffe066, 1);
-      judgeCircle.strokeCircle(this.NOTE_HIT_X, this.noteTrackY, 48);
+      judgeCircle.strokeCircle(this.noteHitX, this.noteTrackY, 48);
       judgeCircle.lineStyle(2, 0xffffff, 0.9);
-      judgeCircle.strokeCircle(this.NOTE_HIT_X, this.noteTrackY, 30);
+      judgeCircle.strokeCircle(this.noteHitX, this.noteTrackY, 30);
       judgeCircle.lineStyle(3, 0xff6b00, 0.95);
       judgeCircle.beginPath();
-      judgeCircle.moveTo(this.NOTE_HIT_X - 58, this.noteTrackY);
-      judgeCircle.lineTo(this.NOTE_HIT_X + 58, this.noteTrackY);
-      judgeCircle.moveTo(this.NOTE_HIT_X, this.noteTrackY - 58);
-      judgeCircle.lineTo(this.NOTE_HIT_X, this.noteTrackY + 58);
+      judgeCircle.moveTo(this.noteHitX - 58, this.noteTrackY);
+      judgeCircle.lineTo(this.noteHitX + 58, this.noteTrackY);
+      judgeCircle.moveTo(this.noteHitX, this.noteTrackY - 58);
+      judgeCircle.lineTo(this.noteHitX, this.noteTrackY + 58);
       judgeCircle.strokePath();
       judgeCircle.setDepth(10);
     }
 
-    this.add.text(this.NOTE_HIT_X, this.noteTrackY + 66, 'HIT ZONE', {
+    const targetPulse = this.add.graphics().setDepth(10.5);
+    targetPulse.lineStyle(3, 0xfff066, 0.8);
+    targetPulse.strokeCircle(this.noteHitX, this.noteTrackY, 66);
+    this.tweens.add({
+      targets: targetPulse,
+      alpha: { from: 0.65, to: 0.15 },
+      scaleX: { from: 0.92, to: 1.12 },
+      scaleY: { from: 0.92, to: 1.12 },
+      duration: 760,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.InOut',
+    });
+
+    this.add.text(this.noteHitX, this.noteTrackY + 66, 'HIT ZONE', {
       fontSize: '14px',
       fontFamily: FONT,
       color: '#ffe066',
@@ -1062,7 +1083,7 @@ export class GrillScene extends Phaser.Scene {
     while (this.nextNoteSpawnIdx < this.chart.notes.length) {
       const next = this.chart.notes[this.nextNoteSpawnIdx];
       if (next.t - now > this.NOTE_LEAD_TIME) break;
-      const note = new RhythmNote(this, this.NOTE_SPAWN_X, this.noteTrackY, next);
+      const note = new RhythmNote(this, this.noteSpawnX, this.noteTrackY, next);
       note.setDepth(15);
       this.rhythmNotes.push(note);
       this.nextNoteSpawnIdx++;
@@ -1072,10 +1093,10 @@ export class GrillScene extends Phaser.Scene {
     // destroy notes that have flown well past the hit line.
     for (let i = this.rhythmNotes.length - 1; i >= 0; i--) {
       const n = this.rhythmNotes[i];
-      n.setPositionByTime(now, n.note.t, this.NOTE_HIT_X, this.NOTE_SPAWN_X, this.NOTE_LEAD_TIME);
+      n.setPositionByTime(now, n.note.t, this.noteHitX, this.noteSpawnX, this.NOTE_LEAD_TIME);
 
       // Auto-MISS: note time passed the good window and still not hit
-      if (!n.isHit && n.note.t < now - JUDGE_WINDOWS.good * this.getJudgeMultiplier()) {
+      if (!n.isHit && n.note.t < now - getGoodWindowSeconds(gameState.difficulty)) {
         n.markHit();
         this.hitStats.miss += 1;
         this.rhythmCombo = 0;
@@ -1099,34 +1120,11 @@ export class GrillScene extends Phaser.Scene {
       }
 
       // Remove notes that have flown well past the hit line
-      if (n.x < this.NOTE_HIT_X - 120) {
+      if (n.x < this.noteHitX - 120) {
         n.destroy();
         this.rhythmNotes.splice(i, 1);
       }
     }
-  }
-
-  // ── Difficulty: judgement window multiplier ───────────────────────────────
-
-  /**
-   * Returns 2.0 for casual (寬判定 ×2)，1.0 for hardcore or undefined（預設）。
-   * Multiplied into JUDGE_WINDOWS values at runtime; the constants stay unchanged.
-   */
-  private getJudgeMultiplier(): number {
-    return gameState.difficulty === 'casual' ? 2.0 : 1.0;
-  }
-
-  /**
-   * Local judgement function that respects the current difficulty multiplier.
-   * Mirrors judgeHit() from RhythmEngine but scales all windows by the multiplier.
-   */
-  private judgeHitDynamic(noteTime: number, pressTime: number): HitJudgement | null {
-    const m = this.getJudgeMultiplier();
-    const delta = Math.abs(noteTime - pressTime);
-    if (delta <= JUDGE_WINDOWS.perfect * m) return 'perfect';
-    if (delta <= JUDGE_WINDOWS.great   * m) return 'great';
-    if (delta <= JUDGE_WINDOWS.good    * m) return 'good';
-    return null;
   }
 
   // ── Wave 6b: Rhythm input handling ──────────────────────────────────────
@@ -1149,7 +1147,7 @@ export class GrillScene extends Phaser.Scene {
     for (const n of this.rhythmNotes) {
       if (n.isHit) continue;
       // Notes still too far in the future haven't entered the press-eligible window
-      if (n.note.t - now > JUDGE_WINDOWS.good * this.getJudgeMultiplier()) continue;
+      if (n.note.t - now > getGoodWindowSeconds(gameState.difficulty)) continue;
       frontNote = n;
       break;
     }
@@ -1165,7 +1163,7 @@ export class GrillScene extends Phaser.Scene {
       return;
     }
 
-    const judgement = this.judgeHitDynamic(frontNote.note.t, now);
+    const judgement = judgeRhythmHit(frontNote.note.t, now, gameState.difficulty);
     if (judgement === null) {
       // Outside even the good window — auto-MISS handler will deal with it
       return;
@@ -1190,7 +1188,7 @@ export class GrillScene extends Phaser.Scene {
       this.boostGrillFromRhythm(judgement);
       sfx.playCrazyVoice();
       this.showJudgementBig('HEAT UP', '#ffcc33', 30, 500);
-      this.showFeedback('烤架已滿：敲擊加速熟成', this.NOTE_HIT_X, this.noteTrackY - 70, '#ffcc33');
+      this.showFeedback('烤架已滿：敲擊加速熟成', this.noteHitX, this.noteTrackY - 70, '#ffcc33');
       this.trackServiceComboHit(frontNote, judgement);
       if (frontNote.active) frontNote.destroy();
       const blockedIdx = this.rhythmNotes.indexOf(frontNote);
@@ -1376,15 +1374,8 @@ export class GrillScene extends Phaser.Scene {
   // ── Wave 6cd: BGM sync helpers ────────────────────────────────────────────
 
   private playRhythmComboMilestoneSfx(): void {
-    if (this.rhythmCombo < 10) return;
-
-    const milestone = this.rhythmCombo >= 100
-      ? 100
-      : this.rhythmCombo >= 50
-        ? 50
-        : this.rhythmCombo >= 20
-          ? 20
-          : 10;
+    const milestone = getComboMilestone(this.rhythmCombo);
+    if (!milestone) return;
 
     if (this.rhythmCombo !== milestone || this.rhythmComboSfxPlayed.has(milestone)) return;
 
@@ -1677,11 +1668,8 @@ export class GrillScene extends Phaser.Scene {
   }
 
   private boostGrillFromRhythm(judgement: HitJudgement): void {
-    if (judgement === 'miss') return;
-    const boost =
-      judgement === 'perfect' ? 18 :
-      judgement === 'great' ? 13 :
-      9;
+    const boost = getRhythmHeatBoost(judgement);
+    if (boost <= 0) return;
 
     for (const slot of this.grillSlots) {
       if (!slot.sausage || !slot.sprite || slot.sausage.served || !slot.sausage.rhythmAccuracy) continue;
@@ -3669,44 +3657,64 @@ export class GrillScene extends Phaser.Scene {
       judgement === 'perfect' ? 0xff6b00 :
       judgement === 'great' ? 0xffffff :
       0xffcc66;
-    const x = this.NOTE_HIT_X;
+    const x = this.noteHitX;
     const y = this.noteTrackY;
+    const intensity =
+      judgement === 'perfect' ? 1.25 :
+      judgement === 'great' ? 1.0 :
+      0.75;
+
+    const screenFlash = this.add.rectangle(
+      this.scale.width / 2,
+      this.scale.height / 2,
+      this.scale.width,
+      this.scale.height,
+      color,
+      0.08 * intensity,
+    ).setDepth(203);
+    this.tweens.add({
+      targets: screenFlash,
+      alpha: 0,
+      duration: 120,
+      ease: 'Quad.Out',
+      onComplete: () => screenFlash.destroy(),
+    });
 
     const flash = this.add.graphics().setDepth(204);
-    flash.fillStyle(color, 0.35);
-    flash.fillCircle(x, y, 58);
-    flash.fillStyle(0xffffff, 0.25);
-    flash.fillCircle(x, y, 34);
+    flash.fillStyle(color, 0.42 * intensity);
+    flash.fillCircle(x, y, 66);
+    flash.fillStyle(0xffffff, 0.34 * intensity);
+    flash.fillCircle(x, y, 38);
     this.tweens.add({
       targets: flash,
       alpha: 0,
-      scaleX: 2.4,
-      scaleY: 2.4,
+      scaleX: 2.8 * intensity,
+      scaleY: 2.8 * intensity,
       duration: 180,
       ease: 'Cubic.Out',
       onComplete: () => flash.destroy(),
     });
 
     const ring = this.add.graphics().setDepth(205);
-    ring.lineStyle(9, color, 1);
-    ring.strokeCircle(x, y, 34);
-    ring.lineStyle(4, secondaryColor, 0.95);
-    ring.strokeCircle(x, y, 52);
+    ring.lineStyle(11, color, 1);
+    ring.strokeCircle(x, y, 36);
+    ring.lineStyle(5, secondaryColor, 0.95);
+    ring.strokeCircle(x, y, 58);
     ring.lineStyle(2, 0xffffff, 0.9);
     ring.strokeCircle(x, y, 18);
     this.tweens.add({
       targets: ring,
       alpha: 0,
-      scaleX: 2.8,
-      scaleY: 2.8,
-      duration: 320,
+      scaleX: 3.2 * intensity,
+      scaleY: 3.2 * intensity,
+      duration: 340,
       ease: 'Cubic.Out',
       onComplete: () => ring.destroy(),
     });
 
-    for (let i = 0; i < 24; i++) {
-      const angle = (Math.PI * 2 * i) / 24;
-      const distance = Phaser.Math.Between(54, 118);
+    for (let i = 0; i < 34; i++) {
+      const angle = (Math.PI * 2 * i) / 34;
+      const distance = Phaser.Math.Between(64, 148) * intensity;
       const spark = this.add.graphics().setDepth(206);
       spark.fillStyle(i % 4 === 0 ? 0xffffff : (i % 2 === 0 ? color : secondaryColor), 1);
       spark.fillCircle(x, y, i % 3 === 0 ? 6 : 4);
@@ -3720,6 +3728,24 @@ export class GrillScene extends Phaser.Scene {
         onComplete: () => spark.destroy(),
       });
     }
+
+    const slash = this.add.graphics().setDepth(206);
+    slash.lineStyle(5, secondaryColor, 0.95);
+    slash.beginPath();
+    slash.moveTo(x - 92, y + 42);
+    slash.lineTo(x + 92, y - 42);
+    slash.moveTo(x - 72, y - 36);
+    slash.lineTo(x + 72, y + 36);
+    slash.strokePath();
+    this.tweens.add({
+      targets: slash,
+      alpha: 0,
+      scaleX: 1.45,
+      scaleY: 1.45,
+      duration: 220,
+      ease: 'Cubic.Out',
+      onComplete: () => slash.destroy(),
+    });
 
     const shock = this.add.text(x, y, 'BOOM', {
       fontSize: judgement === 'perfect' ? '34px' : '26px',
@@ -3746,7 +3772,7 @@ export class GrillScene extends Phaser.Scene {
    * Pops in with a scale bounce and floats upward before fading out.
    */
   private showJudgementBig(text: string, color: string, size: number, duration = 600): void {
-    const x = this.NOTE_HIT_X;
+    const x = this.noteHitX;
     const y = this.noteTrackY - 60;
     const assetKey = this.getPopupAssetKey(text);
     if (assetKey && this.textures.exists(assetKey)) {

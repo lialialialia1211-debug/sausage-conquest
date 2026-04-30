@@ -136,7 +136,14 @@ export class MorningPanel {
       const btnWrap = document.createElement('div');
       btnWrap.style.cssText = [
         'display:flex;flex-direction:column;',
-        uiFrameStyle('ui-prep-option-card.png'),
+        uiFrameStyle(
+          'ui-prep-option-card.png',
+          [
+            'background-size:96px 64px',
+            'background-position:right 8px center',
+            'background-color:#100807',
+          ].join(';'),
+        ),
         'border:2px solid #4a2a10;',
         'border-radius:8px;',
         'padding:12px 10px;',
@@ -300,12 +307,15 @@ export class MorningPanel {
     this.confirmBtn.style.cssText = [
       uiFrameStyle('ui-buy-button.png'),
       'color:#fff5c4;',
-      'border:none;border-radius:10px;',
-      'padding:14px 36px;',
+      'border:1px solid #8f4c16;border-radius:10px;',
+      'min-width:216px;height:62px;',
+      'display:flex;align-items:center;justify-content:center;',
+      'padding:10px 34px;',
       'font-size:22px;font-weight:bold;',
       'font-family:Microsoft JhengHei, PingFang TC, sans-serif;',
       'cursor:pointer;',
-      'box-shadow:0 4px 0 #aaaaaa, 0 6px 12px rgba(0,0,0,0.4);',
+      'text-shadow:0 3px 0 #4b1600, 0 0 12px #ff9c2a;',
+      'box-shadow:0 4px 0 #542100, 0 0 18px rgba(255,117,24,0.25), 0 6px 12px rgba(0,0,0,0.4);',
       'transition:transform 0.1s, box-shadow 0.1s;',
       'letter-spacing:2px;',
     ].join('');
@@ -336,11 +346,11 @@ export class MorningPanel {
     const cell = document.createElement('div');
     cell.style.cssText = [
       'display:flex;flex-direction:column;align-items:center;',
-      'min-width:110px;flex:1;max-width:140px;',
+      'min-width:124px;flex:1;max-width:154px;',
       uiFrameStyle('ui-morning-sausage-card.png'),
       'border-radius:10px;',
       `border:2px solid ${isRecommended ? '#ff6b00' : '#2a2a3a'};`,
-      'padding:8px 6px 6px;',
+      'padding:10px 8px 8px;',
       'flex-shrink:0;',
       'position:relative;',
       'cursor:pointer;',
@@ -362,11 +372,11 @@ export class MorningPanel {
 
     // 香腸圖示（小一點，避免擠出）
     const imgWrap = document.createElement('div');
-    imgWrap.style.cssText = 'width:54px;height:54px;display:flex;align-items:center;justify-content:center;margin-bottom:4px;';
+    imgWrap.style.cssText = 'width:60px;height:58px;display:flex;align-items:center;justify-content:center;margin-bottom:4px;';
     if (sausage.image) {
       const img = document.createElement('img');
       img.src = sausage.image;
-      img.style.cssText = 'width:54px;height:54px;object-fit:contain;border-radius:6px;';
+      img.style.cssText = 'width:60px;height:58px;object-fit:contain;border-radius:6px;';
       img.alt = sausage.name;
       imgWrap.appendChild(img);
     } else {
