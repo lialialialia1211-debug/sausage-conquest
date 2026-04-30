@@ -12,7 +12,7 @@ export class BlackMarketPanel {
 
   constructor() {
     this.el = document.createElement('div');
-    this.el.className = 'event-panel black-market-panel';
+    this.el.className = 'game-panel ui-interactive event-panel black-market-panel';
 
     // Feedback and money displays live at the bottom and persist across rebuilds.
     this.feedbackEl = document.createElement('div');
