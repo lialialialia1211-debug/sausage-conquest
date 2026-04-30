@@ -272,6 +272,66 @@ body {
   overflow: hidden;
 }
 
+@media (max-width: 700px) {
+  .morning-panel {
+    grid-template-columns: 1fr !important;
+    grid-template-rows: auto auto auto auto !important;
+    width: 92vw !important;
+    max-height: calc(100vh - 48px) !important;
+    overflow-y: auto !important;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 107, 0, 0.6) transparent;
+  }
+
+  .morning-header {
+    grid-column: 1 !important;
+    align-items: flex-start !important;
+    gap: 8px !important;
+    flex-wrap: wrap !important;
+  }
+
+  .morning-header .panel-title {
+    font-size: 24px !important;
+    line-height: 1.2 !important;
+  }
+
+  .morning-left {
+    border-right: 0 !important;
+    border-bottom: 1px solid rgba(255, 107, 0, 0.28) !important;
+    overflow: visible !important;
+  }
+
+  .morning-right {
+    overflow: visible !important;
+  }
+
+  .morning-sausage-row {
+    grid-template-columns: repeat(5, 148px) !important;
+    overflow-x: auto !important;
+    padding-bottom: 14px !important;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 230, 0, 0.6) transparent;
+  }
+
+  .morning-detail {
+    grid-template-columns: 1fr !important;
+    min-height: auto !important;
+    padding: 14px !important;
+  }
+
+  .morning-detail > div[style*="ui-morning-detail-panel"] {
+    display: none !important;
+  }
+
+  .morning-bottom {
+    position: sticky !important;
+    bottom: 0 !important;
+    z-index: 3 !important;
+    gap: 10px !important;
+    flex-wrap: wrap !important;
+  }
+}
+
 .sausage-cards {
   display: flex;
   flex-direction: column;

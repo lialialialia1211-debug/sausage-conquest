@@ -133,10 +133,9 @@ export class BootScene extends Phaser.Scene {
     // Title: logo-ex (preferred) → cover (fallback) → text fallback
     let title: Phaser.GameObjects.Image | Phaser.GameObjects.Text;
     if (this.textures.exists('logo-ex')) {
-      const logo = this.add.image(cx, height * 0.32, 'logo-ex');
-      // 比舊版（0.92×0.42）放大 50%：0.42 → 0.63
-      const maxW = width * 1.0;
-      const maxH = height * 0.63;
+      const logo = this.add.image(cx, height * 0.27, 'logo-ex');
+      const maxW = width * 0.84;
+      const maxH = height * 0.40;
       const scale = Math.min(maxW / logo.width, maxH / logo.height);
       logo.setScale(scale).setDepth(10);
       title = logo;
