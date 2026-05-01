@@ -149,21 +149,18 @@ export class MorningPanel {
       const btnWrap = document.createElement('div');
       btnWrap.style.cssText = [
         'display:flex;flex-direction:column;',
-        uiFrameStyle(
-          'ui-prep-option-card.png',
-          [
-            'background-size:82px 56px',
-            'background-position:right 10px center',
-            'background-color:#1a0c04',
-          ].join(';'),
-        ),
-        'min-height:84px;',
-        'border:1px solid rgba(255,140,28,0.34);',
-        'border-radius:8px;',
-        'padding:14px 96px 14px 14px;',
+        'background-image:linear-gradient(180deg,rgba(12,4,0,0.10),rgba(7,4,6,0.18)),url("ui/ui-prep-option-card.png");',
+        'background-size:100% 100%, 820px 108px;',
+        'background-repeat:no-repeat,no-repeat;',
+        'background-position:center,center;',
+        'min-height:98px;',
+        'border:0;',
+        'outline:1px solid rgba(255,140,28,0.42);',
+        'border-radius:10px;',
+        'padding:23px 38px 18px 42px;',
         'cursor:pointer;',
-        'box-shadow:inset 0 0 18px rgba(255,107,0,0.06),0 6px 12px rgba(0,0,0,0.24);',
-        'transition:border-color 0.15s, background-color 0.15s, transform 0.15s;',
+        'box-shadow:0 9px 16px rgba(0,0,0,0.30),0 0 12px rgba(255,107,0,0.08);',
+        'transition:outline-color 0.15s, filter 0.15s, transform 0.15s;',
       ].join('');
 
       const labelEl = document.createElement('div');
@@ -192,15 +189,15 @@ export class MorningPanel {
 
       btnWrap.addEventListener('pointerover', () => {
         if (this.selectedPrep !== action.id) {
-          btnWrap.style.borderColor = '#ff6b00';
-          btnWrap.style.backgroundColor = '#211005';
+          btnWrap.style.outlineColor = '#ffb22c';
+          btnWrap.style.filter = 'brightness(1.12)';
           btnWrap.style.transform = 'translateX(3px)';
         }
       });
       btnWrap.addEventListener('pointerout', () => {
         if (this.selectedPrep !== action.id) {
-          btnWrap.style.borderColor = 'rgba(255,140,28,0.34)';
-          btnWrap.style.backgroundColor = '#1a0c04';
+          btnWrap.style.outlineColor = 'rgba(255,140,28,0.42)';
+          btnWrap.style.filter = '';
           btnWrap.style.transform = '';
         }
       });
@@ -210,14 +207,14 @@ export class MorningPanel {
         updateGameState({ morningPrep: action.id });
         for (const [id, b] of this.prepBtns) {
           if (id === action.id) {
-            b.style.borderColor = '#ff6b00';
-            b.style.backgroundColor = '#2a1506';
-            b.style.boxShadow = 'inset 0 0 18px rgba(255,107,0,0.18),0 0 16px rgba(255,107,0,0.18)';
+            b.style.outlineColor = '#ffe600';
+            b.style.filter = 'brightness(1.18) drop-shadow(0 0 12px rgba(255,230,0,0.28))';
+            b.style.boxShadow = '0 0 18px rgba(255,230,0,0.22),0 9px 16px rgba(0,0,0,0.30)';
             (b.querySelector('div') as HTMLElement).style.color = '#ff6b00';
           } else {
-            b.style.borderColor = 'rgba(255,140,28,0.34)';
-            b.style.backgroundColor = '#1a0c04';
-            b.style.boxShadow = 'inset 0 0 18px rgba(255,107,0,0.06),0 6px 12px rgba(0,0,0,0.24)';
+            b.style.outlineColor = 'rgba(255,140,28,0.42)';
+            b.style.filter = '';
+            b.style.boxShadow = '0 9px 16px rgba(0,0,0,0.30),0 0 12px rgba(255,107,0,0.08)';
             (b.querySelector('div') as HTMLElement).style.color = '#ffffff';
           }
         }
@@ -273,9 +270,11 @@ export class MorningPanel {
       'display:grid;',
       'grid-template-columns:220px minmax(0,1fr);',
       'gap:18px;',
-      'padding:18px 24px;',
+      'padding:28px 38px 24px 24px;',
       'position:relative;',
-      'background:linear-gradient(180deg,rgba(20,10,4,0.92),rgba(5,5,10,0.96));',
+      'background:radial-gradient(circle at 55% 38%,rgba(255,122,0,0.10),transparent 44%),linear-gradient(180deg,rgba(18,8,3,0.72),rgba(5,5,10,0.90));',
+      'border:1px solid rgba(255,157,36,0.26);border-radius:10px;',
+      'box-shadow:inset 0 0 22px rgba(255,107,0,0.08),0 10px 24px rgba(0,0,0,0.28);',
       'overflow:hidden;',
       'min-height:0;',
     ].join('');
@@ -328,18 +327,22 @@ export class MorningPanel {
 
     this.confirmBtn = document.createElement('button');
     this.confirmBtn.style.cssText = [
-      uiFrameStyle('ui-buy-button.png'),
-      'color:#fff5c4;',
-      'border:1px solid #8f4c16;border-radius:10px;',
-      'min-width:216px;height:62px;',
+      'background-image:radial-gradient(circle at 50% 45%,rgba(255,238,82,0.18),rgba(255,107,0,0.04) 46%,transparent 70%),url("ui/ui-buy-button.png");',
+      'background-size:100% 100%, 260px 130px;',
+      'background-repeat:no-repeat,no-repeat;',
+      'background-position:center,center;',
+      'color:#fff8c8;',
+      'border:0;outline:2px solid rgba(255,184,36,0.78);border-radius:13px;',
+      'min-width:250px;height:74px;',
       'display:flex;align-items:center;justify-content:center;',
-      'padding:10px 34px;',
-      'font-size:22px;font-weight:bold;',
+      'padding:13px 42px 10px;',
+      'font-size:24px;font-weight:900;',
       'font-family:Microsoft JhengHei, PingFang TC, sans-serif;',
       'cursor:pointer;',
-      'text-shadow:0 3px 0 #4b1600, 0 0 12px #ff9c2a;',
-      'box-shadow:0 4px 0 #542100, 0 0 24px rgba(255,117,24,0.34), 0 6px 12px rgba(0,0,0,0.4);',
-      'transition:transform 0.1s, box-shadow 0.1s;',
+      'text-shadow:0 3px 0 #4b1600,0 0 14px #ffcc33,0 0 24px rgba(255,107,0,0.90);',
+      'box-shadow:0 4px 0 #542100,0 0 26px rgba(255,230,0,0.34),0 0 42px rgba(255,117,24,0.24),0 8px 16px rgba(0,0,0,0.44);',
+      'filter:brightness(1.12) saturate(1.18);',
+      'transition:transform 0.1s, box-shadow 0.1s, filter 0.1s, opacity 0.1s;',
       'letter-spacing:2px;',
     ].join('');
     this.confirmBtn.addEventListener('pointerdown', () => {
@@ -348,7 +351,7 @@ export class MorningPanel {
     });
     this.confirmBtn.addEventListener('pointerup', () => {
       this.confirmBtn.style.transform = '';
-      this.confirmBtn.style.boxShadow = '0 4px 0 #542100, 0 0 24px rgba(255,117,24,0.34), 0 6px 12px rgba(0,0,0,0.4)';
+      this.confirmBtn.style.boxShadow = '0 4px 0 #542100,0 0 26px rgba(255,230,0,0.34),0 0 42px rgba(255,117,24,0.24),0 8px 16px rgba(0,0,0,0.44)';
     });
     this.confirmBtn.addEventListener('click', this.onConfirm);
     bottomBar.appendChild(this.confirmBtn);
@@ -559,11 +562,11 @@ export class MorningPanel {
 
     const frameArt = document.createElement('div');
     frameArt.style.cssText = [
-      'position:absolute;left:300px;right:58px;bottom:20px;height:46%;',
+      'position:absolute;left:284px;right:34px;top:64px;bottom:36px;',
       uiAssetBackground('ui-morning-detail-panel.png', 'background-size:100% 100%'),
-      'opacity:0.16;',
+      'opacity:0.94;',
       'pointer-events:none;',
-      'filter:drop-shadow(0 0 18px rgba(255,107,0,0.12));',
+      'filter:drop-shadow(0 0 16px rgba(255,107,0,0.26));',
     ].join('');
     this.detailEl.appendChild(frameArt);
 
@@ -610,11 +613,12 @@ export class MorningPanel {
       'position:relative;z-index:1;',
       'display:flex;flex-direction:column;gap:10px;',
       'overflow-y:auto;min-width:0;',
-      'padding:12px 18px;',
-      'background:linear-gradient(180deg,rgba(12,8,6,0.72),rgba(5,5,11,0.56));',
-      'border:1px solid rgba(255,140,28,0.18);',
-      'border-radius:10px;',
-      'box-shadow:inset 0 0 22px rgba(255,107,0,0.06);',
+      'padding:102px 58px 34px;',
+      'margin:0 116px 0 18px;',
+      'background:linear-gradient(180deg,rgba(8,4,2,0.20),rgba(5,5,11,0.22));',
+      'border:0;',
+      'border-radius:16px;',
+      'box-shadow:none;',
     ].join('');
 
     // 口味描述
@@ -721,8 +725,11 @@ export class MorningPanel {
     const canProceed = hasPrepChoice && (hasNewPurchases || hasExistingStock);
 
     this.confirmBtn.disabled = !canProceed;
-    this.confirmBtn.style.opacity = canProceed ? '1' : '0.5';
+    this.confirmBtn.style.opacity = canProceed ? '1' : '0.82';
     this.confirmBtn.style.cursor = canProceed ? 'pointer' : 'not-allowed';
+    this.confirmBtn.style.filter = canProceed
+      ? 'brightness(1.18) saturate(1.22)'
+      : 'brightness(0.86) saturate(0.92)';
 
     if (!hasPrepChoice) {
       this.confirmBtn.textContent = '請先選擇策略';
