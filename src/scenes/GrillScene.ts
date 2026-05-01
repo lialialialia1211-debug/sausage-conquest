@@ -4432,9 +4432,9 @@ export class GrillScene extends Phaser.Scene {
       const weightedHits = perfect * 1 + great * 0.7 + good * 0.3;
       const accuracy = totalNotesPlayed > 0 ? weightedHits / totalNotesPlayed : 0;
       const grade: DailyRhythmStats['grade'] =
-        accuracy >= 0.95 ? 'S' :
-        accuracy >= 0.85 ? 'A' :
-        accuracy >= 0.70 ? 'B' : 'C';
+        accuracy >= 0.95 ? 'A' :
+        accuracy >= 0.85 ? 'B' :
+        accuracy >= 0.70 ? 'C' : 'D';
       const rhythmStats: DailyRhythmStats = {
         hitStats: { perfect, great, good, miss },
         maxCombo: this.maxRhythmCombo,

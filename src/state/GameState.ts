@@ -110,7 +110,7 @@ export interface DailyRhythmStats {
   maxCombo: number;
   totalNotes: number;
   accuracy: number;       // 0..1
-  grade: 'S' | 'A' | 'B' | 'C';
+  grade: 'A' | 'B' | 'C' | 'D';
 }
 
 // Update state and notify UI via EventBus

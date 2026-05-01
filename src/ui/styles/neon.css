@@ -1142,6 +1142,21 @@ body {
   padding: 3px 10px;
 }
 
+.summary-grade-panel {
+  overflow: hidden;
+}
+
+.summary-grade-hero {
+  min-height: 220px;
+}
+
+@media (max-width: 720px) {
+  .summary-grade-hero {
+    grid-template-columns: 1fr !important;
+    text-align: center;
+  }
+}
+
 .summary-territory {
   font-size: 14px;
   color: var(--neon-cyan);

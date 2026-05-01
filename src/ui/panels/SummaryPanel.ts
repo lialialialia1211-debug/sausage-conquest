@@ -19,6 +19,8 @@ export interface SummaryData {
   grillStats: GrillStats;
 }
 
+type SummaryGrade = 'A' | 'B' | 'C' | 'D';
+
 export class SummaryPanel {
   private panel: HTMLElement;
 
@@ -28,15 +30,19 @@ export class SummaryPanel {
 
     const titleEl = document.createElement('div');
     titleEl.className = 'panel-title neon-flicker';
-    titleEl.textContent = '收攤結算';
+    titleEl.textContent = '今日收攤';
     this.panel.appendChild(titleEl);
 
     const dayHeader = document.createElement('div');
     dayHeader.className = 'summary-day-header';
-    dayHeader.textContent = `Day ${data.dailyReport.day} 烤感成績`;
+    dayHeader.textContent = `Day ${data.dailyReport.day} 烤香腸熟練度`;
     this.panel.appendChild(dayHeader);
 
-    this.panel.appendChild(this.buildRhythmMasteryPanel(gameState.dailyRhythmStats, data.dailyReport, data.salesLog.length));
+    this.panel.appendChild(this.buildRhythmMasteryPanel(
+      gameState.dailyRhythmStats,
+      data.dailyReport,
+      data.salesLog.length,
+    ));
 
     const nextWrap = document.createElement('div');
     nextWrap.className = 'btn-center';
@@ -61,16 +67,28 @@ export class SummaryPanel {
     const masteryScore = Math.max(0, Math.round(
       (hitStats.perfect * 100 + hitStats.great * 82 + hitStats.good * 55 - hitStats.miss * 25) / total,
     ));
-    const grade = stats?.grade ?? (masteryScore >= 90 ? 'S' : masteryScore >= 75 ? 'A' : masteryScore >= 60 ? 'B' : 'C');
-    const titleByGrade: Record<string, string> = {
-      S: '神手掌火',
-      A: '穩定控火',
-      B: '可出餐烤感',
-      C: '節奏待練',
+    const grade = (stats?.grade ?? (
+      masteryScore >= 90 ? 'A' :
+      masteryScore >= 75 ? 'B' :
+      masteryScore >= 60 ? 'C' : 'D'
+    )) as SummaryGrade;
+
+    const titleByGrade: Record<SummaryGrade, string> = {
+      A: '傳說烤手',
+      B: '熟練攤主',
+      C: '還能出餐',
+      D: '需要補烤',
+    };
+
+    const imageByGrade: Record<SummaryGrade, string> = {
+      A: 'ui/summary-grade-a.png',
+      B: 'ui/summary-grade-b.png',
+      C: 'ui/summary-grade-c.png',
+      D: 'ui/summary-grade-d.png',
     };
 
     const section = document.createElement('div');
-    section.className = 'summary-grill-stats';
+    section.className = 'summary-grill-stats summary-grade-panel';
     section.style.cssText = [
       'margin-top:12px',
       'padding:14px',
@@ -80,46 +98,44 @@ export class SummaryPanel {
 
     const title = document.createElement('div');
     title.className = 'summary-section-title';
-    title.textContent = '節奏烤感結算';
+    title.textContent = '節奏打擊對應熟練度';
     section.appendChild(title);
 
     const hero = document.createElement('div');
-    hero.style.cssText = 'display:grid;grid-template-columns:96px 1fr;gap:12px;align-items:center;margin:10px 0 12px;';
-
-    const badge = document.createElement('div');
-    badge.textContent = grade;
-    badge.style.cssText = [
-      'height:86px',
-      'display:flex',
+    hero.className = 'summary-grade-hero';
+    hero.style.cssText = [
+      'display:grid',
+      'grid-template-columns:minmax(220px,320px) 1fr',
+      'gap:16px',
       'align-items:center',
-      'justify-content:center',
-      'font-size:54px',
-      'font-weight:900',
-      'color:#ffd36a',
-      'border:none',
-      'background-image:linear-gradient(rgba(18,6,0,0.28),rgba(18,6,0,0.28)),url("ui/ui-summary-grade-badge.png")',
-      'background-size:contain',
-      'background-repeat:no-repeat',
-      'background-position:center',
-      'text-shadow:0 0 12px #ff7a18',
+      'margin:10px 0 12px',
+    ].join(';');
+
+    const gradeArt = document.createElement('img');
+    gradeArt.src = imageByGrade[grade];
+    gradeArt.alt = `${grade} rank`;
+    gradeArt.style.cssText = [
+      'width:100%',
+      'max-height:220px',
+      'object-fit:contain',
+      'filter:drop-shadow(0 0 16px rgba(255,122,24,0.42))',
     ].join(';');
 
     const heroText = document.createElement('div');
     heroText.innerHTML = `
-      <div style="font-size:20px;font-weight:800;color:#fff0c2;">${titleByGrade[grade]}</div>
-      <div style="margin-top:4px;color:#ffcc88;">熟練度 ${masteryScore} / 100　命中率 ${accuracy}%　最高 COMBO ${stats?.maxCombo ?? 0}</div>
-      <div style="margin-top:6px;color:#d9d1c2;">營收 $${dailyReport.revenue}　出餐 ${soldCount} 份　淨利 $${dailyReport.profit}</div>
+      <div style="font-size:24px;font-weight:900;color:#fff0c2;">${titleByGrade[grade]} <span style="color:#ffd36a;">${grade}</span></div>
+      <div style="margin-top:6px;color:#ffcc88;">熟練度 ${masteryScore} / 100 ｜ 節奏準度 ${accuracy}% ｜ 最大 COMBO ${stats?.maxCombo ?? 0}</div>
+      <div style="margin-top:8px;color:#d9d1c2;">營收 $${dailyReport.revenue} ｜ 售出 ${soldCount} 根 ｜ 淨利 $${dailyReport.profit}</div>
     `;
 
-    hero.appendChild(badge);
-    hero.appendChild(heroText);
+    hero.append(gradeArt, heroText);
     section.appendChild(hero);
 
     const rows: Array<[string, number, string, string]> = [
-      ['PERFECT', hitStats.perfect, '完美火候：最快推進熟度，最穩定進保溫區', '#ffd36a'],
-      ['GREAT', hitStats.great, '穩定掌火：有效加速烤製，維持出餐節奏', '#7cffb2'],
-      ['GOOD', hitStats.good, '勉強補拍：小幅加熱，但熟度控制較不穩', '#80c8ff'],
-      ['MISS', hitStats.miss, '漏拍空燒：不加熱，容易讓烤網壓力累積', '#ff6b6b'],
+      ['PERFECT', hitStats.perfect, '火候與節奏完全命中，熟度提升最穩。', '#ffd36a'],
+      ['GREAT', hitStats.great, '節奏接近完美，烤網運轉維持順暢。', '#7cffb2'],
+      ['GOOD', hitStats.good, '有成功出手，但火候控制較保守。', '#80c8ff'],
+      ['MISS', hitStats.miss, '錯過音符，代表空拍、失誤或出餐節奏斷裂。', '#ff6b6b'],
     ];
 
     for (const [label, value, desc, color] of rows) {
