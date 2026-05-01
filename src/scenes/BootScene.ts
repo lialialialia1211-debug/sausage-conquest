@@ -138,9 +138,9 @@ export class BootScene extends Phaser.Scene {
     // Title: logo-ex (preferred) ??cover (fallback) ??text fallback
     let title: Phaser.GameObjects.Image | Phaser.GameObjects.Text;
     if (this.textures.exists('logo-ex')) {
-      const logo = this.add.image(cx, height * 0.28, 'logo-ex');
+      const logo = this.add.image(cx, height * 0.29, 'logo-ex');
       const maxW = width * 0.96;
-      const maxH = height * 0.54;
+      const maxH = height * 0.62;
       const scale = Math.min(maxW / logo.width, maxH / logo.height);
       logo.setScale(scale).setDepth(10);
       title = logo;
@@ -343,11 +343,19 @@ export class BootScene extends Phaser.Scene {
 
     const leftModeObjects = [leftBg, leftTitle, leftSub, leftDesc];
     const rightModeObjects = [rightBg, rightTitle, rightSub, rightDesc];
+    const modeHoverBaseScale = new Map<Phaser.GameObjects.GameObject, { x: number; y: number }>();
+    [...leftModeObjects, ...rightModeObjects].forEach((obj) => {
+      if ('scaleX' in obj && 'scaleY' in obj) {
+        const scalable = obj as Phaser.GameObjects.Image | Phaser.GameObjects.Text;
+        modeHoverBaseScale.set(obj, { x: scalable.scaleX, y: scalable.scaleY });
+      }
+    });
     const setModeHover = (objects: Phaser.GameObjects.GameObject[], hovered: boolean) => {
       const scale = hovered ? 1.035 : 1;
       objects.forEach((obj) => {
-        if ('setScale' in obj && typeof obj.setScale === 'function') {
-          (obj as Phaser.GameObjects.Image | Phaser.GameObjects.Text).setScale(scale);
+        const base = modeHoverBaseScale.get(obj);
+        if (base && 'setScale' in obj && typeof obj.setScale === 'function') {
+          (obj as Phaser.GameObjects.Image | Phaser.GameObjects.Text).setScale(base.x * scale, base.y * scale);
         }
       });
     };

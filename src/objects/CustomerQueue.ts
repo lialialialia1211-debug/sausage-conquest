@@ -5,11 +5,11 @@ import type { Customer } from '../types';
 import { SAUSAGE_MAP } from '../data/sausages';
 import { gameState } from '../state/GameState';
 
-const CUSTOMER_SLOT_W = 200;
+const CUSTOMER_SLOT_W = 168;
 const PATIENCE_BAR_H = 10;
-const PATIENCE_BAR_W = 150;
-export const MAX_VISIBLE_CUSTOMERS = 6;
-const SIDE_CUSTOMER_COUNT = 2;
+const PATIENCE_BAR_W = 124;
+export const MAX_VISIBLE_CUSTOMERS = 8;
+const FRONT_ROW_CUSTOMER_COUNT = 3;
 
 // Patience indicator based on fraction
 function getCustomerEmoji(frac: number): string {
@@ -79,7 +79,7 @@ export class CustomerQueue extends Phaser.GameObjects.Container {
 
     if (this.scene.textures.exists(imageKey)) {
       const portrait = this.scene.add.image(0, 0, imageKey);
-      const pScale = Math.min(140 / portrait.width, 140 / portrait.height);
+      const pScale = Math.min(116 / portrait.width, 116 / portrait.height);
       portrait.setScale(pScale);
       container.add(portrait);
       // Move emoji behind/hide it
@@ -118,7 +118,7 @@ export class CustomerQueue extends Phaser.GameObjects.Container {
     if (customer.loyaltyBadge && customer.loyaltyBadge !== 'none') {
       const badgeLabel = customer.loyaltyBadge === 'gold' ? '金'
         : customer.loyaltyBadge === 'silver' ? '銀' : '銅';
-      badgeBubble = this.scene.add.text(CUSTOMER_SLOT_W / 2 - 10, -50, badgeLabel, {
+      badgeBubble = this.scene.add.text(CUSTOMER_SLOT_W / 2 - 8, -50, badgeLabel, {
         fontSize: '22px',
       }).setOrigin(0.5);
     }
@@ -431,22 +431,25 @@ export class CustomerQueue extends Phaser.GameObjects.Container {
 
   private getSlotPosition(slotIndex: number): { x: number; y: number } {
     const { width, height } = this.scene.scale;
-    const topSlots = Math.max(1, MAX_VISIBLE_CUSTOMERS - SIDE_CUSTOMER_COUNT);
-    if (slotIndex < topSlots) {
-      const usableSlotW = Math.min(CUSTOMER_SLOT_W, Math.max(148, width / topSlots));
-      const startX = width / 2 - ((topSlots - 1) * usableSlotW) / 2;
+    const backRowSlots = Math.max(1, MAX_VISIBLE_CUSTOMERS - FRONT_ROW_CUSTOMER_COUNT);
+    const backRowY = Math.max(104, Math.min(this.topY, height * 0.24));
+    const frontRowY = Math.min(height * 0.275, backRowY + 58);
+
+    if (slotIndex < backRowSlots) {
+      const usableSlotW = Math.min(CUSTOMER_SLOT_W, Math.max(128, width * 0.72 / Math.max(1, backRowSlots - 1)));
+      const startX = width / 2 - ((backRowSlots - 1) * usableSlotW) / 2;
       return {
         x: startX + slotIndex * usableSlotW,
-        y: this.topY,
+        y: backRowY,
       };
     }
 
-    const sideIndex = slotIndex - topSlots;
-    const sideMargin = Math.max(84, Math.min(124, width * 0.09));
-    const sideY = Math.min(height - 190, Math.max(this.topY + 120, height * 0.62));
+    const frontIndex = slotIndex - backRowSlots;
+    const frontSlotW = Math.min(CUSTOMER_SLOT_W * 1.15, Math.max(142, width * 0.44 / Math.max(1, FRONT_ROW_CUSTOMER_COUNT - 1)));
+    const frontStartX = width / 2 - ((FRONT_ROW_CUSTOMER_COUNT - 1) * frontSlotW) / 2;
     return {
-      x: sideIndex % 2 === 0 ? sideMargin : width - sideMargin,
-      y: sideY,
+      x: frontStartX + frontIndex * frontSlotW,
+      y: frontRowY,
     };
   }
 }

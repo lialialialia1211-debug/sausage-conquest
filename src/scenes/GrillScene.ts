@@ -283,8 +283,8 @@ export class GrillScene extends Phaser.Scene {
   private isDrainPhase = false;
   private drainPhaseTimer = 0;
   private readonly DRAIN_PHASE_MAX = 5; // seconds of post-chart grilling before summary
-  private readonly MIN_PENDING_CUSTOMERS = 18;
-  private readonly MIN_VISIBLE_CUSTOMERS = 3;
+  private readonly MIN_PENDING_CUSTOMERS = 48;
+  private readonly MIN_VISIBLE_CUSTOMERS = 7;
 
   // ── Wave 6cd: BGM sync + rhythm gate ──────────────────────────────────────
   private rhythmStarted = false;
