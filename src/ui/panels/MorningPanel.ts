@@ -272,7 +272,10 @@ export class MorningPanel {
       'gap:18px;',
       'padding:28px 38px 24px 24px;',
       'position:relative;',
-      'background:radial-gradient(circle at 55% 38%,rgba(255,122,0,0.10),transparent 44%),linear-gradient(180deg,rgba(18,8,3,0.72),rgba(5,5,10,0.90));',
+      'background-image:url("ui/ui-morning-detail-panel.png"),radial-gradient(circle at 55% 38%,rgba(255,122,0,0.10),transparent 44%),linear-gradient(180deg,rgba(18,8,3,0.72),rgba(5,5,10,0.90));',
+      'background-size:calc(100% - 36px) calc(100% - 92px),100% 100%,100% 100%;',
+      'background-repeat:no-repeat,no-repeat,no-repeat;',
+      'background-position:center,center,center 58%;',
       'border:1px solid rgba(255,157,36,0.26);border-radius:10px;',
       'box-shadow:inset 0 0 22px rgba(255,107,0,0.08),0 10px 24px rgba(0,0,0,0.28);',
       'overflow:hidden;',
@@ -562,7 +565,9 @@ export class MorningPanel {
 
     const frameArt = document.createElement('div');
     frameArt.style.cssText = [
-      'position:absolute;left:284px;right:34px;top:64px;bottom:36px;',
+      'display:none;',
+      'position:absolute;left:18px;right:34px;top:58px;bottom:34px;',
+      'grid-column:1 / -1;grid-row:1;',
       uiAssetBackground('ui-morning-detail-panel.png', 'background-size:100% 100%'),
       'opacity:0.94;',
       'pointer-events:none;',
@@ -575,16 +580,17 @@ export class MorningPanel {
     imgPanel.style.cssText = [
       'position:relative;z-index:1;',
       'display:flex;flex-direction:column;align-items:center;justify-content:center;',
-      'background:linear-gradient(180deg,rgba(16,16,28,0.96),rgba(6,6,12,0.98));',
-      'border:1px solid rgba(255,230,0,0.24);border-radius:12px;',
-      'padding:14px;',
-      'box-shadow:inset 0 0 24px rgba(255,107,0,0.08),0 8px 20px rgba(0,0,0,0.34);',
+      'padding:94px 12px 42px 54px;',
+      'background:transparent;',
+      'border:0;',
+      'box-shadow:none;',
+      'transform:translateY(-18px);',
     ].join('');
 
     if (sausage.image) {
       const img = document.createElement('img');
       img.src = sausage.image;
-      img.style.cssText = 'width:168px;height:150px;object-fit:contain;border-radius:10px;filter:drop-shadow(0 8px 12px rgba(0,0,0,0.55));';
+      img.style.cssText = 'width:142px;height:118px;object-fit:contain;border-radius:10px;filter:drop-shadow(0 8px 12px rgba(0,0,0,0.55));';
       img.alt = sausage.name;
       imgPanel.appendChild(img);
     }
@@ -594,7 +600,7 @@ export class MorningPanel {
       'font-size:22px;font-weight:bold;',
       'font-family:Microsoft JhengHei, PingFang TC, sans-serif;',
       'color:#ffe600;',
-      'margin-top:10px;text-align:center;',
+      'margin-top:6px;text-align:center;',
       'letter-spacing:2px;',
     ].join('');
     nameLarge.textContent = sausage.name;
@@ -613,8 +619,8 @@ export class MorningPanel {
       'position:relative;z-index:1;',
       'display:flex;flex-direction:column;gap:10px;',
       'overflow-y:auto;min-width:0;',
-      'padding:102px 58px 34px;',
-      'margin:0 110px 0 56px;',
+      'padding:100px 58px 34px 24px;',
+      'margin:0 110px 0 4px;',
       'background:linear-gradient(180deg,rgba(8,4,2,0.20),rgba(5,5,11,0.22));',
       'border:0;',
       'border-radius:16px;',
