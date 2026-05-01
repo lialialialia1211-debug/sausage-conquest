@@ -614,7 +614,7 @@ export class MorningPanel {
       'display:flex;flex-direction:column;gap:10px;',
       'overflow-y:auto;min-width:0;',
       'padding:102px 58px 34px;',
-      'margin:0 116px 0 18px;',
+      'margin:0 110px 0 56px;',
       'background:linear-gradient(180deg,rgba(8,4,2,0.20),rgba(5,5,11,0.22));',
       'border:0;',
       'border-radius:16px;',
