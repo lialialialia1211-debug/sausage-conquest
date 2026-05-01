@@ -14,7 +14,6 @@ const MAX_DAYS = 30;
 export class SummaryScene extends Phaser.Scene {
   private readyForNext = false;
   private restartHandler: (() => void) | null = null;
-  private storyVideoDoneHandler: (() => void) | null = null;
 
   constructor() {
     super({ key: 'SummaryScene' });
@@ -106,23 +105,7 @@ export class SummaryScene extends Phaser.Scene {
       this.showAchievementToasts(newAchievements);
     }
 
-    this.showStoryVideoThenSummary(salesLog, dailyReport);
-  }
-
-  private showStoryVideoThenSummary(salesLog: SaleRecord[], dailyReport: ReturnType<typeof calculateDailyReport>): void {
-    this.storyVideoDoneHandler = () => {
-      this.storyVideoDoneHandler = null;
-      this.showSummaryPanel(salesLog, dailyReport);
-    };
-
-    EventBus.once('story-video-done', this.storyVideoDoneHandler);
-    EventBus.emit('show-panel', 'story-video', {
-      title: '夜市劇情',
-      src: 'videos/r18-loop.mp4',
-      doneEvent: 'story-video-done',
-      loop: true,
-      muted: true,
-    });
+    this.showSummaryPanel(salesLog, dailyReport);
     EventBus.emit('scene-ready', 'SummaryScene');
   }
 
@@ -234,10 +217,6 @@ export class SummaryScene extends Phaser.Scene {
 
   shutdown(): void {
     EventBus.off('summary-done', this.onSummaryDone, this);
-    if (this.storyVideoDoneHandler) {
-      EventBus.off('story-video-done', this.storyVideoDoneHandler);
-      this.storyVideoDoneHandler = null;
-    }
     if (this.restartHandler) {
       EventBus.off('restart-game', this.restartHandler);
       this.restartHandler = null;

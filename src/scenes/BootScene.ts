@@ -27,6 +27,8 @@ export class BootScene extends Phaser.Scene {
   private typingTimer?: Phaser.Time.TimerEvent;
   private canAdvance = false;
   private prologueImage?: Phaser.GameObjects.Image;
+  private introVideo?: Phaser.GameObjects.Video;
+  private introVideoShade?: Phaser.GameObjects.Graphics;
 
   constructor() {
     super({ key: 'BootScene' });
@@ -106,6 +108,7 @@ export class BootScene extends Phaser.Scene {
 
     // ── BGM ──
     this.load.audio('bgm-grill', 'bgm-grill.mp3');
+    this.load.video('intro-story-video', 'videos/r18-loop.mp4', true);
 
     // ── Wave 6a: Rhythm chart + theme BGM ──
     // chart-grill-theme.json is loaded into Phaser cache under key 'chart-grill-theme'
@@ -122,13 +125,16 @@ export class BootScene extends Phaser.Scene {
     this.currentPage = 0;
     this.canAdvance = false;
     EventBus.emit('hide-panel');
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.stopIntroVideoBackground, this);
     const { width, height } = this.scale;
     const cx = width / 2;
     const cy = height / 2;
 
     // Background — will be recoloured per page
     const bg = this.add.graphics();
+    bg.setDepth(0);
     this.drawBackground(bg, width, height, 0);
+    this.createIntroVideoBackground(width, height);
 
     // Title: logo-ex (preferred) → cover (fallback) → text fallback
     let title: Phaser.GameObjects.Image | Phaser.GameObjects.Text;
@@ -229,6 +235,7 @@ export class BootScene extends Phaser.Scene {
     // ── Mode selection: 斜切大區塊（指烤火拼 / 小烤怡情）─────────────────
     // Helper: start the game with a chosen mode + difficulty
     const startGame = (mode: string, difficulty: 'hardcore' | 'casual') => {
+      this.stopIntroVideoBackground();
       sfx.initOnUserGesture();
       if (difficulty === 'hardcore') {
         sfx.playHardcoreIntroVoice();
@@ -383,7 +390,7 @@ export class BootScene extends Phaser.Scene {
 
       // Show per-page illustration as near-fullscreen background
       const prologueImageKey = `prologue-${pageIndex + 1}`;
-      if (this.textures.exists(prologueImageKey)) {
+      if (!this.introVideo && this.textures.exists(prologueImageKey)) {
         const img = this.add.image(cx, cy, prologueImageKey);
         // Fill the screen (cover mode)
         const coverScale = Math.max(width / img.width, height / img.height);
@@ -453,6 +460,7 @@ export class BootScene extends Phaser.Scene {
       if (this.currentPage >= PROLOGUE_PAGES.length) {
         // All pages done — show mode selection cards
         hintPulse.stop();
+        this.stopIntroVideoBackground();
         if (this.prologueImage) {
           this.prologueImage.destroy();
           this.prologueImage = undefined;
@@ -504,6 +512,49 @@ export class BootScene extends Phaser.Scene {
     EventBus.once('test-boot', () => {
       console.log('[EventBus] BootScene received test-boot signal from UI');
     });
+  }
+
+  private createIntroVideoBackground(w: number, h: number): void {
+    if (!this.cache.video.exists('intro-story-video')) return;
+
+    try {
+      const video = this.add.video(w / 2, h / 2, 'intro-story-video');
+      const sourceW = video.width || 854;
+      const sourceH = video.height || 480;
+      const coverScale = Math.max(w / sourceW, h / sourceH);
+      video
+        .setScale(coverScale)
+        .setDepth(1)
+        .setAlpha(0.72)
+        .setMute(true)
+        .play(true);
+
+      const shade = this.add.graphics();
+      shade.setDepth(2);
+      shade.fillStyle(0x000000, 0.38);
+      shade.fillRect(0, 0, w, h);
+
+      this.introVideo = video;
+      this.introVideoShade = shade;
+    } catch (error) {
+      console.warn('[BootScene] intro video background unavailable:', error);
+    }
+  }
+
+  private stopIntroVideoBackground(): void {
+    if (this.introVideo) {
+      try {
+        this.introVideo.stop();
+      } catch (_error) {
+        // Ignore shutdown races while the scene is changing.
+      }
+      if (this.introVideo.active) this.introVideo.destroy();
+      this.introVideo = undefined;
+    }
+    if (this.introVideoShade) {
+      if (this.introVideoShade.active) this.introVideoShade.destroy();
+      this.introVideoShade = undefined;
+    }
   }
 
   private drawBackground(g: Phaser.GameObjects.Graphics, w: number, h: number, pageIndex: number): void {

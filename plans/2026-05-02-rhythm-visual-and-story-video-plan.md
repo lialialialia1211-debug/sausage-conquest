@@ -17,11 +17,13 @@ This temporary plan tracks the current optimization pass. Check each item only a
 - [x] Step 5: Strengthen hit feedback and full-grill `HEAT UP` feedback without covering the note lane.
 - [x] Step 6: Add a project visual-unification checklist for future UI/customer/art passes.
 - [x] Step 7: Run build verification.
+- [x] Step 8: Move the looping story video from the daily-summary flow to the BootScene prologue background.
+- [x] Step 9: Keep the prologue text click-through flow on top of the video and stop the video when mode/difficulty selection begins.
 
 ## Notes
 
-- Do not wire unknown R18 content directly into the main progression yet.
-- Use a DOM `<video>` overlay for narrative video. It is more reliable than putting video frames into Phaser when the content is a story cut-in.
+- The story video now belongs to the opening prologue, not the end-of-day summary.
+- Opening prologue uses a muted Phaser video background so the story text and mode cards can stay inside the same scene layering.
 - Autoplay must be muted for browser compatibility. If sound is required, start playback after a player click.
 - Keep the rhythm hit zone centered; it is already implemented at `noteHitX = width / 2`.
 - Full grill hits already convert into heat input. This pass should improve communication and feel, not change the core rule.
