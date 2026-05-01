@@ -21,6 +21,7 @@ This temporary plan tracks the current optimization pass. Check each item only a
 - [x] Step 9: Keep the prologue text click-through flow on top of the video and stop the video when mode/difficulty selection begins.
 - [x] Step 10: Restore the original three prologue images and move the looping story video to the mode/difficulty selection page.
 - [x] Step 11: Resize and reposition the mode cards so the logo, cards, and test tool no longer overlap.
+- [x] Step 12: Re-emphasize the `長征天下EX` logo as the dominant mode-selection visual.
 
 ## Notes
 

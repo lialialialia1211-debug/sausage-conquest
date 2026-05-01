@@ -278,7 +278,7 @@ export class BootScene extends Phaser.Scene {
     // 蝮桀? 40%嚗 60%嚗蒂蝵桐葉嚗 敺?width*0.20 ??width*0.80嚗 敺?0.50 ??0.76
     const modeCardW = Math.min(width * 0.34, height * 0.48 * (768 / 512), 470);
     const modeCardH = modeCardW * (512 / 768);
-    const modeY = height * 0.67;
+    const modeY = height * 0.73;
     const leftX = width * 0.31;
     const rightX = width * 0.69;
 
@@ -466,9 +466,9 @@ export class BootScene extends Phaser.Scene {
         this.createModeVideoBackground(width, height);
         this.tweens.add({
           targets: title,
-          y: height * 0.20,
-          scaleX: title.scaleX * 0.78,
-          scaleY: title.scaleY * 0.78,
+          y: height * 0.25,
+          scaleX: title.scaleX * 1.45,
+          scaleY: title.scaleY * 1.45,
           duration: 450,
           ease: 'Power2',
         });
