@@ -15,6 +15,7 @@ export class StoryVideoPanel {
   private panel: HTMLElement;
   private video: HTMLVideoElement;
   private doneEvent: string;
+  private destroyed = false;
 
   constructor(data?: StoryVideoData) {
     this.doneEvent = data?.doneEvent ?? 'story-video-done';
@@ -30,7 +31,7 @@ export class StoryVideoPanel {
 
     const title = document.createElement('div');
     title.className = 'story-video-title';
-    title.textContent = data?.title ?? '劇情片段';
+    title.textContent = data?.title ?? '劇情影片';
 
     const close = document.createElement('button');
     close.type = 'button';
@@ -53,7 +54,7 @@ export class StoryVideoPanel {
 
     const fallback = document.createElement('div');
     fallback.className = 'story-video-fallback';
-    fallback.textContent = '影片尚未放入 public/videos/。預設路徑：videos/r18-loop.mp4';
+    fallback.textContent = '找不到影片，請確認 public/videos/r18-loop.mp4 已存在。';
 
     this.video.addEventListener('error', () => {
       fallback.classList.add('story-video-fallback--visible');
@@ -84,7 +85,7 @@ export class StoryVideoPanel {
     const playPromise = this.video.play();
     if (playPromise) {
       playPromise.catch(() => {
-        fallback.textContent = '瀏覽器阻擋自動播放，請點擊重播。';
+        fallback.textContent = '瀏覽器阻擋自動播放，請按重播或繼續。';
         fallback.classList.add('story-video-fallback--visible');
       });
     }
@@ -95,6 +96,8 @@ export class StoryVideoPanel {
   }
 
   destroy(): void {
+    if (this.destroyed) return;
+    this.destroyed = true;
     this.video.pause();
     this.video.removeAttribute('src');
     this.video.load();
