@@ -245,10 +245,11 @@ export class MorningPanel {
     sausageRow.className = 'morning-sausage-row';
     sausageRow.style.cssText = [
       'display:grid;',
-      'grid-template-columns:repeat(5,minmax(132px,1fr));',
+      'grid-template-columns:repeat(5,minmax(168px,190px));',
       'align-items:stretch;',
-      'gap:12px;',
-      'padding:12px 18px 10px;',
+      'justify-content:space-between;',
+      'gap:14px;',
+      'padding:10px 22px 12px;',
       'overflow:hidden;',
       'flex-shrink:0;',
       'border-bottom:1px solid rgba(255,107,0,0.20);',
@@ -368,23 +369,27 @@ export class MorningPanel {
     const cell = document.createElement('div');
     cell.className = 'morning-sausage-cell';
     cell.style.cssText = [
-      'display:grid;grid-template-rows:58px auto auto auto auto auto;justify-items:center;',
-      'min-width:0;width:100%;',
-      'background:linear-gradient(180deg,rgba(40,18,6,0.92),rgba(10,10,18,0.96));',
-      'border-radius:8px;',
-      `border:2px solid ${isRecommended ? '#ff8a18' : 'rgba(255,190,80,0.22)'};`,
-      'padding:9px 7px 8px;',
+      'display:grid;grid-template-rows:58px 34px 20px 17px 28px 26px 14px;justify-items:center;align-items:center;',
+      'min-width:0;width:100%;max-width:190px;height:224px;',
+      'background-image:linear-gradient(180deg,rgba(10,4,0,0.10),rgba(4,4,8,0.10)),url("ui/ui-morning-sausage-card.png");',
+      'background-size:100% 100%, auto 100%;',
+      'background-repeat:no-repeat,no-repeat;',
+      'background-position:center,center;',
+      'border-radius:12px;',
+      `outline:2px solid ${isRecommended ? 'rgba(255,138,24,0.72)' : 'transparent'};`,
+      'border:0;',
+      'padding:18px 34px 10px;',
       'flex-shrink:0;',
       'position:relative;',
       'cursor:pointer;',
-      'box-shadow:inset 0 0 18px rgba(255,107,0,0.08),0 5px 12px rgba(0,0,0,0.28);',
-      'transition:border-color 0.15s, transform 0.15s, box-shadow 0.15s, background 0.15s;',
+      'filter:drop-shadow(0 8px 14px rgba(0,0,0,0.42));',
+      'transition:transform 0.15s, filter 0.15s, outline-color 0.15s;',
     ].join('');
 
     if (isRecommended) {
       const badge = document.createElement('div');
       badge.style.cssText = [
-        'position:absolute;top:-10px;left:50%;transform:translateX(-50%);',
+        'position:absolute;top:2px;left:50%;transform:translateX(-50%);z-index:2;',
         'background:linear-gradient(180deg,#ff9f2c,#ff4c00);color:#fff;',
         'font-size:10px;font-weight:bold;',
         'font-family:Microsoft JhengHei, PingFang TC, sans-serif;',
@@ -398,15 +403,14 @@ export class MorningPanel {
     // 香腸圖示（小一點，避免擠出）
     const imgWrap = document.createElement('div');
     imgWrap.style.cssText = [
-      'width:86px;height:58px;',
+      'width:92px;height:58px;',
       'display:flex;align-items:center;justify-content:center;',
-      uiAssetBackground('ui-morning-sausage-card.png', 'background-size:86px 58px'),
       'margin-bottom:4px;',
     ].join(';');
     if (sausage.image) {
       const img = document.createElement('img');
       img.src = sausage.image;
-      img.style.cssText = 'width:70px;height:52px;object-fit:contain;border-radius:6px;filter:drop-shadow(0 4px 7px rgba(0,0,0,0.55));';
+      img.style.cssText = 'width:82px;height:56px;object-fit:contain;border-radius:6px;filter:drop-shadow(0 4px 7px rgba(0,0,0,0.55));';
       img.alt = sausage.name;
       imgWrap.appendChild(img);
     } else {
@@ -423,22 +427,23 @@ export class MorningPanel {
       'font-size:14px;font-weight:bold;',
       'font-family:Microsoft JhengHei, PingFang TC, sans-serif;',
       'color:#ffffff;',
-      'margin-bottom:4px;text-align:center;min-height:34px;display:flex;align-items:center;justify-content:center;',
+      'margin-bottom:0;text-align:center;min-height:34px;display:flex;align-items:center;justify-content:center;',
       'letter-spacing:1px;',
+      'text-shadow:0 2px 0 #3a1200,0 0 8px rgba(255,180,54,0.35);',
     ].join('');
     nameEl.textContent = sausage.name;
     cell.appendChild(nameEl);
 
     // 售價
     const priceEl = document.createElement('div');
-    priceEl.style.cssText = 'font-size:12px;color:#ffd37a;margin-bottom:3px;text-align:center;font-family:Microsoft JhengHei, PingFang TC, sans-serif;';
+    priceEl.style.cssText = 'font-size:12px;color:#ffd37a;margin-bottom:0;text-align:center;font-family:Microsoft JhengHei, PingFang TC, sans-serif;';
     priceEl.textContent = `$${sausage.cost}/根`;
     cell.appendChild(priceEl);
 
     const currentStock = gameState.inventory[sausage.id] ?? 0;
     const spoiledQty = spoilageInfo?.spoilage[sausage.id] ?? 0;
     const stockHint = document.createElement('div');
-    stockHint.style.cssText = 'font-size:10px;color:#9a8f83;margin-bottom:5px;text-align:center;font-family:Microsoft JhengHei, PingFang TC, sans-serif;';
+    stockHint.style.cssText = 'font-size:10px;color:#baa788;margin-bottom:0;text-align:center;font-family:Microsoft JhengHei, PingFang TC, sans-serif;';
     if (spoiledQty > 0) {
       stockHint.textContent = `庫存: ${currentStock}（耗 ${spoiledQty}）`;
     } else {
@@ -451,15 +456,15 @@ export class MorningPanel {
     qtyDisplay.style.cssText = [
       'width:40px;height:26px;',
       'display:flex;align-items:center;justify-content:center;',
-      'background:#06060b;border:1px solid rgba(255,230,0,0.35);border-radius:4px;',
-      'font-size:14px;font-weight:bold;color:#fff;margin-bottom:4px;',
+      'background:#06060b;border:1px solid rgba(255,230,0,0.50);border-radius:5px;',
+      'font-size:15px;font-weight:bold;color:#fff;margin-bottom:0;',
     ].join('');
     qtyDisplay.textContent = '0';
     this.qtyDisplays.set(sausage.id, qtyDisplay);
     cell.appendChild(qtyDisplay);
 
     const subtotalEl = document.createElement('div');
-    subtotalEl.style.cssText = 'font-size:10px;color:#9a8f83;text-align:center;font-family:Microsoft JhengHei, PingFang TC, sans-serif;margin-bottom:0;';
+    subtotalEl.style.cssText = 'font-size:10px;color:#baa788;text-align:center;font-family:Microsoft JhengHei, PingFang TC, sans-serif;margin-bottom:0;';
     subtotalEl.textContent = '小計 $0';
     this.subtotalEls.set(sausage.id, subtotalEl);
 
@@ -477,7 +482,7 @@ export class MorningPanel {
         uiFrameStyle('ui-quantity-stepper.png'),
         'border:1px solid rgba(255,190,80,0.42);border-radius:4px;',
         'color:#fff0bc;font-size:11px;font-weight:bold;',
-        'padding:3px 5px;cursor:pointer;min-width:28px;',
+        'padding:2px 4px;cursor:pointer;min-width:27px;height:20px;',
         'transition:background 0.1s;',
       ].join('');
       btn.textContent = label;
@@ -493,7 +498,7 @@ export class MorningPanel {
     };
 
     const btnRow = document.createElement('div');
-    btnRow.style.cssText = 'display:flex;gap:4px;flex-wrap:wrap;justify-content:center;margin-bottom:4px;';
+    btnRow.style.cssText = 'display:flex;gap:3px;flex-wrap:nowrap;justify-content:center;margin-bottom:0;';
     btnRow.appendChild(makeBtn('+1', +1));
     btnRow.appendChild(makeBtn('+5', +5));
     btnRow.appendChild(makeBtn('+10', +10));
@@ -502,7 +507,7 @@ export class MorningPanel {
     clearBtn.style.cssText = [
       'background:#1e0a0a;border:1px solid #ff4444;border-radius:4px;',
       'color:#ff6666;font-size:10px;',
-      'padding:3px 5px;cursor:pointer;min-width:26px;',
+      'padding:2px 4px;cursor:pointer;min-width:30px;height:20px;',
     ].join('');
     clearBtn.textContent = '清空';
     clearBtn.addEventListener('click', (ev) => {
@@ -534,14 +539,12 @@ export class MorningPanel {
   private highlightSelected(): void {
     for (const [id, cell] of this.sausageCells) {
       if (id === this.selectedSausageId) {
-        cell.style.borderColor = '#ffe600';
-        cell.style.background = 'linear-gradient(180deg,rgba(58,36,6,0.96),rgba(18,14,6,0.98))';
-        cell.style.boxShadow = 'inset 0 0 22px rgba(255,230,0,0.13),0 0 18px rgba(255,230,0,0.22)';
+        cell.style.outlineColor = '#ffe600';
+        cell.style.filter = 'drop-shadow(0 0 14px rgba(255,230,0,0.45)) drop-shadow(0 8px 14px rgba(0,0,0,0.42))';
       } else {
         const isRecommended = cell.querySelector('div')?.textContent === '總公司推薦';
-        cell.style.borderColor = isRecommended ? '#ff8a18' : 'rgba(255,190,80,0.22)';
-        cell.style.background = 'linear-gradient(180deg,rgba(40,18,6,0.92),rgba(10,10,18,0.96))';
-        cell.style.boxShadow = 'inset 0 0 18px rgba(255,107,0,0.08),0 5px 12px rgba(0,0,0,0.28)';
+        cell.style.outlineColor = isRecommended ? 'rgba(255,138,24,0.72)' : 'transparent';
+        cell.style.filter = 'drop-shadow(0 8px 14px rgba(0,0,0,0.42))';
       }
     }
   }
