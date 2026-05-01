@@ -1,7 +1,9 @@
 # Grill Integration Spec
 
-This document defines how upstream systems must connect to `GrillScene`.
-Use it as the implementation contract for future gameplay changes.
+This document defines how upstream systems connect to `GrillScene`.
+Use it as the current implementation contract for future gameplay changes.
+
+Last synchronized with implementation: 2026-05-02.
 
 ## Core Data Flow
 
@@ -12,9 +14,11 @@ Use it as the implementation contract for future gameplay changes.
 5. Actual inventory is enforced when placing/selling sausages, not by deleting notes from the chart.
 6. Service combo notes are separate bonus/service pressure notes and do not consume morning stock.
 7. After note allocation, `generateCustomerPool()` must run again so customer demand follows the final chart note count.
-8. A hit note may spawn a sausage only when inventory exists and a grill slot is empty.
-9. If the grill is full, the note becomes heat input: keep the hit judgement and speed up sausages already on the grill so slots clear faster.
-10. Selling a sausage is the only place that deducts real `gameState.inventory`.
+8. A correctly hit note first tries to place a sausage on an empty grill slot.
+9. If the grill is full, the note remains a valid rhythm hit: keep the judgement, combo, hit stats, and service-combo tracking, then convert the hit into heat input via `boostGrillFromRhythm(...)`.
+10. Full-grill heat input speeds up sausages already on the grill and then calls `autoServeReady()` so completed sausages can move to warming and free slots.
+11. Morning inventory is consumed while placing rhythm sausages from `inventoryCopy`; end-of-session sync writes `inventoryCopy` back to `gameState.inventory`.
+12. Selling uses warming-zone sausages and records sales/quality; do not delete music notes to enforce stock.
 
 ## Pause Contract
 
@@ -34,13 +38,20 @@ When paused, all rhythm spawn/miss logic, timers, worker AI, auto-serve, and BGM
 
 ## Rhythm And Grill Semantics
 
-The rhythm lane represents "putting one sausage onto the grill".
+The rhythm lane represents "production rhythm": either placing a sausage or accelerating sausages already on a full grill.
 
-- `PERFECT/GREAT/GOOD`: the player successfully placed a sausage on an empty grill slot.
-- `MISS`: the player failed or had no stock for that note.
-- `BLOCKED`: the player pressed correctly, but the grill was full. This is feedback, not a rhythm hit and not a normal miss.
+- `PERFECT/GREAT/GOOD` with an empty grill slot: place a sausage on the grill when stock exists.
+- `PERFECT/GREAT/GOOD` with a full grill: count as a rhythm hit, keep combo, show `HEAT UP`, and heat existing grill sausages.
+- `MISS`: the frontmost eligible note passes the good window without being hit.
+- Wrong key: do not score a later same-color note through the frontmost note. This prevents simultaneous `PERFECT` and `MISS`.
 - The top-right HUD displays rhythm judgement stats, not grill doneness stats.
 - Grill doneness remains a separate sale-quality system calculated after the sausage exists on the grill.
+
+Current hit zone placement:
+
+- `GrillScene.setupRhythmTrack()` sets `noteHitX = width / 2`.
+- `noteTrackY = height * 0.42`.
+- Future layout changes should preserve the hit zone as the primary visual focus and keep combo/judgement art from blocking the note lane.
 
 ## Shop Upgrade Hooks
 
