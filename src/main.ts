@@ -8,6 +8,7 @@ import { SummaryScene } from './scenes/SummaryScene';
 import { ShopScene } from './scenes/ShopScene';
 import { UIManager } from './ui/UIManager';
 import { EventBus } from './utils/EventBus';
+import { setupTestTools } from './dev/TestTools';
 
 // Initialize HTML overlay UI manager
 const uiManager = new UIManager();
@@ -35,6 +36,7 @@ const config: Phaser.Types.Core.GameConfig = {
 
 // Start the game
 const game = new Phaser.Game(config);
+setupTestTools(game);
 
 // Verify EventBus bidirectional communication on startup
 EventBus.once('scene-ready', (sceneName: string) => {

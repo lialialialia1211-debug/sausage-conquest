@@ -74,6 +74,19 @@ const FONT = 'Microsoft JhengHei, PingFang TC, sans-serif';
 
 type CombatDoneResult = { undergroundRepDelta?: number; chaosPoints?: number };
 
+function getTestShortGrillSeconds(): number {
+  if (typeof window === 'undefined') return 0;
+  const params = new URLSearchParams(window.location.search);
+  const testToolsEnabled =
+    import.meta.env.DEV ||
+    params.has('test') ||
+    window.localStorage.getItem('sausage-test-tools') === '1';
+  if (!testToolsEnabled) return 0;
+  const raw = window.sessionStorage.getItem('sausage-test-short-grill');
+  const seconds = raw ? Number(raw) : 0;
+  return Number.isFinite(seconds) ? Phaser.Math.Clamp(seconds, 8, 60) : 0;
+}
+
 // ── Internal types ───────────────────────────────────────────────────────────
 interface GrillSlot {
   sprite: SausageSprite | null;
@@ -327,6 +340,7 @@ export class GrillScene extends Phaser.Scene {
 
   create(): void {
     this.events.on('shutdown', this.shutdown, this);
+    EventBus.on('dev-end-grill-session', this.onDevEndGrillSession, this);
     const { width, height } = this.scale;
     this.registerExternalPauseHandlers();
 
@@ -955,7 +969,28 @@ export class GrillScene extends Phaser.Scene {
     // Select EX chart for hardcore difficulty, standard chart for casual
     const chartKey = gameState.difficulty === 'hardcore' ? 'chart-grill-theme-ex' : 'chart-grill-theme';
     const cachedChart = this.cache.json.get(chartKey) as RhythmChart | undefined;
-    this.chart = cachedChart ?? null;
+    const shortSeconds = getTestShortGrillSeconds();
+    if (cachedChart && shortSeconds > 0) {
+      const notes = cachedChart.notes
+        .filter(note => note.t <= shortSeconds)
+        .map(note => ({ ...note }));
+      const duration = Math.max(shortSeconds + 1.5, (notes[notes.length - 1]?.t ?? shortSeconds) + 3);
+      this.chart = {
+        ...cachedChart,
+        duration,
+        bgmDuration: Math.min(cachedChart.bgmDuration ?? cachedChart.duration, duration),
+        totalNotes: notes.length,
+        sections: (cachedChart.sections ?? [])
+          .filter(section => section.t_start < duration)
+          .map(section => ({ ...section, t_end: Math.min(section.t_end, duration) })),
+        difficultyBands: (cachedChart.difficultyBands ?? [])
+          ?.filter(band => band.t_start < duration)
+          .map(band => ({ ...band, t_end: Math.min(band.t_end, duration) })),
+        notes,
+      };
+    } else {
+      this.chart = cachedChart ?? null;
+    }
 
     // Reset rhythm state
     this.nextNoteSpawnIdx = 0;
@@ -1612,6 +1647,11 @@ export class GrillScene extends Phaser.Scene {
     );
     this.endGrilling();
   }
+
+  private onDevEndGrillSession = (): void => {
+    if (this.isDone) return;
+    this.onChartComplete();
+  };
 
   /**
    * Wave 6c: Spawn a GrillingSausage on a grill slot after a rhythm hit tween.
@@ -4535,6 +4575,7 @@ export class GrillScene extends Phaser.Scene {
   // ── Cleanup ──────────────────────────────────────────────────────────────
 
   shutdown(): void {
+    EventBus.off('dev-end-grill-session', this.onDevEndGrillSession, this);
     this.tweens.killAll();
     this.time.removeAllEvents();
 
