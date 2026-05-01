@@ -13,6 +13,7 @@ import { ShopPanel } from './panels/ShopPanel';
 import { SausageBoxPanel } from './panels/SausageBoxPanel';
 import { BlackMarketPanel } from './panels/BlackMarketPanel';
 import { CasinoPanel } from './panels/CasinoPanel';
+import { StoryVideoPanel, type StoryVideoData } from './panels/StoryVideoPanel';
 import './styles/neon.css';
 
 // UIManager: controls which HTML overlay panel is shown/hidden
@@ -129,6 +130,10 @@ export class UIManager {
       case 'casino': {
         const casinoPanel = new CasinoPanel();
         return { instance: casinoPanel };
+      }
+      case 'story-video': {
+        const storyVideoPanel = new StoryVideoPanel(data as StoryVideoData | undefined);
+        return { instance: storyVideoPanel };
       }
       default:           return null;
     }

@@ -180,6 +180,16 @@ export function setupTestTools(game: Phaser.Game): void {
       startScene(game, 'ShopScene');
       refreshStatus();
     }),
+    makeButton('劇情影片', () => {
+      EventBus.emit('show-panel', 'story-video', {
+        title: '劇情影片測試',
+        src: 'videos/r18-loop.mp4',
+        doneEvent: 'story-video-done',
+        loop: true,
+        muted: true,
+      });
+      refreshStatus();
+    }),
   );
   body.prepend(status);
 

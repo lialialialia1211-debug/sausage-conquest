@@ -1002,14 +1002,24 @@ export class GrillScene extends Phaser.Scene {
     this.noteHitX = width / 2;
     this.noteSpawnX = width + 90;
 
-    // Debug: track line (semi-transparent dark grey)
-    const trackLine = this.add.graphics();
-    trackLine.lineStyle(2, 0x444444, 0.5);
-    trackLine.beginPath();
-    trackLine.moveTo(0, this.noteTrackY);
-    trackLine.lineTo(width, this.noteTrackY);
-    trackLine.strokePath();
-    trackLine.setDepth(10);
+    // Rhythm lane frame: keep the middle hit zone readable without covering notes.
+    const lane = this.add.graphics().setDepth(9);
+    const laneH = 98;
+    lane.fillStyle(0x05070b, 0.46);
+    lane.fillRoundedRect(width * 0.055, this.noteTrackY - laneH / 2, width * 0.89, laneH, 20);
+    lane.lineStyle(2, 0xffb020, 0.52);
+    lane.strokeRoundedRect(width * 0.055, this.noteTrackY - laneH / 2, width * 0.89, laneH, 20);
+    lane.lineStyle(1, 0x66eaff, 0.34);
+    lane.beginPath();
+    lane.moveTo(width * 0.08, this.noteTrackY);
+    lane.lineTo(width * 0.92, this.noteTrackY);
+    lane.strokePath();
+
+    const laneGlow = this.add.graphics().setDepth(9.5);
+    laneGlow.fillStyle(0xff6b00, 0.10);
+    laneGlow.fillEllipse(this.noteHitX, this.noteTrackY, 310, 118);
+    laneGlow.lineStyle(3, 0xffe066, 0.28);
+    laneGlow.strokeEllipse(this.noteHitX, this.noteTrackY, 330, 124);
 
     // Judgement target: brighter and larger so players read the timing point first.
     if (this.textures.exists('ui-hit-zone')) {
@@ -1043,6 +1053,15 @@ export class GrillScene extends Phaser.Scene {
       scaleX: { from: 0.92, to: 1.12 },
       scaleY: { from: 0.92, to: 1.12 },
       duration: 760,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.InOut',
+    });
+    this.tweens.add({
+      targets: laneGlow,
+      alpha: { from: 0.72, to: 0.28 },
+      scaleX: { from: 0.98, to: 1.05 },
+      duration: 840,
       yoyo: true,
       repeat: -1,
       ease: 'Sine.InOut',
@@ -1088,7 +1107,7 @@ export class GrillScene extends Phaser.Scene {
     const comboY = Math.max(118, this.noteTrackY - 132);
     if (this.textures.exists('ui-combo-badge')) {
       this.rhythmComboBadge = this.add.image(comboX, comboY, 'ui-combo-badge')
-        .setDisplaySize(96, 48)
+        .setDisplaySize(104, 52)
         .setDepth(48)
         .setAlpha(0);
     }
@@ -1221,6 +1240,7 @@ export class GrillScene extends Phaser.Scene {
       }
       this.burstHitZone(judgement);
       this.boostGrillFromRhythm(judgement);
+      this.showFullGrillHeatSweep(judgement);
       sfx.playCrazyVoice();
       this.showJudgementBig('HEAT UP', '#ffcc33', 30, 500);
       this.showFeedback('烤架已滿：敲擊加速熟成', this.noteHitX, this.noteTrackY - 70, '#ffcc33');
@@ -1388,7 +1408,7 @@ export class GrillScene extends Phaser.Scene {
       this.rhythmComboBadge?.setAlpha(0);
       return;
     }
-    this.rhythmComboBadge?.setAlpha(0.58);
+    this.rhythmComboBadge?.setAlpha(0.42);
     this.rhythmComboText
       .setText(`x${this.rhythmCombo}`)
       .setAlpha(1)
@@ -1734,6 +1754,46 @@ export class GrillScene extends Phaser.Scene {
     }
 
     this.autoServeReady();
+  }
+
+  private showFullGrillHeatSweep(judgement: HitJudgement): void {
+    const color =
+      judgement === 'perfect' ? 0xfff066 :
+      judgement === 'great' ? 0x66ddff :
+      0xff8844;
+    const { width, height } = this.scale;
+    const y = height * GRILL_Y_FRAC;
+
+    const sweep = this.add.rectangle(width / 2, y, width * 0.88, 92, color, 0.18)
+      .setDepth(18)
+      .setScale(0.12, 1);
+    this.tweens.add({
+      targets: sweep,
+      scaleX: 1,
+      alpha: 0,
+      duration: 280,
+      ease: 'Cubic.Out',
+      onComplete: () => sweep.destroy(),
+    });
+
+    const flare = this.add.graphics().setDepth(19);
+    flare.lineStyle(5, color, 0.95);
+    for (const slot of this.grillSlots) {
+      if (!slot.sausage) continue;
+      flare.strokeCircle(slot.x, slot.y, 38);
+      flare.lineBetween(slot.x - 28, slot.y + 22, slot.x + 28, slot.y - 22);
+    }
+    this.tweens.add({
+      targets: flare,
+      alpha: 0,
+      scaleX: 1.18,
+      scaleY: 1.18,
+      duration: 260,
+      ease: 'Quad.Out',
+      onComplete: () => flare.destroy(),
+    });
+
+    this.cameras.main.shake(90, judgement === 'perfect' ? 0.004 : 0.0025);
   }
 
   /**
