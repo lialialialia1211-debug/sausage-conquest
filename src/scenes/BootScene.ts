@@ -1,4 +1,4 @@
-import Phaser from 'phaser';
+﻿import Phaser from 'phaser';
 import { EventBus } from '../utils/EventBus';
 import { updateGameState } from '../state/GameState';
 import { GRID_SLOTS } from '../data/map';
@@ -27,26 +27,26 @@ export class BootScene extends Phaser.Scene {
   private typingTimer?: Phaser.Time.TimerEvent;
   private canAdvance = false;
   private prologueImage?: Phaser.GameObjects.Image;
-  private introVideo?: Phaser.GameObjects.Video;
-  private introVideoShade?: Phaser.GameObjects.Graphics;
+  private modeVideo?: Phaser.GameObjects.Video;
+  private modeVideoShade?: Phaser.GameObjects.Graphics;
 
   constructor() {
     super({ key: 'BootScene' });
   }
 
   preload(): void {
-    // ── Cover & Prologue ──
+    // ?? Cover & Prologue ??
     this.load.image('cover', 'cover.png');
     this.load.image('logo-ex', 'logo-ex.png');
     this.load.image('prologue-1', 'story-prologue-1.png');
     this.load.image('prologue-2', 'story-prologue-2.png');
     this.load.image('prologue-3', 'story-prologue-3.png');
 
-    // ── Backgrounds ──
+    // ?? Backgrounds ??
     this.load.image('bg-grill', 'bg-grill.png');
     this.load.image('bg-shop', 'bg-shop.png');
 
-    // ── Grill scene assets ──
+    // ?? Grill scene assets ??
     this.load.image('grill-mesh', 'grill-mesh.png');
     this.load.image('fire-flame', 'fire-flame.png');
     this.load.image('fire-intense', 'fire-intense.png');
@@ -57,7 +57,7 @@ export class BootScene extends Phaser.Scene {
     this.load.image('karen-alert', 'karen-alert.png');
     this.load.image('dialogue-box', 'dialogue-box.png');
 
-    // ── Event splash images ──
+    // ?? Event splash images ??
     this.load.image('event-costco-guy', 'event-costco-guy.png');
     this.load.image('event-drunk-uncle', 'event-drunk-uncle.png');
     this.load.image('event-food-critic', 'event-food-critic.png');
@@ -67,22 +67,22 @@ export class BootScene extends Phaser.Scene {
     this.load.image('card-frame', 'card-frame.png');
     this.load.image('nightmarket-map', 'nightmarket-map.png');
 
-    // ── Sausage art (5 types) ──
+    // ?? Sausage art (5 types) ??
     const sausageIds = ['flying-fish-roe', 'cheese', 'big-taste', 'big-wrap-small', 'great-wall'];
     sausageIds.forEach(id => this.load.image(`sausage-${id}`, `sausage-${id}.png`));
 
-    // ── Condiment art (garlic only) ──
+    // ?? Condiment art (garlic only) ??
     this.load.image('condiment-garlic-paste', 'condiment-garlic-paste.png');
 
-    // ── Customer portraits (8 types) ──
+    // ?? Customer portraits (8 types) ??
     const customerTypes = ['normal-male', 'normal-female', 'karen', 'thug', 'beggar', 'inspector', 'fatcat', 'influencer'];
     customerTypes.forEach(t => this.load.image(`customer-${t}`, `customer-${t}.png`));
 
-    // ── Opponent portraits (8) ──
+    // ?? Opponent portraits (8) ??
     const opponents = ['toilet-uncle', 'alley-gang', 'uncle', 'influencer', 'fat-sister', 'student', 'sausage-prince', 'sausage-king'];
     opponents.forEach(id => this.load.image(`opponent-${id}`, `opponent-${id}.png`));
 
-    // ── Player & Battle ──
+    // ?? Player & Battle ??
     this.load.image('player-portrait', 'player.png');
     this.load.image('battle-cover', 'battle-cover.png');
     this.load.image('battle-attack-normal', 'battle-attack-normal.png');
@@ -91,26 +91,26 @@ export class BootScene extends Phaser.Scene {
     this.load.image('hp-bar-player', 'hp-bar-player.png');
     this.load.image('hp-bar-opponent', 'hp-bar-opponent.png');
 
-    // ── Story day illustrations ──
+    // ?? Story day illustrations ??
     [5, 10, 15, 20, 25].forEach(d => this.load.image(`story-day${d}`, `story-day${d}.png`));
 
-    // ── Map tiles (9) ──
+    // ?? Map tiles (9) ??
     for (let i = 2; i <= 10; i++) {
       this.load.image(`map-tile-${String(i).padStart(2, '0')}`, `map-tile-${String(i).padStart(2, '0')}.png`);
     }
 
-    // ── HUD icons ──
+    // ?? HUD icons ??
     this.load.image('hud-money', 'hud-money.png');
     this.load.image('hud-day', 'hud-day.png');
 
-    // ── Generated UI assets ──
+    // ?? Generated UI assets ??
     UI_ASSETS.forEach(asset => this.load.image(asset.key, asset.path));
 
-    // ── BGM ──
+    // ?? BGM ??
     this.load.audio('bgm-grill', 'bgm-grill.mp3');
     this.load.video('intro-story-video', 'videos/r18-loop.mp4', true);
 
-    // ── Wave 6a: Rhythm chart + theme BGM ──
+    // ?? Wave 6a: Rhythm chart + theme BGM ??
     // chart-grill-theme.json is loaded into Phaser cache under key 'chart-grill-theme'
     // Cache-bust chart JSON so chart updates are picked up without manual refresh
     this.load.json('chart-grill-theme', `chart-grill-theme.json?v=${CHART_VERSION}`);
@@ -125,23 +125,22 @@ export class BootScene extends Phaser.Scene {
     this.currentPage = 0;
     this.canAdvance = false;
     EventBus.emit('hide-panel');
-    this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.stopIntroVideoBackground, this);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.stopModeVideoBackground, this);
     const { width, height } = this.scale;
     const cx = width / 2;
     const cy = height / 2;
 
-    // Background — will be recoloured per page
+    // Background ??will be recoloured per page
     const bg = this.add.graphics();
     bg.setDepth(0);
     this.drawBackground(bg, width, height, 0);
-    this.createIntroVideoBackground(width, height);
 
-    // Title: logo-ex (preferred) → cover (fallback) → text fallback
+    // Title: logo-ex (preferred) ??cover (fallback) ??text fallback
     let title: Phaser.GameObjects.Image | Phaser.GameObjects.Text;
     if (this.textures.exists('logo-ex')) {
       const logo = this.add.image(cx, height * 0.27, 'logo-ex');
       const maxW = width * 0.84;
-      const maxH = height * 0.40;
+      const maxH = height * 0.32;
       const scale = Math.min(maxW / logo.width, maxH / logo.height);
       logo.setScale(scale).setDepth(10);
       title = logo;
@@ -154,7 +153,7 @@ export class BootScene extends Phaser.Scene {
       title = cover;
     } else {
       // Fallback text title if image fails to load
-      title = this.add.text(cx, cy - 110, '腸征天下', {
+      title = this.add.text(cx, cy - 110, '?詨?憭拐?', {
         fontSize: '56px',
         fontFamily: 'Microsoft JhengHei, PingFang TC, sans-serif',
         color: '#ffe600',
@@ -184,7 +183,7 @@ export class BootScene extends Phaser.Scene {
       sfx.playTitleVoice();
     });
 
-    // Story card background — pushed down to avoid blocking the enlarged LOGO
+    // Story card background ??pushed down to avoid blocking the enlarged LOGO
     const storyY = height * 0.78;
     const storyBg = this.add.graphics();
     storyBg.fillStyle(0x000000, 0.75);
@@ -215,8 +214,8 @@ export class BootScene extends Phaser.Scene {
       dots.push(dot);
     }
 
-    // "點擊繼續" hint
-    const hintText = this.add.text(cx, height - 48, '點擊繼續 ▶', {
+    // "暺?蝜潛?" hint
+    const hintText = this.add.text(cx, height - 48, '點擊繼續', {
       fontSize: '13px',
       fontFamily: 'Microsoft JhengHei, PingFang TC, sans-serif',
       color: '#ffcc88',
@@ -232,10 +231,10 @@ export class BootScene extends Phaser.Scene {
       paused: true,
     });
 
-    // ── Mode selection: 斜切大區塊（指烤火拼 / 小烤怡情）─────────────────
+    // ?? Mode selection: ??憭批?憛???急 / 撠?⊥?嚗?????????????????
     // Helper: start the game with a chosen mode + difficulty
     const startGame = (mode: string, difficulty: 'hardcore' | 'casual') => {
-      this.stopIntroVideoBackground();
+      this.stopModeVideoBackground();
       sfx.initOnUserGesture();
       if (difficulty === 'hardcore') {
         sfx.playHardcoreIntroVoice();
@@ -275,13 +274,13 @@ export class BootScene extends Phaser.Scene {
       }
     };
 
-    // 全部 alpha=0 隱藏，prologue 結束才 fade in
-    // 縮小 40%（剩 60%）並置中：x 從 width*0.20 到 width*0.80，y 從 0.50 到 0.76
-    const modeCardW = Math.min(width * 0.38, 560);
+    // ?券 alpha=0 ?梯?嚗rologue 蝯???fade in
+    // 蝮桀? 40%嚗 60%嚗蒂蝵桐葉嚗 敺?width*0.20 ??width*0.80嚗 敺?0.50 ??0.76
+    const modeCardW = Math.min(width * 0.34, height * 0.48 * (768 / 512), 470);
     const modeCardH = modeCardW * (512 / 768);
-    const modeY = height * 0.64;
-    const leftX = width * 0.30;
-    const rightX = width * 0.70;
+    const modeY = height * 0.67;
+    const leftX = width * 0.31;
+    const rightX = width * 0.69;
 
     const leftBg = this.add.image(leftX, modeY, 'ui-mode-hardcore-card')
       .setDisplaySize(modeCardW, modeCardH)
@@ -292,8 +291,8 @@ export class BootScene extends Phaser.Scene {
       .setDepth(15)
       .setAlpha(0);
 
-    const leftTitle = this.add.text(leftX, modeY - 12, '指烤火拼', {
-      fontSize: '42px',
+    const leftTitle = this.add.text(leftX, modeY - 6, '指烤火拼', {
+      fontSize: '34px',
       fontFamily: 'Microsoft JhengHei, PingFang TC, sans-serif',
       color: '#ffffff',
       stroke: '#3a0700',
@@ -302,7 +301,7 @@ export class BootScene extends Phaser.Scene {
     }).setOrigin(0.5).setDepth(20).setAlpha(0);
 
     const leftSub = this.add.text(leftX, modeY + 34, 'HARDCORE', {
-      fontSize: '14px',
+      fontSize: '13px',
       fontFamily: 'Microsoft JhengHei, PingFang TC, sans-serif',
       color: '#ffb23c',
       stroke: '#000000',
@@ -310,15 +309,15 @@ export class BootScene extends Phaser.Scene {
     }).setOrigin(0.5).setDepth(20).setAlpha(0);
 
     const leftDesc = this.add.text(leftX, modeY + 58, '完整經營壓力 / 高密度節奏', {
-      fontSize: '14px',
+      fontSize: '13px',
       fontFamily: 'Microsoft JhengHei, PingFang TC, sans-serif',
       color: '#ffd9a0',
       stroke: '#000000',
       strokeThickness: 3,
     }).setOrigin(0.5).setDepth(20).setAlpha(0);
 
-    const rightTitle = this.add.text(rightX, modeY - 12, '小烤怡情', {
-      fontSize: '42px',
+    const rightTitle = this.add.text(rightX, modeY - 6, '小烤怡情', {
+      fontSize: '34px',
       fontFamily: 'Microsoft JhengHei, PingFang TC, sans-serif',
       color: '#ffffff',
       stroke: '#001414',
@@ -327,7 +326,7 @@ export class BootScene extends Phaser.Scene {
     }).setOrigin(0.5).setDepth(20).setAlpha(0);
 
     const rightSub = this.add.text(rightX, modeY + 34, 'CASUAL', {
-      fontSize: '14px',
+      fontSize: '13px',
       fontFamily: 'Microsoft JhengHei, PingFang TC, sans-serif',
       color: '#66fff0',
       stroke: '#000000',
@@ -335,7 +334,7 @@ export class BootScene extends Phaser.Scene {
     }).setOrigin(0.5).setDepth(20).setAlpha(0);
 
     const rightDesc = this.add.text(rightX, modeY + 58, '輕鬆節奏 / 快速體驗', {
-      fontSize: '14px',
+      fontSize: '13px',
       fontFamily: 'Microsoft JhengHei, PingFang TC, sans-serif',
       color: '#d8fff8',
       stroke: '#000000',
@@ -376,7 +375,7 @@ export class BootScene extends Phaser.Scene {
       rightTitle, rightSub, rightDesc,
     ];
 
-    // ── Typing engine ──────────────────────────────────────────────────
+    // ?? Typing engine ??????????????????????????????????????????????????
     const showPage = (pageIndex: number) => {
       this.canAdvance = false;
       hintPulse.pause();
@@ -390,7 +389,7 @@ export class BootScene extends Phaser.Scene {
 
       // Show per-page illustration as near-fullscreen background
       const prologueImageKey = `prologue-${pageIndex + 1}`;
-      if (!this.introVideo && this.textures.exists(prologueImageKey)) {
+      if (this.textures.exists(prologueImageKey)) {
         const img = this.add.image(cx, cy, prologueImageKey);
         // Fill the screen (cover mode)
         const coverScale = Math.max(width / img.width, height / img.height);
@@ -431,7 +430,7 @@ export class BootScene extends Phaser.Scene {
           charIndex++;
           storyText.setText(fullText.slice(0, charIndex));
           if (charIndex >= fullText.length) {
-            // Typing done — allow advance
+            // Typing done ??allow advance
             this.canAdvance = true;
             this.tweens.add({ targets: hintText, alpha: 0.9, duration: 300 });
             hintPulse.resume();
@@ -445,7 +444,7 @@ export class BootScene extends Phaser.Scene {
       if (this.currentPage >= PROLOGUE_PAGES.length) return; // start button handles this phase
 
       if (!this.canAdvance) {
-        // Skip typing — show full text immediately
+        // Skip typing ??show full text immediately
         if (this.typingTimer) this.typingTimer.remove(false);
         storyText.setText(PROLOGUE_PAGES[this.currentPage]);
         this.canAdvance = true;
@@ -458,13 +457,21 @@ export class BootScene extends Phaser.Scene {
       this.currentPage++;
 
       if (this.currentPage >= PROLOGUE_PAGES.length) {
-        // All pages done — show mode selection cards
+        // All pages done ??show mode selection cards
         hintPulse.stop();
-        this.stopIntroVideoBackground();
         if (this.prologueImage) {
           this.prologueImage.destroy();
           this.prologueImage = undefined;
         }
+        this.createModeVideoBackground(width, height);
+        this.tweens.add({
+          targets: title,
+          y: height * 0.20,
+          scaleX: title.scaleX * 0.78,
+          scaleY: title.scaleY * 0.78,
+          duration: 450,
+          ease: 'Power2',
+        });
         this.tweens.add({ targets: [storyBg, storyText, hintText, ...dots], alpha: 0, duration: 300 });
         this.tweens.add({
           targets: modeCardObjects,
@@ -490,7 +497,7 @@ export class BootScene extends Phaser.Scene {
       });
     });
 
-    // ── Initial fade-in sequence ───────────────────────────────────────
+    // ?? Initial fade-in sequence ???????????????????????????????????????
     this.tweens.add({
       targets: [storyBg, storyText, ...dots, hintText],
       alpha: (target: Phaser.GameObjects.GameObject) => {
@@ -514,8 +521,9 @@ export class BootScene extends Phaser.Scene {
     });
   }
 
-  private createIntroVideoBackground(w: number, h: number): void {
+  private createModeVideoBackground(w: number, h: number): void {
     if (!this.cache.video.exists('intro-story-video')) return;
+    if (this.modeVideo) return;
 
     try {
       const video = this.add.video(w / 2, h / 2, 'intro-story-video');
@@ -525,35 +533,35 @@ export class BootScene extends Phaser.Scene {
       video
         .setScale(coverScale)
         .setDepth(1)
-        .setAlpha(0.72)
+        .setAlpha(0.46)
         .setMute(true)
         .play(true);
 
       const shade = this.add.graphics();
       shade.setDepth(2);
-      shade.fillStyle(0x000000, 0.38);
+      shade.fillStyle(0x06101f, 0.58);
       shade.fillRect(0, 0, w, h);
 
-      this.introVideo = video;
-      this.introVideoShade = shade;
+      this.modeVideo = video;
+      this.modeVideoShade = shade;
     } catch (error) {
-      console.warn('[BootScene] intro video background unavailable:', error);
+      console.warn('[BootScene] mode video background unavailable:', error);
     }
   }
 
-  private stopIntroVideoBackground(): void {
-    if (this.introVideo) {
+  private stopModeVideoBackground(): void {
+    if (this.modeVideo) {
       try {
-        this.introVideo.stop();
+        this.modeVideo.stop();
       } catch (_error) {
         // Ignore shutdown races while the scene is changing.
       }
-      if (this.introVideo.active) this.introVideo.destroy();
-      this.introVideo = undefined;
+      if (this.modeVideo.active) this.modeVideo.destroy();
+      this.modeVideo = undefined;
     }
-    if (this.introVideoShade) {
-      if (this.introVideoShade.active) this.introVideoShade.destroy();
-      this.introVideoShade = undefined;
+    if (this.modeVideoShade) {
+      if (this.modeVideoShade.active) this.modeVideoShade.destroy();
+      this.modeVideoShade = undefined;
     }
   }
 
@@ -585,3 +593,4 @@ export class BootScene extends Phaser.Scene {
     }
   }
 }
+

@@ -19,11 +19,13 @@ This temporary plan tracks the current optimization pass. Check each item only a
 - [x] Step 7: Run build verification.
 - [x] Step 8: Move the looping story video from the daily-summary flow to the BootScene prologue background.
 - [x] Step 9: Keep the prologue text click-through flow on top of the video and stop the video when mode/difficulty selection begins.
+- [x] Step 10: Restore the original three prologue images and move the looping story video to the mode/difficulty selection page.
+- [x] Step 11: Resize and reposition the mode cards so the logo, cards, and test tool no longer overlap.
 
 ## Notes
 
-- The story video now belongs to the opening prologue, not the end-of-day summary.
-- Opening prologue uses a muted Phaser video background so the story text and mode cards can stay inside the same scene layering.
+- The story video now belongs to the mode/difficulty selection page, not the three-page prologue and not the end-of-day summary.
+- Opening prologue uses the original three static story images again.
 - Autoplay must be muted for browser compatibility. If sound is required, start playback after a player click.
 - Keep the rhythm hit zone centered; it is already implemented at `noteHitX = width / 2`.
 - Full grill hits already convert into heat input. This pass should improve communication and feel, not change the core rule.
