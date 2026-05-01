@@ -28,6 +28,8 @@ export const UI_ASSETS: UiAssetDefinition[] = [
   { key: 'ui-money-chip', path: 'ui/ui-money-chip.png', width: 512, height: 256, category: 'grill-hud', usage: 'Revenue HUD chip frame' },
   { key: 'ui-day-chip', path: 'ui/ui-day-chip.png', width: 512, height: 256, category: 'grill-hud', usage: 'Day HUD chip frame' },
   { key: 'ui-summary-grade-badge', path: 'ui/ui-summary-grade-badge.png', width: 512, height: 512, category: 'grill-hud', usage: 'Summary grade badge frame' },
+  { key: 'ui-mode-hardcore-card', path: 'ui/ui-mode-hardcore-card.png', width: 768, height: 512, category: 'grill-hud', usage: 'Boot mode selection card for hardcore mode' },
+  { key: 'ui-mode-casual-card', path: 'ui/ui-mode-casual-card.png', width: 768, height: 512, category: 'grill-hud', usage: 'Boot mode selection card for casual mode' },
 
   { key: 'judge-perfect', path: 'ui/judge-perfect.png', width: 768, height: 256, category: 'judgement', usage: 'PERFECT hit judgement popup' },
   { key: 'judge-great', path: 'ui/judge-great.png', width: 768, height: 256, category: 'judgement', usage: 'GREAT hit judgement popup' },

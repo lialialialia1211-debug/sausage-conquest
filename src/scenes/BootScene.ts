@@ -270,90 +270,91 @@ export class BootScene extends Phaser.Scene {
 
     // 全部 alpha=0 隱藏，prologue 結束才 fade in
     // 縮小 40%（剩 60%）並置中：x 從 width*0.20 到 width*0.80，y 從 0.50 到 0.76
-    const midY = height * 0.63;
-    const skew = width * 0.04;
+    const modeCardW = Math.min(width * 0.38, 560);
+    const modeCardH = modeCardW * (512 / 768);
+    const modeY = height * 0.64;
+    const leftX = width * 0.30;
+    const rightX = width * 0.70;
 
-    // 左區塊（指烤火拼 / HARDCORE）— 深藍
-    const leftPoly = new Phaser.Geom.Polygon([
-      width * 0.20,             height * 0.50,
-      width * 0.50 - skew,      height * 0.50,
-      width * 0.45 + skew,      height * 0.76,
-      width * 0.20,             height * 0.76,
-    ]);
-    const leftBg = this.add.graphics().setAlpha(0).setDepth(15);
-    leftBg.fillStyle(0x142036, 0.95);
-    leftBg.fillPoints(leftPoly.points, true);
-    leftBg.lineStyle(4, 0xff6b00, 0.9);
-    leftBg.strokePoints(leftPoly.points, true);
+    const leftBg = this.add.image(leftX, modeY, 'ui-mode-hardcore-card')
+      .setDisplaySize(modeCardW, modeCardH)
+      .setDepth(15)
+      .setAlpha(0);
+    const rightBg = this.add.image(rightX, modeY, 'ui-mode-casual-card')
+      .setDisplaySize(modeCardW, modeCardH)
+      .setDepth(15)
+      .setAlpha(0);
 
-    // 右區塊（小烤怡情 / CASUAL）— 淺灰
-    const rightPoly = new Phaser.Geom.Polygon([
-      width * 0.50 - skew,      height * 0.50,
-      width * 0.80,             height * 0.50,
-      width * 0.80,             height * 0.76,
-      width * 0.45 + skew,      height * 0.76,
-    ]);
-    const rightBg = this.add.graphics().setAlpha(0).setDepth(15);
-    rightBg.fillStyle(0xd8dde6, 0.95);
-    rightBg.fillPoints(rightPoly.points, true);
-    rightBg.lineStyle(4, 0xff6b00, 0.9);
-    rightBg.strokePoints(rightPoly.points, true);
-
-    // 左區塊文字（縮小 40%：x→width*0.32, fontSize 54→32, sub 18→11, desc 13→8）
-    const leftTitle = this.add.text(width * 0.32, midY - 9, '指烤火拼', {
-      fontSize: '32px',
+    const leftTitle = this.add.text(leftX, modeY - 12, '指烤火拼', {
+      fontSize: '42px',
       fontFamily: 'Microsoft JhengHei, PingFang TC, sans-serif',
       color: '#ffffff',
+      stroke: '#3a0700',
+      strokeThickness: 7,
+      fontStyle: 'bold',
+    }).setOrigin(0.5).setDepth(20).setAlpha(0);
+
+    const leftSub = this.add.text(leftX, modeY + 34, 'HARDCORE', {
+      fontSize: '14px',
+      fontFamily: 'Microsoft JhengHei, PingFang TC, sans-serif',
+      color: '#ffb23c',
       stroke: '#000000',
       strokeThickness: 3,
+    }).setOrigin(0.5).setDepth(20).setAlpha(0);
+
+    const leftDesc = this.add.text(leftX, modeY + 58, '完整經營壓力 / 高密度節奏', {
+      fontSize: '14px',
+      fontFamily: 'Microsoft JhengHei, PingFang TC, sans-serif',
+      color: '#ffd9a0',
+      stroke: '#000000',
+      strokeThickness: 3,
+    }).setOrigin(0.5).setDepth(20).setAlpha(0);
+
+    const rightTitle = this.add.text(rightX, modeY - 12, '小烤怡情', {
+      fontSize: '42px',
+      fontFamily: 'Microsoft JhengHei, PingFang TC, sans-serif',
+      color: '#ffffff',
+      stroke: '#001414',
+      strokeThickness: 8,
       fontStyle: 'bold',
     }).setOrigin(0.5).setDepth(20).setAlpha(0);
 
-    const leftSub = this.add.text(width * 0.32, midY + 21, 'HARDCORE', {
-      fontSize: '11px',
+    const rightSub = this.add.text(rightX, modeY + 34, 'CASUAL', {
+      fontSize: '14px',
       fontFamily: 'Microsoft JhengHei, PingFang TC, sans-serif',
-      color: '#ff6b00',
+      color: '#66fff0',
+      stroke: '#000000',
+      strokeThickness: 4,
     }).setOrigin(0.5).setDepth(20).setAlpha(0);
 
-    const leftDesc = this.add.text(width * 0.32, midY + 38, '節拍密、判定嚴', {
-      fontSize: '8px',
+    const rightDesc = this.add.text(rightX, modeY + 58, '輕鬆節奏 / 快速體驗', {
+      fontSize: '14px',
       fontFamily: 'Microsoft JhengHei, PingFang TC, sans-serif',
-      color: '#aaaaaa',
+      color: '#d8fff8',
+      stroke: '#000000',
+      strokeThickness: 4,
     }).setOrigin(0.5).setDepth(20).setAlpha(0);
 
-    // 右區塊文字（縮小 40%：x→width*0.68）
-    const rightTitle = this.add.text(width * 0.68, midY - 9, '小烤怡情', {
-      fontSize: '32px',
-      fontFamily: 'Microsoft JhengHei, PingFang TC, sans-serif',
-      color: '#1a1a1a',
-      stroke: '#ffffff',
-      strokeThickness: 2,
-      fontStyle: 'bold',
-    }).setOrigin(0.5).setDepth(20).setAlpha(0);
+    const leftModeObjects = [leftBg, leftTitle, leftSub, leftDesc];
+    const rightModeObjects = [rightBg, rightTitle, rightSub, rightDesc];
+    const setModeHover = (objects: Phaser.GameObjects.GameObject[], hovered: boolean) => {
+      const scale = hovered ? 1.035 : 1;
+      objects.forEach((obj) => {
+        if ('setScale' in obj && typeof obj.setScale === 'function') {
+          (obj as Phaser.GameObjects.Image | Phaser.GameObjects.Text).setScale(scale);
+        }
+      });
+    };
 
-    const rightSub = this.add.text(width * 0.68, midY + 21, 'CASUAL', {
-      fontSize: '11px',
-      fontFamily: 'Microsoft JhengHei, PingFang TC, sans-serif',
-      color: '#ff6b00',
-    }).setOrigin(0.5).setDepth(20).setAlpha(0);
-
-    const rightDesc = this.add.text(width * 0.68, midY + 38, '節拍鬆、判定寬', {
-      fontSize: '8px',
-      fontFamily: 'Microsoft JhengHei, PingFang TC, sans-serif',
-      color: '#444444',
-    }).setOrigin(0.5).setDepth(20).setAlpha(0);
-
-    // 點擊 zone — 一開始 disable，prologue 結束才 enable，避免誤觸快進
-    // zone 對應縮小：x 從 0.22→0.32 / 0.78→0.68，width 從 width*0.45→width*0.28，height 從 0.43→0.26
-    const leftZone = this.add.zone(width * 0.32, midY + 18, width * 0.28, height * 0.26);
+    const leftZone = this.add.zone(leftX, modeY, modeCardW * 0.86, modeCardH * 0.72);
     leftZone.on('pointerdown', () => startGame('normal', 'hardcore'));
-    leftZone.on('pointerover', () => leftTitle.setScale(1.06));
-    leftZone.on('pointerout',  () => leftTitle.setScale(1));
+    leftZone.on('pointerover', () => setModeHover(leftModeObjects, true));
+    leftZone.on('pointerout',  () => setModeHover(leftModeObjects, false));
 
-    const rightZone = this.add.zone(width * 0.68, midY + 18, width * 0.28, height * 0.26);
+    const rightZone = this.add.zone(rightX, modeY, modeCardW * 0.86, modeCardH * 0.72);
     rightZone.on('pointerdown', () => startGame('simulation', 'casual'));
-    rightZone.on('pointerover', () => rightTitle.setScale(1.06));
-    rightZone.on('pointerout',  () => rightTitle.setScale(1));
+    rightZone.on('pointerover', () => setModeHover(rightModeObjects, true));
+    rightZone.on('pointerout',  () => setModeHover(rightModeObjects, false));
 
     const enableModeZones = () => {
       leftZone.setInteractive({ cursor: 'pointer' });
