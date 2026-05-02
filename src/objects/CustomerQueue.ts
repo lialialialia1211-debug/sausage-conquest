@@ -10,7 +10,6 @@ const CUSTOMER_SLOT_W = 168;
 const PATIENCE_BAR_H = 10;
 const PATIENCE_BAR_W = 124;
 export const MAX_VISIBLE_CUSTOMERS = 8;
-const FRONT_ROW_CUSTOMER_COUNT = 3;
 
 // Patience indicator based on fraction
 function getCustomerEmoji(frac: number): string {
@@ -109,9 +108,16 @@ export class CustomerQueue extends Phaser.GameObjects.Container {
       // Append garlic emoji if customer wants garlic
       const bubbleText = customer.order.wantGarlic ? `${baseName} 🧄` : baseName;
 
-      orderBubble = this.scene.add.text(0, -78, bubbleText, {
-        fontSize: '26px',
+      orderBubble = this.scene.add.text(0, -76, bubbleText, {
+        fontSize: '15px',
+        fontFamily: 'Microsoft JhengHei, PingFang TC, sans-serif',
+        color: '#fff3c2',
+        stroke: '#230800',
+        strokeThickness: 3,
+        backgroundColor: '#2a0c02',
+        padding: { x: 5, y: 2 },
         align: 'center',
+        fixedWidth: 128,
       }).setOrigin(0.5);
     }
 
@@ -431,25 +437,13 @@ export class CustomerQueue extends Phaser.GameObjects.Container {
 
   private getSlotPosition(slotIndex: number): { x: number; y: number } {
     const { width, height } = this.scene.scale;
-    const backRowSlots = Math.max(1, MAX_VISIBLE_CUSTOMERS - FRONT_ROW_CUSTOMER_COUNT);
-    const backRowY = Math.max(104, Math.min(this.topY, height * 0.24));
-    const frontRowY = Math.min(height * 0.275, backRowY + 58);
-
-    if (slotIndex < backRowSlots) {
-      const usableSlotW = Math.min(CUSTOMER_SLOT_W, Math.max(128, width * 0.72 / Math.max(1, backRowSlots - 1)));
-      const startX = width / 2 - ((backRowSlots - 1) * usableSlotW) / 2;
-      return {
-        x: startX + slotIndex * usableSlotW,
-        y: backRowY,
-      };
-    }
-
-    const frontIndex = slotIndex - backRowSlots;
-    const frontSlotW = Math.min(CUSTOMER_SLOT_W * 1.15, Math.max(142, width * 0.44 / Math.max(1, FRONT_ROW_CUSTOMER_COUNT - 1)));
-    const frontStartX = width / 2 - ((FRONT_ROW_CUSTOMER_COUNT - 1) * frontSlotW) / 2;
+    const y = Math.max(112, Math.min(this.topY, height * 0.24));
+    const visibleSlots = MAX_VISIBLE_CUSTOMERS;
+    const usableSlotW = Math.min(160, Math.max(116, width * 0.78 / Math.max(1, visibleSlots - 1)));
+    const startX = width / 2 - ((visibleSlots - 1) * usableSlotW) / 2;
     return {
-      x: frontStartX + frontIndex * frontSlotW,
-      y: frontRowY,
+      x: startX + slotIndex * usableSlotW,
+      y,
     };
   }
 }
