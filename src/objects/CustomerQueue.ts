@@ -70,9 +70,16 @@ export class CustomerQueue extends Phaser.GameObjects.Container {
     const imageKey = customerVariantKeys[Math.floor(Math.random() * customerVariantKeys.length)]
       || (Math.random() < 0.5 ? 'customer-normal-male' : 'customer-normal-female');
 
+    const portraitPlate = this.scene.add.graphics();
+    portraitPlate.fillStyle(0x1b0a02, 0.62);
+    portraitPlate.lineStyle(2, 0xffc93a, 0.5);
+    portraitPlate.fillRoundedRect(-58, -61, 116, 122, 12);
+    portraitPlate.strokeRoundedRect(-58, -61, 116, 122, 12);
+    container.add(portraitPlate);
+
     if (this.scene.textures.exists(imageKey)) {
       const portrait = this.scene.add.image(0, 0, imageKey);
-      const pScale = Math.min(120 / portrait.width, 116 / portrait.height);
+      const pScale = Math.min(126 / portrait.width, 122 / portrait.height);
       portrait.setScale(pScale);
       container.add(portrait);
       // Move emoji behind/hide it
