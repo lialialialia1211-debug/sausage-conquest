@@ -9,6 +9,7 @@ import { resetAutoChessEngine } from '../systems/AutoChessEngine';
 import { resetCasinoEngine } from '../systems/CasinoEngine';
 import { resetAchievements } from '../systems/AchievementEngine';
 import { UI_ASSETS } from '../data/uiAssets';
+import { CUSTOMER_VARIANT_KEYS } from '../data/customerPortraits';
 
 // Bump this string whenever chart-grill-theme.json changes so browsers pick up the new chart
 const CHART_VERSION = '2026042604';
@@ -77,6 +78,7 @@ export class BootScene extends Phaser.Scene {
     // ?? Customer portraits (8 types) ??
     const customerTypes = ['normal-male', 'normal-female', 'karen', 'thug', 'beggar', 'inspector', 'fatcat', 'influencer'];
     customerTypes.forEach(t => this.load.image(`customer-${t}`, `customer-${t}.png`));
+    CUSTOMER_VARIANT_KEYS.forEach(key => this.load.image(key, `customers/${key}.png`));
 
     // ?? Opponent portraits (8) ??
     const opponents = ['toilet-uncle', 'alley-gang', 'uncle', 'influencer', 'fat-sister', 'student', 'sausage-prince', 'sausage-king'];

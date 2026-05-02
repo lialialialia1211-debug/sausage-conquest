@@ -3,6 +3,7 @@
 import Phaser from 'phaser';
 import type { Customer } from '../types';
 import { pickRandomQuote } from '../data/spectatorQuotes';
+import { CUSTOMER_VARIANT_KEYS } from '../data/customerPortraits';
 
 // 每個圍觀者的顯示資料
 interface SpectatorDisplay {
@@ -43,16 +44,6 @@ const BUBBLE_MAP: Record<SpectatorEvent, BubbleConfig> = {
 };
 
 // 圍觀者圖像選擇邏輯（與 CustomerQueue 保持一致）
-const PERSONALITY_IMAGE_MAP: Record<string, string> = {
-  karen:     'customer-karen',
-  enforcer:  'customer-thug',
-  inspector: 'customer-inspector',
-  fatcat:    'customer-fatcat',
-  spy:       'customer-inspector',
-  influencer: 'customer-influencer',
-  beggar:    'customer-beggar',
-};
-
 const SPECTATOR_SIZE = 90;     // 放大讓圍觀者清晰可見
 const MAX_CAPACITY = 6;        // S7.5: 從 12 砍半，配合 RADIUS 280 確保不重疊
 const RADIUS = 280;            // S7.5: 從 200 拉到 280（90px portrait 相鄰弧長 ≈ 146px > 90px）
@@ -90,12 +81,13 @@ export class SpectatorCrowd extends Phaser.GameObjects.Container {
     this.add(container);
 
     // 選擇肖像圖
-    const imageKey = PERSONALITY_IMAGE_MAP[customer.personality]
+    const customerVariantKeys = CUSTOMER_VARIANT_KEYS.filter(key => this.scene.textures.exists(key));
+    const imageKey = customerVariantKeys[Math.floor(Math.random() * customerVariantKeys.length)]
       || (Math.random() < 0.5 ? 'customer-normal-male' : 'customer-normal-female');
 
     if (this.scene.textures.exists(imageKey)) {
       const portrait = this.scene.add.image(0, 0, imageKey);
-      const pScale = SPECTATOR_SIZE / Math.min(portrait.width, portrait.height);
+      const pScale = Math.min(SPECTATOR_SIZE / portrait.width, SPECTATOR_SIZE / portrait.height);
       portrait.setScale(pScale);
       container.add(portrait);
     } else {

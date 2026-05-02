@@ -4,6 +4,7 @@ import Phaser from 'phaser';
 import type { Customer } from '../types';
 import { SAUSAGE_MAP } from '../data/sausages';
 import { gameState } from '../state/GameState';
+import { CUSTOMER_VARIANT_KEYS } from '../data/customerPortraits';
 
 const CUSTOMER_SLOT_W = 168;
 const PATIENCE_BAR_H = 10;
@@ -65,21 +66,13 @@ export class CustomerQueue extends Phaser.GameObjects.Container {
     }).setOrigin(0.5);
 
     // Try to show customer portrait image
-    const personalityImageMap: Record<string, string> = {
-      karen: 'customer-karen',
-      enforcer: 'customer-thug',
-      inspector: 'customer-inspector',
-      fatcat: 'customer-fatcat',
-      spy: 'customer-inspector', // reuse inspector
-      influencer: 'customer-influencer',
-      beggar: 'customer-beggar',
-    };
-    const imageKey = personalityImageMap[customer.personality]
+    const customerVariantKeys = CUSTOMER_VARIANT_KEYS.filter(key => this.scene.textures.exists(key));
+    const imageKey = customerVariantKeys[Math.floor(Math.random() * customerVariantKeys.length)]
       || (Math.random() < 0.5 ? 'customer-normal-male' : 'customer-normal-female');
 
     if (this.scene.textures.exists(imageKey)) {
       const portrait = this.scene.add.image(0, 0, imageKey);
-      const pScale = Math.min(116 / portrait.width, 116 / portrait.height);
+      const pScale = Math.min(120 / portrait.width, 116 / portrait.height);
       portrait.setScale(pScale);
       container.add(portrait);
       // Move emoji behind/hide it

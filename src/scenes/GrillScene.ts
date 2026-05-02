@@ -275,6 +275,7 @@ export class GrillScene extends Phaser.Scene {
   // ── Unified session event counter (replaces grillEventTriggered) ─────────────
   private totalSessionEvents = 0;
   private maxSessionEvents = getMaxSessionEvents({ day: 1, tier: 1, difficulty: undefined });
+  private readonly ENABLE_GRILL_SESSION_EVENTS = false;
 
   // ── Chart completion guard (prevents double end-of-day) ──────────────────────
   private chartCompleteFired = false;
@@ -635,9 +636,10 @@ export class GrillScene extends Phaser.Scene {
           }
 
           // Personality-based triggers
-          if (c.personality === 'influencer') {
+          if (this.ENABLE_GRILL_SESSION_EVENTS && c.personality === 'influencer') {
             this.showFeedback('網紅正在直播你的攤位！', this.scale.width / 2, this.scale.height * 0.1, '#44aaff');
           } else if (
+            this.ENABLE_GRILL_SESSION_EVENTS &&
             ['karen', 'enforcer', 'inspector', 'spy'].includes(c.personality) &&
             !this.combatCustomersHandled.has(c.id) &&
             gameState.day >= 5 &&                              // 前 4 天不觸發 personality combat
@@ -2591,6 +2593,7 @@ export class GrillScene extends Phaser.Scene {
   // ── Grill event tick ──────────────────────────────────────────────────────
 
   private tickGrillEvents(dt: number): void {
+    if (!this.ENABLE_GRILL_SESSION_EVENTS) return;
     if (this.totalSessionEvents >= this.maxSessionEvents) return;
 
     this.grillEventTimer += dt;
