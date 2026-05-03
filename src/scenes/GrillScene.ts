@@ -123,6 +123,7 @@ interface WarmingSlot {
   bgGfx: Phaser.GameObjects.Graphics | null;
   infoText: Phaser.GameObjects.Text | null;
   stateText: Phaser.GameObjects.Text | null;
+  sausageImage?: Phaser.GameObjects.Image | null;
   // Layout geometry cached at creation time
   __x?: number;
   __y?: number;
@@ -1048,6 +1049,14 @@ export class GrillScene extends Phaser.Scene {
       judgeCircle.setDepth(10);
       judgeTarget = judgeCircle;
     }
+
+    const timingCircle = this.add.graphics().setDepth(12);
+    timingCircle.fillStyle(0x05080b, 0.42);
+    timingCircle.fillCircle(this.noteHitX, this.noteTrackY, 28);
+    timingCircle.lineStyle(4, 0xffffff, 0.88);
+    timingCircle.strokeCircle(this.noteHitX, this.noteTrackY, 28);
+    timingCircle.lineStyle(2, 0xfff066, 0.9);
+    timingCircle.strokeCircle(this.noteHitX, this.noteTrackY, 20);
 
     this.tweens.add({
       targets: judgeTarget,
@@ -2029,22 +2038,21 @@ export class GrillScene extends Phaser.Scene {
   private wzX = 0;
   private wzY = 0;
   private wzSlotW = 0;
-  private readonly wzSlotH = 28; // compact height
 
   private setupWarmingZone(width: number, height: number): void {
-    this.wzSlotW = width * 0.5;               // 50% width, centered
+    this.wzSlotW = Math.min(width * 0.56, 940);
     this.wzX = (width - this.wzSlotW) / 2;    // centered horizontally
     this.wzY = height * 0.72;                 // below grill rack
 
     if (this.textures.exists('ui-warming-slot')) {
-      const boxW = this.wzSlotW / 2 + 38;
-      const boxH = 150;
+      const boxW = this.wzSlotW * 0.44;
+      const boxH = 132;
       const leftBoxX = this.wzX + this.wzSlotW * 0.25;
       const rightBoxX = this.wzX + this.wzSlotW * 0.75;
       [leftBoxX, rightBoxX].forEach(boxX => {
-        this.add.image(boxX, this.wzY + 64, 'ui-warming-slot')
+        this.add.image(boxX, this.wzY + 58, 'ui-warming-slot')
           .setDisplaySize(boxW, boxH)
-          .setAlpha(0.58)
+          .setAlpha(0.76)
           .setDepth(3.5);
       });
     }
@@ -2065,62 +2073,67 @@ export class GrillScene extends Phaser.Scene {
 
   private createWarmingSlotVisual(): WarmingSlot {
     const idx = this.warmingSlots.length;
-    // 4-column grid (rows extend downward as needed)
-    const col = idx % 4;
-    const row = Math.floor(idx / 4);
-    const slotW = this.wzSlotW / 4;
-    const gap = 4;
-    const sx = this.wzX + col * slotW;
-    const sy = this.wzY + row * (this.wzSlotH + gap);
+    const slotsPerPlate = 8;
+    const plate = Math.floor(idx / slotsPerPlate) % 2;
+    const localIdx = idx % slotsPerPlate;
+    const row = Math.floor(localIdx / 4) + Math.floor(idx / (slotsPerPlate * 2)) * 2;
+    const col = localIdx % 4;
+    const plateW = this.wzSlotW * 0.44;
+    const innerPlateW = plateW * 0.68;
+    const slotW = innerPlateW / 4;
+    const slotH = 42;
+    const plateCenterX = this.wzX + this.wzSlotW * (plate === 0 ? 0.25 : 0.75);
+    const sx = plateCenterX - innerPlateW / 2 + col * slotW;
+    const sy = this.wzY + 18 + row * 31;
     const wx = sx + slotW / 2;
-    const wy = sy + this.wzSlotH / 2;
+    const wy = sy + slotH / 2;
 
     const bgGfx = this.add.graphics();
-    bgGfx.lineStyle(1, 0x664422, 0.5);
-    bgGfx.fillStyle(0x1a0800, 0.7);
-    bgGfx.fillRoundedRect(sx, sy, slotW, this.wzSlotH, 3);
-    bgGfx.strokeRoundedRect(sx, sy, slotW, this.wzSlotH, 3);
+    bgGfx.setDepth(4.2);
 
     const infoText = this.add.text(wx, wy, '', {
-      fontSize: '9px',
+      fontSize: '1px',
       fontFamily: FONT,
       color: COLOR_DIM,
-    }).setOrigin(0.5);
+    }).setOrigin(0.5).setVisible(false);
 
-    const stateText = this.add.text(sx + slotW - 3, wy, '', {
-      fontSize: '8px',
+    const stateText = this.add.text(wx + slotW * 0.28, wy - 16, '', {
+      fontSize: '10px',
       fontFamily: FONT,
-      color: '#888888',
-    }).setOrigin(1, 0.5);
+      color: '#ffe8a3',
+      stroke: '#160500',
+      strokeThickness: 3,
+    }).setOrigin(0.5).setDepth(6);
 
-    const slot: WarmingSlot = { sausage: null, x: wx, y: wy, bgGfx, infoText, stateText };
+    const sausageImage = this.add.image(wx, wy + 2, 'sausage-flying-fish-roe')
+      .setDisplaySize(68, 34)
+      .setDepth(5.5)
+      .setVisible(false);
+
+    const slot: WarmingSlot = { sausage: null, x: wx, y: wy, bgGfx, infoText, stateText, sausageImage };
     this.warmingSlots.push(slot);
 
     // Make clickable
-    const hitZone = this.add.zone(wx, wy, slotW, this.wzSlotH).setInteractive({ cursor: 'pointer' });
+    const hitZone = this.add.zone(wx, wy, slotW, slotH).setInteractive({ cursor: 'pointer' });
     hitZone.on('pointerdown', () => this.serveFromWarming(slot));
     hitZone.on('pointerover', () => {
       if (slot.sausage && slot.bgGfx) {
-        slot.bgGfx.clear();
-        slot.bgGfx.lineStyle(2, 0xff9900, 0.9);
-        slot.bgGfx.fillStyle(0x2a1000, 0.85);
-        slot.bgGfx.fillRoundedRect(sx, sy, slotW, this.wzSlotH, 3);
-        slot.bgGfx.strokeRoundedRect(sx, sy, slotW, this.wzSlotH, 3);
+        this.redrawWarmingSlotBgQuality(slot, sx, sy, slotW, slotH, true);
       }
     });
     hitZone.on('pointerout', () => {
       if (!slot.bgGfx) return;
       if (slot.sausage) {
-        this.redrawWarmingSlotBgQuality(slot, sx, sy, slotW, this.wzSlotH);
+        this.redrawWarmingSlotBgQuality(slot, sx, sy, slotW, slotH);
       } else {
-        this.redrawWarmingSlotBg(slot, sx, sy, slotW, this.wzSlotH);
+        this.redrawWarmingSlotBg(slot, sx, sy, slotW, slotH);
       }
     });
 
     slot.__x = sx;
     slot.__y = sy;
     slot.__w = slotW;
-    slot.__h = this.wzSlotH;
+    slot.__h = slotH;
 
     return slot;
   }
@@ -2135,31 +2148,20 @@ export class GrillScene extends Phaser.Scene {
     slot.bgGfx.clear();
 
     if (!slot.sausage) {
-      slot.bgGfx.lineStyle(1, 0x664422, 0.5);
-      slot.bgGfx.fillStyle(0x1a0800, 0.7);
-    } else if (slot.sausage.warmingState === 'perfect-warm') {
-      slot.bgGfx.lineStyle(1, 0x44ff88, 0.7);
-      slot.bgGfx.fillStyle(0x001a08, 0.85);
-    } else if (slot.sausage.warmingState === 'ok-warm') {
-      slot.bgGfx.lineStyle(1, 0xffcc44, 0.7);
-      slot.bgGfx.fillStyle(0x1a1000, 0.85);
-    } else {
-      slot.bgGfx.lineStyle(1, 0x4488aa, 0.7);
-      slot.bgGfx.fillStyle(0x001020, 0.85);
+      return;
     }
-    slot.bgGfx.fillRoundedRect(x, y, w, h, 4);
-    slot.bgGfx.strokeRoundedRect(x, y, w, h, 4);
+    this.redrawWarmingSlotBgQuality(slot, x, y, w, h);
   }
 
   // Quality-tinted warming slot background: border color based on grill quality
-  private redrawWarmingSlotBgQuality(slot: WarmingSlot, x: number, y: number, w: number, h: number): void {
+  private redrawWarmingSlotBgQuality(slot: WarmingSlot, x: number, y: number, w: number, h: number, hover = false): void {
     if (!slot.bgGfx || !slot.sausage) return;
     const qualityColor = this.getQualityColor(slot.sausage.grillQuality);
     slot.bgGfx.clear();
-    slot.bgGfx.lineStyle(2, qualityColor, 0.75);
-    slot.bgGfx.fillStyle(0x0a0500, 0.88);
-    slot.bgGfx.fillRoundedRect(x, y, w, h, 4);
-    slot.bgGfx.strokeRoundedRect(x, y, w, h, 4);
+    slot.bgGfx.lineStyle(hover ? 3 : 2, qualityColor, hover ? 0.95 : 0.55);
+    slot.bgGfx.fillStyle(qualityColor, hover ? 0.18 : 0.09);
+    slot.bgGfx.fillEllipse(x + w / 2, y + h / 2 + 9, w * 0.68, 15);
+    slot.bgGfx.strokeEllipse(x + w / 2, y + h / 2 + 8, w * 0.76, 23);
   }
 
   private updateWarmingSlotDisplay(slot: WarmingSlot): void {
@@ -2187,6 +2189,16 @@ export class GrillScene extends Phaser.Scene {
     // Primary text: quality + warming state
     slot.infoText.setText(`${overnightTag}${qualityLabel} | ${warmingLabel}`);
     slot.infoText.setColor(warmingColor);
+    if (slot.sausageImage) {
+      const textureKey = `sausage-${ws.sausageTypeId}`;
+      if (this.textures.exists(textureKey)) {
+        slot.sausageImage.setTexture(textureKey);
+      }
+      slot.sausageImage
+        .setVisible(true)
+        .setAlpha(ws.warmingState === 'cold' ? 0.62 : 1)
+        .setTint(ws.warmingState === 'cold' ? 0x8aa0aa : 0xffffff);
+    }
 
     // State text: time remaining or cold
     if (ws.warmingState === 'perfect-warm') {
@@ -2211,6 +2223,10 @@ export class GrillScene extends Phaser.Scene {
   private clearWarmingSlotDisplay(slot: WarmingSlot): void {
     if (slot.infoText) slot.infoText.setText('空');
     if (slot.stateText) slot.stateText.setText('');
+    if (slot.sausageImage) {
+      slot.sausageImage.clearTint();
+      slot.sausageImage.setVisible(false);
+    }
 
     const x = slot.__x ?? 0;
     const y = slot.__y ?? 0;
