@@ -180,6 +180,7 @@ export class GrillScene extends Phaser.Scene {
   private timerText!: Phaser.GameObjects.Text;
   private revenueText!: Phaser.GameObjects.Text;
   private statsText!: Phaser.GameObjects.Text;
+  private statNumberTexts: Phaser.GameObjects.Text[] = [];
   private feedbackTexts: Phaser.GameObjects.Text[] = [];
   // Fire emoji particles floating upward
   private fireParticles: Phaser.GameObjects.Text[] = [];
@@ -1155,6 +1156,7 @@ export class GrillScene extends Phaser.Scene {
       if (!n.isHit && n.note.t < now - getGoodWindowSeconds(gameState.difficulty)) {
         n.markHit();
         this.hitStats.miss += 1;
+        this.updateStatsDisplay();
         this.rhythmCombo = 0;
         this.updateRhythmComboText();
         sfx.playRhythmMiss();
@@ -1229,6 +1231,7 @@ export class GrillScene extends Phaser.Scene {
     if (!slot) {
       frontNote.markHit();
       this.hitStats[judgement] += 1;
+      this.updateStatsDisplay();
       this.rhythmCombo += 1;
       if (this.rhythmCombo > this.maxRhythmCombo) {
         this.maxRhythmCombo = this.rhythmCombo;
@@ -1268,6 +1271,7 @@ export class GrillScene extends Phaser.Scene {
 
     // Update stats and combo
     this.hitStats[judgement] += 1;
+    this.updateStatsDisplay();
     this.rhythmCombo += 1;
     if (this.rhythmCombo > this.maxRhythmCombo) {
       this.maxRhythmCombo = this.rhythmCombo;
@@ -2292,21 +2296,29 @@ export class GrillScene extends Phaser.Scene {
     }).setOrigin(1, 0).setDepth(10);
 
     // ── Top-right stats display ──────────────────────────────────────────
-    const statsX = width - 10;
+    const statsX = width - 138;
     const statsY = 55; // below the status bar
     if (this.textures.exists('ui-rhythm-stats-panel')) {
-      this.add.image(statsX - 178, statsY + 23, 'ui-rhythm-stats-panel')
-        .setDisplaySize(350, 76)
+      this.add.image(statsX, statsY + 34, 'ui-rhythm-stats-panel')
+        .setDisplaySize(260, 82)
         .setAlpha(0.74)
         .setDepth(14);
     }
 
-    this.statsText = this.add.text(statsX, statsY, '', {
-      fontSize: '12px',
+    this.statsText = this.add.text(statsX, statsY + 12, '', {
+      fontSize: '1px',
       fontFamily: FONT,
-      color: '#ffffff',
-      padding: { x: 8, y: 4 },
-    }).setOrigin(1, 0).setDepth(15);
+    }).setOrigin(0.5, 0).setDepth(15).setVisible(false);
+
+    const statOffsets = [-38, -13, 13, 38];
+    this.statNumberTexts = statOffsets.map(offset => this.add.text(statsX + offset, statsY + 35, '0', {
+      fontSize: '14px',
+      fontFamily: FONT,
+      color: '#fff5d6',
+      stroke: '#160500',
+      strokeThickness: 3,
+      align: 'center',
+    }).setOrigin(0.5, 0.5).setDepth(15));
 
     if (this.textures.exists('ui-money-chip')) {
       this.add.image(width / 2, statsY + 16, 'ui-money-chip')
@@ -2345,7 +2357,7 @@ export class GrillScene extends Phaser.Scene {
 
     // 注目度數字：右上角（statsText 下方，避免重疊）
     const pressX = width - 10;
-    const pressY = 90; // statsText 在 y=55，這裡往下放
+    const pressY = 132; // stats panel sits above this
     this.pressureLevelText = this.add.text(pressX, pressY, '注目 0.0', {
       fontSize: '13px',
       fontFamily: FONT,
@@ -3736,7 +3748,13 @@ export class GrillScene extends Phaser.Scene {
 
   private updateStatsDisplay(): void {
     const rhythmStats = this.hitStats;
-    this.statsText.setText(`PERFECT ${rhythmStats.perfect}  GREAT ${rhythmStats.great}  GOOD ${rhythmStats.good}  MISS ${rhythmStats.miss}`);
+    this.statsText.setText('');
+    if (this.statNumberTexts.length === 4) {
+      this.statNumberTexts[0].setText(`${rhythmStats.perfect}`);
+      this.statNumberTexts[1].setText(`${rhythmStats.great}`);
+      this.statNumberTexts[2].setText(`${rhythmStats.good}`);
+      this.statNumberTexts[3].setText(`${rhythmStats.miss}`);
+    }
     this.revenueText.setText(`$${this.sessionRevenue}`);
   }
 

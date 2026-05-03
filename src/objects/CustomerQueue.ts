@@ -70,8 +70,8 @@ export class CustomerQueue extends Phaser.GameObjects.Container {
       || (Math.random() < 0.5 ? 'customer-normal-male' : 'customer-normal-female');
 
     const portraitPlate = this.scene.add.graphics();
-    portraitPlate.fillStyle(0x1b0a02, 0.62);
-    portraitPlate.lineStyle(2, 0xffc93a, 0.5);
+    portraitPlate.fillStyle(0x160703, 0.46);
+    portraitPlate.lineStyle(1, 0xb78a54, 0.34);
     portraitPlate.fillRoundedRect(-58, -61, 116, 122, 12);
     portraitPlate.strokeRoundedRect(-58, -61, 116, 122, 12);
     container.add(portraitPlate);
