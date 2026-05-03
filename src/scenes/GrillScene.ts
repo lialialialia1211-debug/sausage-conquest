@@ -2359,6 +2359,7 @@ export class GrillScene extends Phaser.Scene {
     const crowdY = height * 0.86;
 
     this.spectatorCrowd = new SpectatorCrowd(this, crowdX, crowdY);
+    this.spectatorCrowd.setLayoutSlots(this.getSpectatorSideSlots(width, height, crowdX, crowdY));
     this.spectatorCrowd.setDepth(5); // 在 HUD 下、香腸上
 
     // 注目度數字：右上角（statsText 下方，避免重疊）
@@ -2374,6 +2375,39 @@ export class GrillScene extends Phaser.Scene {
   }
 
   // ── Game logic ─────────────────────────────────────────────────────────────
+
+  private getSpectatorSideSlots(
+    width: number,
+    height: number,
+    crowdX: number,
+    crowdY: number,
+  ): { targetX: number; targetY: number }[] {
+    const warmWidth = Math.min(width * 0.56, 940);
+    const warmX = (width - warmWidth) / 2;
+    const plateWidth = warmWidth * 0.44;
+    const leftPlateLeft = warmX + warmWidth * 0.25 - plateWidth / 2;
+    const rightPlateRight = warmX + warmWidth * 0.75 + plateWidth / 2;
+
+    const margin = Math.max(82, width * 0.045);
+    const leftGap = Phaser.Math.Clamp((leftPlateLeft - margin) / 3, 74, 96);
+    const rightGap = Phaser.Math.Clamp((width - margin - rightPlateRight) / 3, 74, 96);
+    const baseY = height * 0.86;
+    const rows = [baseY - 10, baseY + 30, baseY + 2];
+
+    const slots = [
+      { x: leftPlateLeft - leftGap * 3, y: rows[0] },
+      { x: leftPlateLeft - leftGap * 2, y: rows[1] },
+      { x: leftPlateLeft - leftGap, y: rows[2] },
+      { x: rightPlateRight + rightGap, y: rows[2] },
+      { x: rightPlateRight + rightGap * 2, y: rows[1] },
+      { x: rightPlateRight + rightGap * 3, y: rows[0] },
+    ];
+
+    return slots.map(slot => ({
+      targetX: Phaser.Math.Clamp(slot.x, margin, width - margin) - crowdX,
+      targetY: slot.y - crowdY,
+    }));
+  }
 
   private loadOvernightSausages(): void {
     const overnight = gameState.warmingZone;

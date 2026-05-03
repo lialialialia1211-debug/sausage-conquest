@@ -55,6 +55,7 @@ export class SpectatorCrowd extends Phaser.GameObjects.Container {
   private spectators: SpectatorDisplay[] = [];
   // 壓力顯示用：記錄從 customerQueue 取得的當前等待客人耐心比
   private currentPatienceRatios: number[] = [];
+  private layoutSlots: { targetX: number; targetY: number }[] = [];
 
   constructor(scene: Phaser.Scene, x: number, y: number) {
     super(scene, x, y);
@@ -62,6 +63,10 @@ export class SpectatorCrowd extends Phaser.GameObjects.Container {
   }
 
   // ── Public API ──────────────────────────────────────────────────────────────
+
+  setLayoutSlots(slots: { targetX: number; targetY: number }[]): void {
+    this.layoutSlots = slots.slice(0, MAX_CAPACITY);
+  }
 
   /**
    * 加入一位圍觀者（shallow copy，不動原始 Customer 物件）
@@ -227,6 +232,10 @@ export class SpectatorCrowd extends Phaser.GameObjects.Container {
    * angle 從 π（左端）到 2π（右端）=> 下半圓
    */
   private calcPosition(idx: number): { targetX: number; targetY: number } {
+    if (this.layoutSlots.length > 0) {
+      return this.layoutSlots[idx % this.layoutSlots.length];
+    }
+
     const safeMax = Math.max(MAX_CAPACITY - 1, 1);
     const angle = Math.PI + (idx / safeMax) * Math.PI;
     const targetX = Math.cos(angle) * RADIUS;
