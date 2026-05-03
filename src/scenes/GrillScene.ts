@@ -2057,13 +2057,6 @@ export class GrillScene extends Phaser.Scene {
       });
     }
 
-    // Zone label
-    this.add.text(this.wzX + this.wzSlotW / 2, this.wzY - 16, '保溫區（點擊出餐）', {
-      fontSize: '11px',
-      fontFamily: FONT,
-      color: COLOR_DIM,
-    }).setOrigin(0.5).setDepth(5);
-
     // Create initial 16 empty slots (4 columns × 4 rows)
     for (let i = 0; i < 16; i++) {
       this.createWarmingSlotVisual();
@@ -2302,22 +2295,45 @@ export class GrillScene extends Phaser.Scene {
     }).setOrigin(1, 0).setDepth(10);
 
     // ── Top-right stats display ──────────────────────────────────────────
-    const statsX = width - 138;
+    const statsX = width - 142;
     const statsY = 55; // below the status bar
+    const statOffsets = [-76, -26, 25, 76];
+    const statColors = [0x33ddff, 0x77ff55, 0xffaa22, 0xff4433];
+    const statsBack = this.add.graphics();
+    statsBack.fillStyle(0x100402, 0.72);
+    statsBack.lineStyle(1.5, 0xffcc44, 0.62);
+    statsBack.fillRoundedRect(statsX - 132, statsY - 4, 264, 86, 8);
+    statsBack.strokeRoundedRect(statsX - 132, statsY - 4, 264, 86, 8);
+    statsBack.setDepth(13);
     if (this.textures.exists('ui-rhythm-stats-panel')) {
       this.add.image(statsX, statsY + 34, 'ui-rhythm-stats-panel')
-        .setDisplaySize(260, 82)
-        .setAlpha(0.74)
+        .setCrop(205, 24, 365, 206)
+        .setDisplaySize(286, 92)
+        .setAlpha(0.9)
         .setDepth(14);
     }
+    statOffsets.forEach((offset, idx) => {
+      const slot = this.add.graphics();
+      slot.fillStyle(0x070707, 0.68);
+      slot.lineStyle(2, statColors[idx], 0.95);
+      slot.fillRoundedRect(statsX + offset - 16, statsY + 18, 32, 28, 4);
+      slot.strokeRoundedRect(statsX + offset - 16, statsY + 18, 32, 28, 4);
+      slot.setDepth(14.5);
+      this.add.text(statsX + offset, statsY + 60, '★', {
+        fontSize: '10px',
+        fontFamily: FONT,
+        color: `#${statColors[idx].toString(16).padStart(6, '0')}`,
+        stroke: '#000000',
+        strokeThickness: 2,
+      }).setOrigin(0.5).setDepth(15);
+    });
 
     this.statsText = this.add.text(statsX, statsY + 12, '', {
       fontSize: '1px',
       fontFamily: FONT,
     }).setOrigin(0.5, 0).setDepth(15).setVisible(false);
 
-    const statOffsets = [-38, -13, 13, 38];
-    this.statNumberTexts = statOffsets.map(offset => this.add.text(statsX + offset, statsY + 35, '0', {
+    this.statNumberTexts = statOffsets.map(offset => this.add.text(statsX + offset, statsY + 32, '0', {
       fontSize: '14px',
       fontFamily: FONT,
       color: '#fff5d6',
@@ -2326,19 +2342,26 @@ export class GrillScene extends Phaser.Scene {
       align: 'center',
     }).setOrigin(0.5, 0.5).setDepth(15));
 
+    const moneyBack = this.add.graphics();
+    moneyBack.fillStyle(0x120604, 0.72);
+    moneyBack.lineStyle(1.5, 0xffcc44, 0.58);
+    moneyBack.fillRoundedRect(width / 2 - 96, statsY - 18, 192, 70, 32);
+    moneyBack.strokeRoundedRect(width / 2 - 96, statsY - 18, 192, 70, 32);
+    moneyBack.setDepth(8);
     if (this.textures.exists('ui-money-chip')) {
       this.add.image(width / 2, statsY + 16, 'ui-money-chip')
-        .setDisplaySize(152, 60)
-        .setAlpha(0.74)
+        .setCrop(20, 24, 472, 202)
+        .setDisplaySize(192, 76)
+        .setAlpha(0.9)
         .setDepth(9);
     }
-    this.revenueText = this.add.text(width / 2 + 8, statsY + 4, '$0', {
-      fontSize: '14px',
+    this.revenueText = this.add.text(width / 2 + 12, statsY + 17, '$0', {
+      fontSize: '15px',
       fontFamily: FONT,
       color: '#ffe8a3',
       stroke: '#000000',
       strokeThickness: 3,
-    }).setOrigin(0.5, 0).setDepth(10);
+    }).setOrigin(0.5).setDepth(10);
 
     // ── Combo counter (hidden until combo >= 2) ──────────────────────────
     this.comboText = this.add.text(width / 2, 32, '', {
@@ -2389,18 +2412,19 @@ export class GrillScene extends Phaser.Scene {
     const rightPlateRight = warmX + warmWidth * 0.75 + plateWidth / 2;
 
     const margin = Math.max(82, width * 0.045);
-    const leftGap = Phaser.Math.Clamp((leftPlateLeft - margin) / 3, 74, 96);
-    const rightGap = Phaser.Math.Clamp((width - margin - rightPlateRight) / 3, 74, 96);
+    const spectatorSpacing = 136;
     const baseY = height * 0.86;
     const rows = [baseY - 10, baseY + 30, baseY + 2];
+    const leftStartX = Phaser.Math.Clamp(leftPlateLeft - spectatorSpacing * 2, margin, leftPlateLeft);
+    const rightStartX = Phaser.Math.Clamp(rightPlateRight, rightPlateRight, width - margin - spectatorSpacing * 2);
 
     const slots = [
-      { x: leftPlateLeft - leftGap * 3, y: rows[0] },
-      { x: leftPlateLeft - leftGap * 2, y: rows[1] },
-      { x: leftPlateLeft - leftGap, y: rows[2] },
-      { x: rightPlateRight + rightGap, y: rows[2] },
-      { x: rightPlateRight + rightGap * 2, y: rows[1] },
-      { x: rightPlateRight + rightGap * 3, y: rows[0] },
+      { x: leftStartX, y: rows[0] },
+      { x: leftStartX + spectatorSpacing, y: rows[1] },
+      { x: leftStartX + spectatorSpacing * 2, y: rows[2] },
+      { x: rightStartX, y: rows[2] },
+      { x: rightStartX + spectatorSpacing, y: rows[1] },
+      { x: rightStartX + spectatorSpacing * 2, y: rows[0] },
     ];
 
     return slots.map(slot => ({

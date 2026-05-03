@@ -4,6 +4,7 @@ import Phaser from 'phaser';
 import type { Customer } from '../types';
 import { pickRandomQuote } from '../data/spectatorQuotes';
 import { CUSTOMER_VARIANT_KEYS } from '../data/customerPortraits';
+import { SAUSAGE_MAP } from '../data/sausages';
 
 // 每個圍觀者的顯示資料
 interface SpectatorDisplay {
@@ -26,30 +27,16 @@ export type SpectatorEvent =
   | 'perfect-served'
   | 'carbonized-served';
 
-// 反應氣泡設定
-interface BubbleConfig {
-  text: string;
-  color: string;
-  animation: 'pulse' | 'shake' | 'fly-left' | 'bounce' | 'float-up';
-  removeAfterAnim?: boolean; // 動畫完成後移除圍觀者
-}
-
-const BUBBLE_MAP: Record<SpectatorEvent, BubbleConfig> = {
-  golden:           { text: '◎',    color: '#ffd700', animation: 'pulse' },
-  hot:              { text: '!',    color: '#ff8800', animation: 'shake' },
-  burnt:            { text: '✕',    color: '#ff3300', animation: 'fly-left', removeAfterAnim: true },
-  slow:             { text: '早點啦', color: '#ff6666', animation: 'bounce' },
-  'perfect-served': { text: '+',    color: '#44ff88', animation: 'float-up' },
-  'carbonized-served': { text: '(離席)', color: '#888888', animation: 'fly-left', removeAfterAnim: true },
-};
-
 // 圍觀者圖像選擇邏輯（與 CustomerQueue 保持一致）
 const SPECTATOR_SIZE = 90;     // 放大讓圍觀者清晰可見
 const MAX_CAPACITY = 6;        // S7.5: 從 12 砍半，配合 RADIUS 280 確保不重疊
 const RADIUS = 280;            // S7.5: 從 200 拉到 280（90px portrait 相鄰弧長 ≈ 146px > 90px）
 const NATURAL_LEAVE_MIN = 15;  // 圍觀者最短在場秒數
 const NATURAL_LEAVE_MAX = 30;  // 圍觀者最長在場秒數
-const BUBBLE_DURATION = 2.5;   // 氣泡顯示秒數
+const SPECTATOR_CARD_W = 132;
+const SPECTATOR_CARD_H = 144;
+const SPECTATOR_BAR_W = 124;
+const SPECTATOR_BAR_H = 10;
 
 export class SpectatorCrowd extends Phaser.GameObjects.Container {
   private spectators: SpectatorDisplay[] = [];
@@ -85,24 +72,7 @@ export class SpectatorCrowd extends Phaser.GameObjects.Container {
     const container = this.scene.add.container(spawnX, targetY);
     this.add(container);
 
-    // 選擇肖像圖
-    const customerVariantKeys = CUSTOMER_VARIANT_KEYS.filter(key => this.scene.textures.exists(key));
-    const imageKey = customerVariantKeys[Math.floor(Math.random() * customerVariantKeys.length)]
-      || (Math.random() < 0.5 ? 'customer-normal-male' : 'customer-normal-female');
-
-    if (this.scene.textures.exists(imageKey)) {
-      const portrait = this.scene.add.image(0, 0, imageKey);
-      const pScale = Math.min(SPECTATOR_SIZE / portrait.width, SPECTATOR_SIZE / portrait.height);
-      portrait.setScale(pScale);
-      container.add(portrait);
-    } else {
-      // 備援：用文字佔位
-      const fallback = this.scene.add.text(0, 0, '人', {
-        fontSize: '24px',
-        color: '#cccccc',
-      }).setOrigin(0.5);
-      container.add(fallback);
-    }
+    this.addSpectatorCard(container, customer);
 
     // 進場 tween：從遠端滑入
     this.scene.tweens.add({
@@ -126,17 +96,75 @@ export class SpectatorCrowd extends Phaser.GameObjects.Container {
     this.spectators.push(display);
   }
 
+  private addSpectatorCard(container: Phaser.GameObjects.Container, customer: Customer): void {
+    const card = this.scene.add.graphics();
+    card.fillStyle(0x160703, 0.46);
+    card.lineStyle(1, 0xb78a54, 0.34);
+    card.fillRoundedRect(-SPECTATOR_CARD_W / 2, -66, SPECTATOR_CARD_W, SPECTATOR_CARD_H, 12);
+    card.strokeRoundedRect(-SPECTATOR_CARD_W / 2, -66, SPECTATOR_CARD_W, SPECTATOR_CARD_H, 12);
+    container.add(card);
+
+    const customerVariantKeys = CUSTOMER_VARIANT_KEYS.filter(key => this.scene.textures.exists(key));
+    const imageKey = customerVariantKeys[Math.floor(Math.random() * customerVariantKeys.length)]
+      || (Math.random() < 0.5 ? 'customer-normal-male' : 'customer-normal-female');
+
+    if (this.scene.textures.exists(imageKey)) {
+      const portrait = this.scene.add.image(0, 0, imageKey);
+      const pScale = Math.min(126 / portrait.width, 122 / portrait.height);
+      portrait.setScale(pScale);
+      container.add(portrait);
+    } else {
+      const fallback = this.scene.add.text(0, 0, '人', {
+        fontSize: '24px',
+        color: '#cccccc',
+      }).setOrigin(0.5);
+      container.add(fallback);
+    }
+
+    const patBarBg = this.scene.add.graphics();
+    patBarBg.fillStyle(0x333333, 1);
+    patBarBg.fillRect(-SPECTATOR_BAR_W / 2, 74, SPECTATOR_BAR_W, SPECTATOR_BAR_H);
+    container.add(patBarBg);
+
+    const patBarFill = this.scene.add.graphics();
+    patBarFill.fillStyle(0x36df55, 1);
+    patBarFill.fillRect(-SPECTATOR_BAR_W / 2, 74, SPECTATOR_BAR_W * 0.86, SPECTATOR_BAR_H);
+    container.add(patBarFill);
+
+    if (this.scene.textures.exists('ui-customer-patience-bar')) {
+      container.add(
+        this.scene.add.image(0, 79, 'ui-customer-patience-bar')
+          .setDisplaySize(SPECTATOR_BAR_W + 20, 28)
+          .setAlpha(0.78),
+      );
+    }
+
+    if (customer.order) {
+      const sausageInfo = SAUSAGE_MAP[customer.order.sausageType];
+      const baseName = sausageInfo?.name ?? '香腸';
+      const bubbleText = customer.order.wantGarlic ? `${baseName} 🧄` : baseName;
+      container.add(
+        this.scene.add.text(0, -80, bubbleText, {
+          fontSize: '15px',
+          fontFamily: 'Microsoft JhengHei, PingFang TC, sans-serif',
+          color: '#fff3c2',
+          stroke: '#230800',
+          strokeThickness: 3,
+          backgroundColor: '#2a0c02',
+          padding: { x: 5, y: 2 },
+          align: 'center',
+          fixedWidth: 128,
+        }).setOrigin(0.5),
+      );
+    }
+  }
+
   /**
    * 依事件觸發所有圍觀者反應氣泡
    */
-  reactToStage(event: SpectatorEvent): void {
-    if (this.spectators.length === 0) return;
-    const config = BUBBLE_MAP[event];
-    if (!config) return;
-
-    for (const sp of this.spectators) {
-      this.showBubble(sp, config);
-    }
+  reactToStage(_event: SpectatorEvent): void {
+    // Short icon bubbles were visually noisy below the warming trays.
+    // Keep spectators as background crowd cards; long quote bubbles still work.
   }
 
   /**
@@ -332,108 +360,4 @@ export class SpectatorCrowd extends Phaser.GameObjects.Container {
     });
   }
 
-  /**
-   * 在指定圍觀者頭上顯示氣泡，並根據設定播放動畫
-   */
-  private showBubble(sp: SpectatorDisplay, config: BubbleConfig): void {
-    // 若容器已被摧毀，跳過
-    if (!sp.container?.active) return;
-
-    // 移除舊氣泡
-    if (sp.reactionBubble?.active) {
-      sp.reactionBubble.destroy();
-      sp.reactionBubble = null;
-    }
-
-    // 在 container 頂端建立氣泡文字
-    const bubble = this.scene.add.text(
-      sp.container.x + this.x,
-      sp.container.y + this.y - SPECTATOR_SIZE / 2 - 10,
-      config.text,
-      {
-        fontSize: '18px',
-        color: config.color,
-        backgroundColor: '#000000aa',
-        padding: { x: 5, y: 3 },
-        stroke: '#000000',
-        strokeThickness: 2,
-      },
-    ).setOrigin(0.5, 1).setDepth(200);
-
-    sp.reactionBubble = bubble;
-    sp.bubbleTimer = BUBBLE_DURATION;
-
-    // 播放對應動畫
-    switch (config.animation) {
-      case 'pulse':
-        this.scene.tweens.add({
-          targets: bubble,
-          scaleX: { from: 1.0, to: 1.15 },
-          scaleY: { from: 1.0, to: 1.15 },
-          duration: 150,
-          yoyo: true,
-          repeat: 1,
-          ease: 'Sine.easeInOut',
-        });
-        break;
-
-      case 'shake':
-        this.scene.tweens.add({
-          targets: bubble,
-          x: { from: bubble.x - 5, to: bubble.x + 5 },
-          duration: 80,
-          yoyo: true,
-          repeat: 2,
-          ease: 'Linear',
-        });
-        break;
-
-      case 'fly-left':
-        this.scene.tweens.add({
-          targets: bubble,
-          x: bubble.x - 60,
-          alpha: 0,
-          duration: 500,
-          ease: 'Power2',
-          onComplete: () => {
-            if (bubble?.active) bubble.destroy();
-            sp.reactionBubble = null;
-          },
-        });
-        // 若設定 removeAfterAnim，動畫後移除圍觀者
-        if (config.removeAfterAnim) {
-          this.scene.time.delayedCall(500, () => {
-            if (this.spectators.includes(sp)) {
-              this.removeSpectator(sp, true);
-            }
-          });
-        }
-        break;
-
-      case 'bounce':
-        this.scene.tweens.add({
-          targets: bubble,
-          y: { from: bubble.y, to: bubble.y - 4 },
-          duration: 200,
-          yoyo: true,
-          repeat: 2,
-          ease: 'Sine.easeInOut',
-        });
-        break;
-
-      case 'float-up':
-        this.scene.tweens.add({
-          targets: bubble,
-          y: bubble.y - 40,
-          alpha: 0,
-          duration: 700,
-          ease: 'Power2',
-          onComplete: () => {
-            if (bubble?.active) bubble.destroy();
-            sp.reactionBubble = null;
-          },
-        });
-        break;
-    }
-  }
 }
