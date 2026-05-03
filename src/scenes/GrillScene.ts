@@ -181,6 +181,7 @@ export class GrillScene extends Phaser.Scene {
   private timerText!: Phaser.GameObjects.Text;
   private revenueText!: Phaser.GameObjects.Text;
   private statsText!: Phaser.GameObjects.Text;
+  private statsPanelImage: Phaser.GameObjects.Image | null = null;
   private statNumberTexts: Phaser.GameObjects.Text[] = [];
   private feedbackTexts: Phaser.GameObjects.Text[] = [];
   // Fire emoji particles floating upward
@@ -2295,44 +2296,38 @@ export class GrillScene extends Phaser.Scene {
     }).setOrigin(1, 0).setDepth(10);
 
     // ── Top-right stats display ──────────────────────────────────────────
-    const statsX = width - 154;
+    const statsX = width - 176;
     const statsY = 55; // below the status bar
-    const statOffsets = [-96, -32, 32, 96];
-    const statColors = [0x33ddff, 0x77ff55, 0xffaa22, 0xff4433];
+    const statOffsets = [-65, -24, 18, 60];
     const statsBack = this.add.graphics();
     statsBack.fillStyle(0x100402, 0.72);
     statsBack.lineStyle(1.5, 0xffcc44, 0.62);
-    statsBack.fillRoundedRect(statsX - 164, statsY - 8, 328, 106, 10);
-    statsBack.strokeRoundedRect(statsX - 164, statsY - 8, 328, 106, 10);
-    statsBack.setDepth(13);
-    if (this.textures.exists('ui-rhythm-stats-panel')) {
-      this.add.image(statsX, statsY + 34, 'ui-rhythm-stats-panel')
-        .setDisplaySize(336, 112)
-        .setAlpha(0.96)
-        .setDepth(14);
-    }
-    statOffsets.forEach((offset, idx) => {
-      const slot = this.add.graphics();
-      slot.fillStyle(0x070707, 0.68);
-      slot.lineStyle(2, statColors[idx], 0.95);
-      slot.fillRoundedRect(statsX + offset - 19, statsY + 19, 38, 32, 4);
-      slot.strokeRoundedRect(statsX + offset - 19, statsY + 19, 38, 32, 4);
-      slot.setDepth(14.5);
-    });
+    statsBack.fillRoundedRect(statsX - 210, statsY - 16, 420, 132, 10);
+    statsBack.strokeRoundedRect(statsX - 210, statsY - 16, 420, 132, 10);
+    statsBack.setDepth(80);
+    const ensureStatsPanel = () => {
+      if (this.statsPanelImage?.active || !this.textures.exists('ui-rhythm-stats-panel')) return;
+      this.statsPanelImage = this.add.image(statsX, statsY + 48, 'ui-rhythm-stats-panel')
+        .setDisplaySize(420, 140)
+        .setAlpha(1)
+        .setDepth(81);
+    };
+    ensureStatsPanel();
+    this.time.delayedCall(100, ensureStatsPanel);
 
     this.statsText = this.add.text(statsX, statsY + 12, '', {
       fontSize: '1px',
       fontFamily: FONT,
-    }).setOrigin(0.5, 0).setDepth(15).setVisible(false);
+    }).setOrigin(0.5, 0).setDepth(82).setVisible(false);
 
-    this.statNumberTexts = statOffsets.map(offset => this.add.text(statsX + offset, statsY + 35, '0', {
+    this.statNumberTexts = statOffsets.map(offset => this.add.text(statsX + offset, statsY + 60, '0', {
       fontSize: '15px',
       fontFamily: FONT,
       color: '#fff5d6',
       stroke: '#160500',
       strokeThickness: 3,
       align: 'center',
-    }).setOrigin(0.5, 0.5).setDepth(15));
+    }).setOrigin(0.5, 0.5).setDepth(82));
 
     const moneyBack = this.add.graphics();
     moneyBack.fillStyle(0x120604, 0.72);
