@@ -1019,14 +1019,15 @@ export class GrillScene extends Phaser.Scene {
     lane.strokePath();
 
     const laneGlow = this.add.graphics().setDepth(9.5);
-    laneGlow.fillStyle(0xff6b00, 0.10);
+    laneGlow.fillStyle(0xff6b00, 0.08);
     laneGlow.fillEllipse(this.noteHitX, this.noteTrackY, 310, 118);
-    laneGlow.lineStyle(3, 0xffe066, 0.28);
+    laneGlow.lineStyle(2, 0xffe066, 0.20);
     laneGlow.strokeEllipse(this.noteHitX, this.noteTrackY, 330, 124);
 
     // Judgement target: brighter and larger so players read the timing point first.
+    let judgeTarget: Phaser.GameObjects.Image | Phaser.GameObjects.Graphics;
     if (this.textures.exists('ui-hit-zone')) {
-      this.add.image(this.noteHitX, this.noteTrackY, 'ui-hit-zone')
+      judgeTarget = this.add.image(this.noteHitX, this.noteTrackY, 'ui-hit-zone')
         .setDisplaySize(132, 132)
         .setDepth(11);
     } else {
@@ -1045,26 +1046,15 @@ export class GrillScene extends Phaser.Scene {
       judgeCircle.lineTo(this.noteHitX, this.noteTrackY + 58);
       judgeCircle.strokePath();
       judgeCircle.setDepth(10);
+      judgeTarget = judgeCircle;
     }
 
-    const targetPulse = this.add.graphics().setDepth(10.5);
-    targetPulse.lineStyle(3, 0xfff066, 0.8);
-    targetPulse.strokeCircle(this.noteHitX, this.noteTrackY, 66);
     this.tweens.add({
-      targets: targetPulse,
-      alpha: { from: 0.65, to: 0.15 },
-      scaleX: { from: 0.92, to: 1.12 },
-      scaleY: { from: 0.92, to: 1.12 },
-      duration: 760,
-      yoyo: true,
-      repeat: -1,
-      ease: 'Sine.InOut',
-    });
-    this.tweens.add({
-      targets: laneGlow,
-      alpha: { from: 0.72, to: 0.28 },
-      scaleX: { from: 0.98, to: 1.05 },
-      duration: 840,
+      targets: judgeTarget,
+      alpha: { from: 0.92, to: 0.72 },
+      scaleX: { from: 0.96, to: 1.04 },
+      scaleY: { from: 0.96, to: 1.04 },
+      duration: 920,
       yoyo: true,
       repeat: -1,
       ease: 'Sine.InOut',
@@ -3770,14 +3760,10 @@ export class GrillScene extends Phaser.Scene {
   }
 
   private burstHitZone(judgement: HitJudgement): void {
-    const color =
+    const primarySparkColor =
       judgement === 'perfect' ? 0xfff066 :
       judgement === 'great' ? 0x66ddff :
       0xff8844;
-    const secondaryColor =
-      judgement === 'perfect' ? 0xff6b00 :
-      judgement === 'great' ? 0xffffff :
-      0xffcc66;
     const x = this.noteHitX;
     const y = this.noteTrackY;
     const intensity =
@@ -3785,107 +3771,75 @@ export class GrillScene extends Phaser.Scene {
       judgement === 'great' ? 1.0 :
       0.75;
 
-    const screenFlash = this.add.rectangle(
-      this.scale.width / 2,
-      this.scale.height / 2,
-      this.scale.width,
-      this.scale.height,
-      color,
-      0.08 * intensity,
-    ).setDepth(203);
-    this.tweens.add({
-      targets: screenFlash,
-      alpha: 0,
-      duration: 120,
-      ease: 'Quad.Out',
-      onComplete: () => screenFlash.destroy(),
-    });
-
-    const flash = this.add.graphics().setDepth(204);
-    flash.fillStyle(color, 0.42 * intensity);
-    flash.fillCircle(x, y, 66);
-    flash.fillStyle(0xffffff, 0.34 * intensity);
-    flash.fillCircle(x, y, 38);
-    this.tweens.add({
-      targets: flash,
-      alpha: 0,
-      scaleX: 2.8 * intensity,
-      scaleY: 2.8 * intensity,
-      duration: 180,
-      ease: 'Cubic.Out',
-      onComplete: () => flash.destroy(),
-    });
-
-    const ring = this.add.graphics().setDepth(205);
-    ring.lineStyle(11, color, 1);
-    ring.strokeCircle(x, y, 36);
-    ring.lineStyle(5, secondaryColor, 0.95);
-    ring.strokeCircle(x, y, 58);
-    ring.lineStyle(2, 0xffffff, 0.9);
-    ring.strokeCircle(x, y, 18);
-    this.tweens.add({
-      targets: ring,
-      alpha: 0,
-      scaleX: 3.2 * intensity,
-      scaleY: 3.2 * intensity,
-      duration: 340,
-      ease: 'Cubic.Out',
-      onComplete: () => ring.destroy(),
-    });
-
-    for (let i = 0; i < 34; i++) {
-      const angle = (Math.PI * 2 * i) / 34;
-      const distance = Phaser.Math.Between(64, 148) * intensity;
-      const spark = this.add.graphics().setDepth(206);
-      spark.fillStyle(i % 4 === 0 ? 0xffffff : (i % 2 === 0 ? color : secondaryColor), 1);
-      spark.fillCircle(x, y, i % 3 === 0 ? 6 : 4);
+    for (let i = 0; i < 36; i++) {
+      const angle = (Math.PI * 2 * i) / 36 + Phaser.Math.FloatBetween(-0.10, 0.10);
+      const distance = Phaser.Math.Between(22, 72) * intensity;
+      const spark = this.add.graphics().setPosition(x, y).setDepth(1200);
+      const sparkColor = i % 5 === 0 ? 0xffffff : (i % 2 === 0 ? primarySparkColor : 0xff6b00);
+      const startRadius = Phaser.Math.Between(42, 58);
+      const sparkLength = Phaser.Math.Between(54, 104) * intensity;
+      spark.lineStyle(i % 3 === 0 ? 10 : 7, sparkColor, 1);
+      spark.beginPath();
+      spark.moveTo(Math.cos(angle) * startRadius, Math.sin(angle) * startRadius);
+      spark.lineTo(Math.cos(angle) * (startRadius + sparkLength), Math.sin(angle) * (startRadius + sparkLength));
+      spark.strokePath();
+      spark.fillStyle(sparkColor, 1);
+      spark.fillCircle(Math.cos(angle) * startRadius, Math.sin(angle) * startRadius, i % 3 === 0 ? 7 : 5);
       this.tweens.add({
         targets: spark,
-        x: Math.cos(angle) * distance,
-        y: Math.sin(angle) * distance,
+        x: x + Math.cos(angle) * distance,
+        y: y + Math.sin(angle) * distance,
         alpha: 0,
-        duration: 260 + i * 6,
+        scaleX: 0.65,
+        scaleY: 0.65,
+        duration: 300 + i * 4,
         ease: 'Quad.Out',
         onComplete: () => spark.destroy(),
       });
     }
 
-    const slash = this.add.graphics().setDepth(206);
-    slash.lineStyle(5, secondaryColor, 0.95);
-    slash.beginPath();
-    slash.moveTo(x - 92, y + 42);
-    slash.lineTo(x + 92, y - 42);
-    slash.moveTo(x - 72, y - 36);
-    slash.lineTo(x + 72, y + 36);
-    slash.strokePath();
-    this.tweens.add({
-      targets: slash,
-      alpha: 0,
-      scaleX: 1.45,
-      scaleY: 1.45,
-      duration: 220,
-      ease: 'Cubic.Out',
-      onComplete: () => slash.destroy(),
-    });
+    for (let i = 0; i < 18; i++) {
+      const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
+      const startRadius = Phaser.Math.Between(58, 76);
+      const particle = this.add.graphics().setPosition(
+        x + Math.cos(angle) * startRadius,
+        y + Math.sin(angle) * startRadius,
+      ).setDepth(1201);
+      const particleColor = i % 3 === 0 ? 0xffffff : (i % 2 === 0 ? 0xfff066 : 0xff6b00);
+      particle.fillStyle(particleColor, 1);
+      particle.fillCircle(0, 0, Phaser.Math.Between(7, 12));
+      this.tweens.add({
+        targets: particle,
+        x: x + Math.cos(angle) * Phaser.Math.Between(96, 158) * intensity,
+        y: y + Math.sin(angle) * Phaser.Math.Between(96, 158) * intensity,
+        alpha: 0,
+        scaleX: 0.35,
+        scaleY: 0.35,
+        duration: 300 + i * 8,
+        ease: 'Quad.Out',
+        onComplete: () => particle.destroy(),
+      });
+    }
 
-    const shock = this.add.text(x, y, 'BOOM', {
-      fontSize: judgement === 'perfect' ? '34px' : '26px',
-      fontFamily: FONT,
-      color: '#ffffff',
-      stroke: '#ff3300',
-      strokeThickness: 5,
-      fontStyle: '900',
-    }).setOrigin(0.5).setDepth(207).setAlpha(0.95);
-    this.tweens.add({
-      targets: shock,
-      y: y - 18,
-      scaleX: 1.35,
-      scaleY: 1.35,
-      alpha: 0,
-      duration: 260,
-      ease: 'Back.Out',
-      onComplete: () => shock.destroy(),
-    });
+    for (let i = 0; i < 8; i++) {
+      const emberStartX = x + Phaser.Math.Between(-34, 34);
+      const emberStartY = y + Phaser.Math.Between(-42, 16);
+      const ember = this.add.graphics().setPosition(emberStartX, emberStartY).setDepth(1199);
+      const angle = Phaser.Math.FloatBetween(-Math.PI * 0.95, -Math.PI * 0.05);
+      ember.fillStyle(i % 2 === 0 ? 0xff6b00 : 0xfff066, 0.95);
+      ember.fillCircle(0, 0, Phaser.Math.Between(5, 9));
+      this.tweens.add({
+        targets: ember,
+        x: emberStartX + Math.cos(angle) * Phaser.Math.Between(18, 46),
+        y: emberStartY + Math.sin(angle) * Phaser.Math.Between(32, 72),
+        alpha: 0,
+        scaleX: 0.25,
+        scaleY: 0.25,
+        duration: 320 + i * 24,
+        ease: 'Sine.Out',
+        onComplete: () => ember.destroy(),
+      });
+    }
   }
 
   /**
