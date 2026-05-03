@@ -106,7 +106,7 @@ export class BootScene extends Phaser.Scene {
     this.load.image('hud-day', 'hud-day.png');
 
     // ?? Generated UI assets ??
-    UI_ASSETS.forEach(asset => this.load.image(asset.key, asset.path));
+    UI_ASSETS.forEach(asset => this.load.image(asset.key, `${import.meta.env.BASE_URL}${asset.path}`));
 
     // ?? BGM ??
     this.load.audio('bgm-grill', 'bgm-grill.mp3');

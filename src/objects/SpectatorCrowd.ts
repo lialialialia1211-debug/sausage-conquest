@@ -14,6 +14,8 @@ interface SpectatorDisplay {
   arrivedAt: number;           // scene time (ms) 用來計算排隊時間
   bubbleTimer: number;         // 短反應氣泡剩餘顯示秒數（倒計時）
   naturalLeaveTimer: number;   // 自然離場倒計時（秒）
+  naturalLeaveDuration: number;
+  patBarFill: Phaser.GameObjects.Graphics;
   quoteBubble: Phaser.GameObjects.Text | null;      // 長對白氣泡（獨立 slot，不被短氣泡覆蓋）
   quoteBubbleTimer: number;    // 長對白氣泡剩餘顯示秒數
 }
@@ -72,7 +74,8 @@ export class SpectatorCrowd extends Phaser.GameObjects.Container {
     const container = this.scene.add.container(spawnX, targetY);
     this.add(container);
 
-    this.addSpectatorCard(container, customer);
+    const patBarFill = this.addSpectatorCard(container, customer);
+    const naturalLeaveDuration = NATURAL_LEAVE_MIN + Math.random() * (NATURAL_LEAVE_MAX - NATURAL_LEAVE_MIN);
 
     // 進場 tween：從遠端滑入
     this.scene.tweens.add({
@@ -88,7 +91,9 @@ export class SpectatorCrowd extends Phaser.GameObjects.Container {
       reactionBubble: null,
       arrivedAt: this.scene.time.now,
       bubbleTimer: 0,
-      naturalLeaveTimer: NATURAL_LEAVE_MIN + Math.random() * (NATURAL_LEAVE_MAX - NATURAL_LEAVE_MIN),
+      naturalLeaveTimer: naturalLeaveDuration,
+      naturalLeaveDuration,
+      patBarFill,
       quoteBubble: null,
       quoteBubbleTimer: 0,
     };
@@ -96,7 +101,7 @@ export class SpectatorCrowd extends Phaser.GameObjects.Container {
     this.spectators.push(display);
   }
 
-  private addSpectatorCard(container: Phaser.GameObjects.Container, customer: Customer): void {
+  private addSpectatorCard(container: Phaser.GameObjects.Container, customer: Customer): Phaser.GameObjects.Graphics {
     const card = this.scene.add.graphics();
     card.fillStyle(0x160703, 0.46);
     card.lineStyle(1, 0xb78a54, 0.34);
@@ -128,16 +133,8 @@ export class SpectatorCrowd extends Phaser.GameObjects.Container {
 
     const patBarFill = this.scene.add.graphics();
     patBarFill.fillStyle(0x36df55, 1);
-    patBarFill.fillRect(-SPECTATOR_BAR_W / 2, 74, SPECTATOR_BAR_W * 0.86, SPECTATOR_BAR_H);
+    patBarFill.fillRect(-SPECTATOR_BAR_W / 2, 74, SPECTATOR_BAR_W, SPECTATOR_BAR_H);
     container.add(patBarFill);
-
-    if (this.scene.textures.exists('ui-customer-patience-bar')) {
-      container.add(
-        this.scene.add.image(0, 79, 'ui-customer-patience-bar')
-          .setDisplaySize(SPECTATOR_BAR_W + 20, 28)
-          .setAlpha(0.78),
-      );
-    }
 
     if (customer.order) {
       const sausageInfo = SAUSAGE_MAP[customer.order.sausageType];
@@ -157,6 +154,8 @@ export class SpectatorCrowd extends Phaser.GameObjects.Container {
         }).setOrigin(0.5),
       );
     }
+
+    return patBarFill;
   }
 
   /**
@@ -229,6 +228,7 @@ export class SpectatorCrowd extends Phaser.GameObjects.Container {
 
       // 自然離場計時
       sp.naturalLeaveTimer -= deltaSec;
+      this.redrawSpectatorTimer(sp);
       if (sp.naturalLeaveTimer <= 0) {
         toRemove.push(sp);
       }
@@ -237,6 +237,16 @@ export class SpectatorCrowd extends Phaser.GameObjects.Container {
     for (const sp of toRemove) {
       this.removeSpectator(sp, true);
     }
+  }
+
+  private redrawSpectatorTimer(sp: SpectatorDisplay): void {
+    if (!sp.patBarFill?.active) return;
+    const frac = Phaser.Math.Clamp(sp.naturalLeaveTimer / sp.naturalLeaveDuration, 0, 1);
+    const fillW = Math.round(frac * SPECTATOR_BAR_W);
+    const color = frac > 0.55 ? 0x36df55 : frac > 0.25 ? 0xffcc33 : 0xff4444;
+    sp.patBarFill.clear();
+    sp.patBarFill.fillStyle(color, 1);
+    sp.patBarFill.fillRect(-SPECTATOR_BAR_W / 2, 74, fillW, SPECTATOR_BAR_H);
   }
 
   /**

@@ -2295,37 +2295,29 @@ export class GrillScene extends Phaser.Scene {
     }).setOrigin(1, 0).setDepth(10);
 
     // ── Top-right stats display ──────────────────────────────────────────
-    const statsX = width - 142;
+    const statsX = width - 154;
     const statsY = 55; // below the status bar
-    const statOffsets = [-76, -26, 25, 76];
+    const statOffsets = [-96, -32, 32, 96];
     const statColors = [0x33ddff, 0x77ff55, 0xffaa22, 0xff4433];
     const statsBack = this.add.graphics();
     statsBack.fillStyle(0x100402, 0.72);
     statsBack.lineStyle(1.5, 0xffcc44, 0.62);
-    statsBack.fillRoundedRect(statsX - 132, statsY - 4, 264, 86, 8);
-    statsBack.strokeRoundedRect(statsX - 132, statsY - 4, 264, 86, 8);
+    statsBack.fillRoundedRect(statsX - 164, statsY - 8, 328, 106, 10);
+    statsBack.strokeRoundedRect(statsX - 164, statsY - 8, 328, 106, 10);
     statsBack.setDepth(13);
     if (this.textures.exists('ui-rhythm-stats-panel')) {
       this.add.image(statsX, statsY + 34, 'ui-rhythm-stats-panel')
-        .setCrop(205, 24, 365, 206)
-        .setDisplaySize(286, 92)
-        .setAlpha(0.9)
+        .setDisplaySize(336, 112)
+        .setAlpha(0.96)
         .setDepth(14);
     }
     statOffsets.forEach((offset, idx) => {
       const slot = this.add.graphics();
       slot.fillStyle(0x070707, 0.68);
       slot.lineStyle(2, statColors[idx], 0.95);
-      slot.fillRoundedRect(statsX + offset - 16, statsY + 18, 32, 28, 4);
-      slot.strokeRoundedRect(statsX + offset - 16, statsY + 18, 32, 28, 4);
+      slot.fillRoundedRect(statsX + offset - 19, statsY + 19, 38, 32, 4);
+      slot.strokeRoundedRect(statsX + offset - 19, statsY + 19, 38, 32, 4);
       slot.setDepth(14.5);
-      this.add.text(statsX + offset, statsY + 60, '★', {
-        fontSize: '10px',
-        fontFamily: FONT,
-        color: `#${statColors[idx].toString(16).padStart(6, '0')}`,
-        stroke: '#000000',
-        strokeThickness: 2,
-      }).setOrigin(0.5).setDepth(15);
     });
 
     this.statsText = this.add.text(statsX, statsY + 12, '', {
@@ -2333,8 +2325,8 @@ export class GrillScene extends Phaser.Scene {
       fontFamily: FONT,
     }).setOrigin(0.5, 0).setDepth(15).setVisible(false);
 
-    this.statNumberTexts = statOffsets.map(offset => this.add.text(statsX + offset, statsY + 32, '0', {
-      fontSize: '14px',
+    this.statNumberTexts = statOffsets.map(offset => this.add.text(statsX + offset, statsY + 35, '0', {
+      fontSize: '15px',
       fontFamily: FONT,
       color: '#fff5d6',
       stroke: '#160500',
