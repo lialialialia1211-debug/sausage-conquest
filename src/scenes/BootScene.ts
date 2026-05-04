@@ -273,6 +273,14 @@ export class BootScene extends Phaser.Scene {
         purchaseQuantities: starterInventory,
         prices: starterPrices,
       });
+      leftZone.disableInteractive();
+      rightZone.disableInteractive();
+      this.tweens.add({
+        targets: [title, ...modeCardObjects],
+        alpha: 0,
+        duration: 180,
+        ease: 'Quad.Out',
+      });
       let songSelected = false;
       EventBus.once('song-select-done', () => {
         if (songSelected) return;
