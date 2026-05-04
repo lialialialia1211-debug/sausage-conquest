@@ -71,6 +71,7 @@ const COLOR_BG_BTM = 0x1a0800;
 const COLOR_ORANGE = '#ff6b00';
 const COLOR_DIM = '#664422';
 const FONT = 'Microsoft JhengHei, PingFang TC, sans-serif';
+const COMBO_100_VIDEO_URL = `${import.meta.env.BASE_URL}videos/combo-100.mp4`;
 
 type CombatDoneResult = { undergroundRepDelta?: number; chaosPoints?: number };
 
@@ -254,6 +255,8 @@ export class GrillScene extends Phaser.Scene {
   private rhythmComboBadge: Phaser.GameObjects.Image | null = null;
   private rhythmComboSfxPlayed = new Set<number>();
   private fullComboSfxPlayed = false;
+  private combo100CutinContainer: Phaser.GameObjects.Container | null = null;
+  private combo100CutinPlayed = false;
 
   // ── Wave 6e: Service combo state ─────────────────────────────────────────
   // Total service combo groups injected this session (used for future summary display)
@@ -427,6 +430,8 @@ export class GrillScene extends Phaser.Scene {
     this.rhythmComboBadge = null;
     this.rhythmComboSfxPlayed = new Set<number>();
     this.fullComboSfxPlayed = false;
+    this.combo100CutinContainer = null;
+    this.combo100CutinPlayed = false;
 
     // ── Auto-pack timer reset ──
     this.autoServeTimer = 0;
@@ -1449,7 +1454,99 @@ export class GrillScene extends Phaser.Scene {
       sfx.playCombo50Voice();
     } else if (milestone === 100) {
       sfx.playCombo100Voice();
+      this.playCombo100Cutin();
     }
+  }
+
+  private playCombo100Cutin(): void {
+    if (this.combo100CutinPlayed || this.combo100CutinContainer?.active) return;
+    this.combo100CutinPlayed = true;
+
+    const x = this.scale.width / 2;
+    const y = (this.wzY || this.scale.height * 0.72) + 58;
+    const maxW = Math.min(280, this.scale.width * 0.18);
+    const maxH = Math.min(160, this.scale.height * 0.18);
+    const container = this.add.container(x, y).setDepth(18).setAlpha(0);
+    this.combo100CutinContainer = container;
+
+    const frame = this.add.graphics();
+    frame.fillStyle(0x120402, 0.72);
+    frame.lineStyle(2, 0xffd447, 0.86);
+    frame.fillRoundedRect(-maxW / 2 - 8, -maxH / 2 - 8, maxW + 16, maxH + 16, 10);
+    frame.strokeRoundedRect(-maxW / 2 - 8, -maxH / 2 - 8, maxW + 16, maxH + 16, 10);
+    container.add(frame);
+    const fallbackBg = this.add.rectangle(0, 0, maxW, maxH, 0x1a0703, 0.88)
+      .setStrokeStyle(1, 0xff8844, 0.5);
+    const fallbackLabel = this.add.text(0, -14, '100 COMBO', {
+      fontSize: '22px',
+      fontFamily: FONT,
+      color: '#ffe066',
+      stroke: '#260800',
+      strokeThickness: 5,
+      fontStyle: '900',
+    }).setOrigin(0.5);
+    const fallbackHint = this.add.text(0, 22, '影片待機位', {
+      fontSize: '13px',
+      fontFamily: FONT,
+      color: '#ffc890',
+      stroke: '#000000',
+      strokeThickness: 3,
+    }).setOrigin(0.5);
+    container.add([fallbackBg, fallbackLabel, fallbackHint]);
+
+    const cleanup = () => {
+      if (!container.active) return;
+      this.tweens.add({
+        targets: container,
+        alpha: 0,
+        scaleX: 0.92,
+        scaleY: 0.92,
+        duration: 300,
+        ease: 'Sine.easeIn',
+        onComplete: () => {
+          container.destroy(true);
+          if (this.combo100CutinContainer === container) {
+            this.combo100CutinContainer = null;
+          }
+        },
+      });
+    };
+
+    const showFallback = () => {
+      if (!container.active) return;
+      this.time.delayedCall(1800, cleanup);
+    };
+
+    fetch(COMBO_100_VIDEO_URL, { method: 'HEAD' })
+      .then(response => {
+        const contentType = response.headers.get('content-type') ?? '';
+        if (!response.ok || !contentType.startsWith('video/')) {
+          showFallback();
+          return;
+        }
+        if (!container.active) return;
+        const video = this.add.video(0, 0);
+        video.setDisplaySize(maxW, maxH).setDepth(18.5);
+        video.loadURL(COMBO_100_VIDEO_URL, true);
+        video.once(Phaser.GameObjects.Events.VIDEO_COMPLETE, cleanup);
+        video.once(Phaser.GameObjects.Events.VIDEO_ERROR, showFallback);
+        container.add(video);
+        fallbackBg.setVisible(false);
+        fallbackLabel.setVisible(false);
+        fallbackHint.setVisible(false);
+        video.play(false);
+        this.time.delayedCall(5200, cleanup);
+      })
+      .catch(showFallback);
+
+    this.tweens.add({
+      targets: container,
+      alpha: 1,
+      scaleX: { from: 0.88, to: 1 },
+      scaleY: { from: 0.88, to: 1 },
+      duration: 220,
+      ease: 'Back.Out',
+    });
   }
 
   /** Returns current rhythm clock in seconds (Web Audio API, μs precision).
