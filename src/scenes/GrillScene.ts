@@ -5,6 +5,7 @@ import { gameState, changeReputation, updateGameState, addMoney } from '../state
 import type { DailyRhythmStats } from '../state/GameState';
 import { GRID_SLOTS } from '../data/map';
 import { SAUSAGE_MAP } from '../data/sausages';
+import { getSongById, getSongVariant } from '../data/songs';
 import {
   createGrillingSausage,
   flipSausage,
@@ -975,9 +976,8 @@ export class GrillScene extends Phaser.Scene {
    * and resets all rhythm state for this session.
    */
   private setupRhythmTrack(width: number, height: number): void {
-    // Load chart from Phaser JSON cache (preloaded in BootScene)
-    // Select EX chart for hardcore difficulty, standard chart for casual
-    const chartKey = gameState.difficulty === 'hardcore' ? 'chart-grill-theme-ex' : 'chart-grill-theme';
+    // Load chart from Phaser JSON cache (preloaded in BootScene).
+    const chartKey = getSongVariant(gameState.selectedSongId, gameState.difficulty).chartKey;
     const cachedChart = this.cache.json.get(chartKey) as RhythmChart | undefined;
     const shortSeconds = getTestShortGrillSeconds();
     if (cachedChart && shortSeconds > 0) {
@@ -1590,7 +1590,7 @@ export class GrillScene extends Phaser.Scene {
       }
       this.bgmCtx = sm.context;
 
-      const bgmKey = gameState.difficulty === 'hardcore' ? 'bgm-grill-theme-ex' : 'bgm-grill-theme';
+      const bgmKey = getSongVariant(gameState.selectedSongId, gameState.difficulty).audioKey;
       const cached = this.cache.audio.get(bgmKey) as unknown;
       if (!(cached instanceof AudioBuffer)) {
         console.warn(`[GrillScene] ${bgmKey} AudioBuffer not in cache`);
@@ -4759,6 +4759,8 @@ export class GrillScene extends Phaser.Scene {
         if (!this.scene.isActive()) return;
         sfx.playSongIntroVoice();
       });
+      const song = getSongById(gameState.selectedSongId);
+      this.showFeedback(song.title, this.scale.width / 2, this.scale.height * 0.24, '#ffe066');
       this.time.delayedCall(3200, () => {
         if (!this.scene.isActive()) return;
         this.startRhythmGame();

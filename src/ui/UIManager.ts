@@ -14,6 +14,7 @@ import { SausageBoxPanel } from './panels/SausageBoxPanel';
 import { BlackMarketPanel } from './panels/BlackMarketPanel';
 import { CasinoPanel } from './panels/CasinoPanel';
 import { StoryVideoPanel, type StoryVideoData } from './panels/StoryVideoPanel';
+import { SongSelectPanel } from './panels/SongSelectPanel';
 import './styles/neon.css';
 
 // UIManager: controls which HTML overlay panel is shown/hidden
@@ -134,6 +135,10 @@ export class UIManager {
       case 'story-video': {
         const storyVideoPanel = new StoryVideoPanel(data as StoryVideoData | undefined);
         return { instance: storyVideoPanel };
+      }
+      case 'song-select': {
+        const songSelectPanel = new SongSelectPanel();
+        return { instance: songSelectPanel };
       }
       default:           return null;
     }

@@ -2,6 +2,7 @@
 import { EventBus } from '../utils/EventBus';
 import { updateGameState } from '../state/GameState';
 import { GRID_SLOTS } from '../data/map';
+import { SAUSAGE_TYPES } from '../data/sausages';
 import { PROLOGUE_PAGES } from '../data/dialogue';
 import { sfx } from '../utils/SoundFX';
 import { resetCustomerEngine } from '../systems/CustomerEngine';
@@ -10,9 +11,10 @@ import { resetCasinoEngine } from '../systems/CasinoEngine';
 import { resetAchievements } from '../systems/AchievementEngine';
 import { UI_ASSETS } from '../data/uiAssets';
 import { CUSTOMER_VARIANT_KEYS } from '../data/customerPortraits';
+import { SONGS } from '../data/songs';
 
 // Bump this string whenever chart-grill-theme.json changes so browsers pick up the new chart
-const CHART_VERSION = '2026042604';
+const CHART_VERSION = '2026050501';
 
 // Page background tints for each prologue page
 const PAGE_TINTS = [
@@ -113,14 +115,17 @@ export class BootScene extends Phaser.Scene {
     this.load.video('intro-story-video', 'videos/r18-loop.mp4', true);
 
     // ?? Wave 6a: Rhythm chart + theme BGM ??
-    // chart-grill-theme.json is loaded into Phaser cache under key 'chart-grill-theme'
-    // Cache-bust chart JSON so chart updates are picked up without manual refresh
-    this.load.json('chart-grill-theme', `chart-grill-theme.json?v=${CHART_VERSION}`);
-    // BGM preloaded here so Wave 6d doesn't need to touch BootScene again
-    this.load.audio('bgm-grill-theme', 'bgm-grill-theme.mp3');
-    // EX difficulty variant (hardcore mode)
-    this.load.json('chart-grill-theme-ex', `chart-grill-theme-ex.json?v=${CHART_VERSION}`);
-    this.load.audio('bgm-grill-theme-ex', 'bgm-grill-theme-ex.mp3');
+    // Chart/audio manifest. Keep song keys stable; GrillScene selects by gameState.
+    const loadedAudio = new Set<string>();
+    SONGS.forEach(song => {
+      Object.values(song.variants).forEach(variant => {
+        this.load.json(variant.chartKey, `${variant.chartPath}?v=${CHART_VERSION}`);
+        if (!loadedAudio.has(variant.audioKey)) {
+          this.load.audio(variant.audioKey, variant.audioPath);
+          loadedAudio.add(variant.audioKey);
+        }
+      });
+    });
   }
 
   create(): void {
@@ -236,6 +241,7 @@ export class BootScene extends Phaser.Scene {
     // ?? Mode selection: ??憭批?憛???急 / 撠?⊥?嚗?????????????????
     // Helper: start the game with a chosen mode + difficulty
     const startGame = (mode: string, difficulty: 'hardcore' | 'casual') => {
+      window.sessionStorage.removeItem('sausage-test-short-grill');
       this.stopModeVideoBackground();
       sfx.initOnUserGesture();
       if (difficulty === 'hardcore') {
@@ -251,29 +257,30 @@ export class BootScene extends Phaser.Scene {
       for (const slot of GRID_SLOTS) {
         initialMap[slot.id] = slot.tier === 1 ? 'player' : (slot.opponentId || 'enemy');
       }
-      updateGameState({ map: initialMap, playerSlot: 1, gameMode: mode, difficulty });
-      let bootTransitioned = false;
-      const doBootTransition = () => {
-        if (bootTransitioned) return;
-        bootTransitioned = true;
-        this.scene.start('MorningScene');
-      };
-      try {
-        const { width: fw, height: fh } = this.scale;
-        const fadeRect = this.add.rectangle(fw / 2, fh / 2, fw, fh, 0x000000, 0).setDepth(9999);
-        this.tweens.add({
-          targets: fadeRect,
-          alpha: { from: 0, to: 1 },
-          duration: 500,
-          onComplete: doBootTransition,
-        });
-        this.time.delayedCall(1200, () => {
-          if (!this.scene.isActive()) return;
-          doBootTransition();
-        });
-      } catch (e) {
-        doBootTransition();
+      const starterInventory: Record<string, number> = {};
+      const starterPrices: Record<string, number> = {};
+      for (const sausage of SAUSAGE_TYPES) {
+        starterInventory[sausage.id] = 80;
+        starterPrices[sausage.id] = sausage.suggestedPrice;
       }
+      updateGameState({
+        map: initialMap,
+        playerSlot: 1,
+        selectedSlot: 1,
+        gameMode: mode,
+        difficulty,
+        inventory: starterInventory,
+        purchaseQuantities: starterInventory,
+        prices: starterPrices,
+      });
+      let songSelected = false;
+      EventBus.once('song-select-done', () => {
+        if (songSelected) return;
+        songSelected = true;
+        EventBus.emit('hide-panel');
+        this.scene.start('GrillScene');
+      });
+      EventBus.emit('show-panel', 'song-select');
     };
 
     // ?券 alpha=0 ?梯?嚗rologue 蝯???fade in

@@ -1,0 +1,3768 @@
+{
+  "audioFile": "bgm-holy-knight.mp3",
+  "bgmDuration": 134.01,
+  "duration": 140.01,
+  "tempo": 160,
+  "totalNotes": 743,
+  "difficultyBands": [
+    {
+      "label": "medium",
+      "t_start": 0,
+      "t_end": 24
+    },
+    {
+      "label": "hard",
+      "t_start": 24,
+      "t_end": 76
+    },
+    {
+      "label": "extreme",
+      "t_start": 76,
+      "t_end": 112
+    },
+    {
+      "label": "extreme",
+      "t_start": 112,
+      "t_end": 999
+    }
+  ],
+  "sections": [
+    {
+      "label": "intro",
+      "t_start": 0,
+      "t_end": 24
+    },
+    {
+      "label": "drive",
+      "t_start": 24,
+      "t_end": 76
+    },
+    {
+      "label": "charge",
+      "t_start": 76,
+      "t_end": 112
+    },
+    {
+      "label": "finale",
+      "t_start": 112,
+      "t_end": 140.01
+    }
+  ],
+  "notes": [
+    {
+      "t": 2,
+      "type": "ka",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 2.188,
+      "type": "don",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 2.375,
+      "type": "don",
+      "sausage": "cheese"
+    },
+    {
+      "t": 2.563,
+      "type": "ka",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 2.938,
+      "type": "ka",
+      "sausage": "cheese"
+    },
+    {
+      "t": 3.125,
+      "type": "ka",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 3.5,
+      "type": "ka",
+      "sausage": "cheese"
+    },
+    {
+      "t": 3.688,
+      "type": "ka",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 3.875,
+      "type": "don",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 4.063,
+      "type": "ka",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 4.438,
+      "type": "ka",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 4.625,
+      "type": "ka",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 5,
+      "type": "don",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 5.188,
+      "type": "ka",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 5.375,
+      "type": "don",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 5.563,
+      "type": "don",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 5.938,
+      "type": "don",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 6.125,
+      "type": "don",
+      "sausage": "cheese"
+    },
+    {
+      "t": 6.5,
+      "type": "don",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 6.688,
+      "type": "don",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 6.875,
+      "type": "ka",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 7.063,
+      "type": "ka",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 7.438,
+      "type": "don",
+      "sausage": "cheese"
+    },
+    {
+      "t": 7.625,
+      "type": "don",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 8,
+      "type": "ka",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 8.188,
+      "type": "don",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 8.375,
+      "type": "ka",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 8.75,
+      "type": "ka",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 8.938,
+      "type": "ka",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 9.125,
+      "type": "ka",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 9.5,
+      "type": "ka",
+      "sausage": "cheese"
+    },
+    {
+      "t": 9.688,
+      "type": "don",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 9.875,
+      "type": "don",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 10.063,
+      "type": "don",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 10.438,
+      "type": "don",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 10.625,
+      "type": "ka",
+      "sausage": "great-wall"
+    },
+    {
+      "t": 11,
+      "type": "don",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 11.188,
+      "type": "don",
+      "sausage": "cheese"
+    },
+    {
+      "t": 11.375,
+      "type": "don",
+      "sausage": "cheese"
+    },
+    {
+      "t": 11.75,
+      "type": "ka",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 11.938,
+      "type": "don",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 12.125,
+      "type": "don",
+      "sausage": "cheese"
+    },
+    {
+      "t": 12.5,
+      "type": "ka",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 12.875,
+      "type": "ka",
+      "sausage": "cheese"
+    },
+    {
+      "t": 13.063,
+      "type": "ka",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 13.25,
+      "type": "don",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 13.438,
+      "type": "ka",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 13.813,
+      "type": "don",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 14,
+      "type": "ka",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 14.188,
+      "type": "don",
+      "sausage": "great-wall"
+    },
+    {
+      "t": 14.375,
+      "type": "don",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 14.75,
+      "type": "ka",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 14.938,
+      "type": "don",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 15.125,
+      "type": "ka",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 15.5,
+      "type": "ka",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 15.688,
+      "type": "ka",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 15.875,
+      "type": "don",
+      "sausage": "cheese"
+    },
+    {
+      "t": 16.063,
+      "type": "ka",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 16.438,
+      "type": "ka",
+      "sausage": "cheese"
+    },
+    {
+      "t": 16.625,
+      "type": "ka",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 17,
+      "type": "ka",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 17.375,
+      "type": "don",
+      "sausage": "cheese"
+    },
+    {
+      "t": 17.563,
+      "type": "ka",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 17.75,
+      "type": "don",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 17.938,
+      "type": "don",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 18.313,
+      "type": "ka",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 18.5,
+      "type": "don",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 18.688,
+      "type": "ka",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 18.875,
+      "type": "don",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 19.063,
+      "type": "ka",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 19.438,
+      "type": "ka",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 19.625,
+      "type": "don",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 20,
+      "type": "don",
+      "sausage": "cheese"
+    },
+    {
+      "t": 20.188,
+      "type": "ka",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 20.375,
+      "type": "ka",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 20.75,
+      "type": "don",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 20.938,
+      "type": "ka",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 21.125,
+      "type": "don",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 21.5,
+      "type": "ka",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 21.688,
+      "type": "don",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 21.875,
+      "type": "ka",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 22.25,
+      "type": "don",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 22.438,
+      "type": "don",
+      "sausage": "cheese"
+    },
+    {
+      "t": 22.625,
+      "type": "don",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 23,
+      "type": "ka",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 23.375,
+      "type": "don",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 23.563,
+      "type": "don",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 23.75,
+      "type": "ka",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 23.938,
+      "type": "ka",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 24.313,
+      "type": "don",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 24.5,
+      "type": "ka",
+      "sausage": "great-wall"
+    },
+    {
+      "t": 24.688,
+      "type": "don",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 24.875,
+      "type": "don",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 25.063,
+      "type": "don",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 25.25,
+      "type": "ka",
+      "sausage": "great-wall"
+    },
+    {
+      "t": 25.438,
+      "type": "ka",
+      "sausage": "cheese"
+    },
+    {
+      "t": 25.625,
+      "type": "don",
+      "sausage": "cheese"
+    },
+    {
+      "t": 25.813,
+      "type": "ka",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 26,
+      "type": "ka",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 26.188,
+      "type": "ka",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 26.375,
+      "type": "don",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 26.563,
+      "type": "don",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 26.75,
+      "type": "ka",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 26.938,
+      "type": "don",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 27.125,
+      "type": "ka",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 27.313,
+      "type": "ka",
+      "sausage": "cheese"
+    },
+    {
+      "t": 27.5,
+      "type": "ka",
+      "sausage": "great-wall"
+    },
+    {
+      "t": 27.594,
+      "type": "don",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 27.688,
+      "type": "ka",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 27.875,
+      "type": "don",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 28.063,
+      "type": "ka",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 28.25,
+      "type": "don",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 28.625,
+      "type": "don",
+      "sausage": "cheese"
+    },
+    {
+      "t": 29,
+      "type": "ka",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 29.094,
+      "type": "don",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 29.188,
+      "type": "don",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 29.375,
+      "type": "ka",
+      "sausage": "cheese"
+    },
+    {
+      "t": 29.563,
+      "type": "don",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 29.75,
+      "type": "don",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 30.125,
+      "type": "don",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 30.5,
+      "type": "don",
+      "sausage": "cheese"
+    },
+    {
+      "t": 30.688,
+      "type": "ka",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 30.875,
+      "type": "ka",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 31.063,
+      "type": "ka",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 31.25,
+      "type": "ka",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 31.438,
+      "type": "don",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 31.625,
+      "type": "ka",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 31.813,
+      "type": "ka",
+      "sausage": "cheese"
+    },
+    {
+      "t": 32,
+      "type": "don",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 32.094,
+      "type": "ka",
+      "sausage": "cheese"
+    },
+    {
+      "t": 32.188,
+      "type": "ka",
+      "sausage": "cheese"
+    },
+    {
+      "t": 32.375,
+      "type": "don",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 32.563,
+      "type": "ka",
+      "sausage": "cheese"
+    },
+    {
+      "t": 32.75,
+      "type": "ka",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 33.125,
+      "type": "ka",
+      "sausage": "cheese"
+    },
+    {
+      "t": 33.5,
+      "type": "ka",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 33.594,
+      "type": "don",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 33.688,
+      "type": "don",
+      "sausage": "cheese"
+    },
+    {
+      "t": 33.875,
+      "type": "ka",
+      "sausage": "cheese"
+    },
+    {
+      "t": 34.063,
+      "type": "ka",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 34.25,
+      "type": "ka",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 34.625,
+      "type": "ka",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 35,
+      "type": "don",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 35.375,
+      "type": "ka",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 35.469,
+      "type": "ka",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 35.563,
+      "type": "don",
+      "sausage": "great-wall"
+    },
+    {
+      "t": 35.75,
+      "type": "ka",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 35.938,
+      "type": "ka",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 36.125,
+      "type": "don",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 36.313,
+      "type": "don",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 36.5,
+      "type": "don",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 36.688,
+      "type": "don",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 36.875,
+      "type": "don",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 37.063,
+      "type": "don",
+      "sausage": "cheese"
+    },
+    {
+      "t": 37.25,
+      "type": "don",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 37.438,
+      "type": "don",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 37.625,
+      "type": "don",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 37.813,
+      "type": "don",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 38,
+      "type": "ka",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 38.188,
+      "type": "ka",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 38.375,
+      "type": "don",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 38.563,
+      "type": "don",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 38.75,
+      "type": "don",
+      "sausage": "cheese"
+    },
+    {
+      "t": 38.938,
+      "type": "ka",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 39.125,
+      "type": "don",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 39.313,
+      "type": "don",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 39.5,
+      "type": "ka",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 39.688,
+      "type": "ka",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 39.875,
+      "type": "don",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 40.063,
+      "type": "ka",
+      "sausage": "cheese"
+    },
+    {
+      "t": 40.25,
+      "type": "ka",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 40.438,
+      "type": "don",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 40.625,
+      "type": "don",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 40.813,
+      "type": "don",
+      "sausage": "great-wall"
+    },
+    {
+      "t": 41,
+      "type": "ka",
+      "sausage": "cheese"
+    },
+    {
+      "t": 41.188,
+      "type": "ka",
+      "sausage": "cheese"
+    },
+    {
+      "t": 41.375,
+      "type": "don",
+      "sausage": "great-wall"
+    },
+    {
+      "t": 41.563,
+      "type": "ka",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 41.75,
+      "type": "don",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 41.938,
+      "type": "ka",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 42.125,
+      "type": "don",
+      "sausage": "cheese"
+    },
+    {
+      "t": 42.313,
+      "type": "ka",
+      "sausage": "cheese"
+    },
+    {
+      "t": 42.5,
+      "type": "ka",
+      "sausage": "cheese"
+    },
+    {
+      "t": 42.875,
+      "type": "don",
+      "sausage": "cheese"
+    },
+    {
+      "t": 42.969,
+      "type": "don",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 43.063,
+      "type": "ka",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 43.25,
+      "type": "ka",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 43.438,
+      "type": "don",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 43.625,
+      "type": "don",
+      "sausage": "cheese"
+    },
+    {
+      "t": 43.813,
+      "type": "don",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 44,
+      "type": "ka",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 44.375,
+      "type": "ka",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 44.469,
+      "type": "ka",
+      "sausage": "cheese"
+    },
+    {
+      "t": 44.563,
+      "type": "don",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 44.75,
+      "type": "don",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 44.938,
+      "type": "ka",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 45.125,
+      "type": "ka",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 45.313,
+      "type": "ka",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 45.5,
+      "type": "ka",
+      "sausage": "cheese"
+    },
+    {
+      "t": 45.688,
+      "type": "ka",
+      "sausage": "cheese"
+    },
+    {
+      "t": 45.875,
+      "type": "ka",
+      "sausage": "cheese"
+    },
+    {
+      "t": 46.063,
+      "type": "ka",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 46.25,
+      "type": "ka",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 46.438,
+      "type": "don",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 46.625,
+      "type": "ka",
+      "sausage": "great-wall"
+    },
+    {
+      "t": 46.813,
+      "type": "don",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 47,
+      "type": "don",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 47.094,
+      "type": "don",
+      "sausage": "cheese"
+    },
+    {
+      "t": 47.188,
+      "type": "ka",
+      "sausage": "cheese"
+    },
+    {
+      "t": 47.375,
+      "type": "ka",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 47.563,
+      "type": "ka",
+      "sausage": "cheese"
+    },
+    {
+      "t": 47.75,
+      "type": "ka",
+      "sausage": "cheese"
+    },
+    {
+      "t": 48.125,
+      "type": "don",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 48.5,
+      "type": "ka",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 48.688,
+      "type": "ka",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 48.875,
+      "type": "ka",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 49.063,
+      "type": "don",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 49.25,
+      "type": "don",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 49.438,
+      "type": "don",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 49.625,
+      "type": "don",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 49.813,
+      "type": "ka",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 50,
+      "type": "don",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 50.188,
+      "type": "don",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 50.375,
+      "type": "don",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 50.563,
+      "type": "ka",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 50.75,
+      "type": "ka",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 50.938,
+      "type": "don",
+      "sausage": "cheese"
+    },
+    {
+      "t": 51.125,
+      "type": "don",
+      "sausage": "cheese"
+    },
+    {
+      "t": 51.313,
+      "type": "don",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 51.5,
+      "type": "don",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 51.875,
+      "type": "don",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 51.969,
+      "type": "ka",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 52.063,
+      "type": "ka",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 52.25,
+      "type": "ka",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 52.438,
+      "type": "don",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 52.625,
+      "type": "don",
+      "sausage": "cheese"
+    },
+    {
+      "t": 52.813,
+      "type": "don",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 53,
+      "type": "ka",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 53.375,
+      "type": "ka",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 53.469,
+      "type": "don",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 53.563,
+      "type": "don",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 53.75,
+      "type": "don",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 53.938,
+      "type": "don",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 54.125,
+      "type": "don",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 54.313,
+      "type": "don",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 54.5,
+      "type": "ka",
+      "sausage": "great-wall"
+    },
+    {
+      "t": 54.688,
+      "type": "don",
+      "sausage": "cheese"
+    },
+    {
+      "t": 54.875,
+      "type": "don",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 55.063,
+      "type": "ka",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 55.25,
+      "type": "don",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 55.438,
+      "type": "ka",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 55.625,
+      "type": "don",
+      "sausage": "great-wall"
+    },
+    {
+      "t": 55.813,
+      "type": "ka",
+      "sausage": "cheese"
+    },
+    {
+      "t": 56,
+      "type": "ka",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 56.094,
+      "type": "ka",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 56.188,
+      "type": "ka",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 56.375,
+      "type": "don",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 56.563,
+      "type": "don",
+      "sausage": "cheese"
+    },
+    {
+      "t": 56.75,
+      "type": "ka",
+      "sausage": "great-wall"
+    },
+    {
+      "t": 57.125,
+      "type": "ka",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 57.5,
+      "type": "don",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 57.688,
+      "type": "ka",
+      "sausage": "cheese"
+    },
+    {
+      "t": 57.875,
+      "type": "ka",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 58.063,
+      "type": "don",
+      "sausage": "great-wall"
+    },
+    {
+      "t": 58.25,
+      "type": "don",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 58.438,
+      "type": "don",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 58.625,
+      "type": "don",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 58.813,
+      "type": "ka",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 59,
+      "type": "ka",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 59.094,
+      "type": "don",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 59.188,
+      "type": "don",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 59.375,
+      "type": "don",
+      "sausage": "cheese"
+    },
+    {
+      "t": 59.563,
+      "type": "ka",
+      "sausage": "cheese"
+    },
+    {
+      "t": 59.75,
+      "type": "don",
+      "sausage": "cheese"
+    },
+    {
+      "t": 60.125,
+      "type": "ka",
+      "sausage": "cheese"
+    },
+    {
+      "t": 60.5,
+      "type": "ka",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 60.594,
+      "type": "ka",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 60.688,
+      "type": "ka",
+      "sausage": "cheese"
+    },
+    {
+      "t": 60.875,
+      "type": "don",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 61.063,
+      "type": "don",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 61.25,
+      "type": "ka",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 61.625,
+      "type": "don",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 62,
+      "type": "ka",
+      "sausage": "cheese"
+    },
+    {
+      "t": 62.188,
+      "type": "don",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 62.375,
+      "type": "don",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 62.563,
+      "type": "ka",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 62.75,
+      "type": "don",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 62.938,
+      "type": "don",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 63.125,
+      "type": "don",
+      "sausage": "cheese"
+    },
+    {
+      "t": 63.313,
+      "type": "ka",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 63.5,
+      "type": "don",
+      "sausage": "cheese"
+    },
+    {
+      "t": 63.594,
+      "type": "don",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 63.688,
+      "type": "don",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 63.875,
+      "type": "ka",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 64.063,
+      "type": "ka",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 64.25,
+      "type": "ka",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 64.625,
+      "type": "don",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 65,
+      "type": "ka",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 65.188,
+      "type": "don",
+      "sausage": "cheese"
+    },
+    {
+      "t": 65.375,
+      "type": "ka",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 65.563,
+      "type": "ka",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 65.75,
+      "type": "don",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 65.938,
+      "type": "don",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 66.125,
+      "type": "don",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 66.313,
+      "type": "ka",
+      "sausage": "great-wall"
+    },
+    {
+      "t": 66.5,
+      "type": "don",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 66.875,
+      "type": "don",
+      "sausage": "cheese"
+    },
+    {
+      "t": 66.969,
+      "type": "ka",
+      "sausage": "cheese"
+    },
+    {
+      "t": 67.063,
+      "type": "don",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 67.25,
+      "type": "don",
+      "sausage": "great-wall"
+    },
+    {
+      "t": 67.438,
+      "type": "ka",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 67.625,
+      "type": "ka",
+      "sausage": "cheese"
+    },
+    {
+      "t": 67.813,
+      "type": "ka",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 68,
+      "type": "don",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 68.094,
+      "type": "don",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 68.188,
+      "type": "don",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 68.375,
+      "type": "ka",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 68.563,
+      "type": "ka",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 68.75,
+      "type": "ka",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 69.125,
+      "type": "don",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 69.5,
+      "type": "don",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 69.594,
+      "type": "ka",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 69.688,
+      "type": "don",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 69.875,
+      "type": "ka",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 70.063,
+      "type": "don",
+      "sausage": "cheese"
+    },
+    {
+      "t": 70.25,
+      "type": "don",
+      "sausage": "cheese"
+    },
+    {
+      "t": 70.625,
+      "type": "ka",
+      "sausage": "cheese"
+    },
+    {
+      "t": 71,
+      "type": "don",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 71.375,
+      "type": "don",
+      "sausage": "cheese"
+    },
+    {
+      "t": 71.469,
+      "type": "don",
+      "sausage": "cheese"
+    },
+    {
+      "t": 71.563,
+      "type": "ka",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 71.75,
+      "type": "don",
+      "sausage": "cheese"
+    },
+    {
+      "t": 71.938,
+      "type": "don",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 72.125,
+      "type": "don",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 72.313,
+      "type": "ka",
+      "sausage": "cheese"
+    },
+    {
+      "t": 72.5,
+      "type": "don",
+      "sausage": "cheese"
+    },
+    {
+      "t": 72.875,
+      "type": "ka",
+      "sausage": "cheese"
+    },
+    {
+      "t": 72.969,
+      "type": "don",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 73.063,
+      "type": "don",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 73.25,
+      "type": "don",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 73.438,
+      "type": "ka",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 73.625,
+      "type": "don",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 73.813,
+      "type": "don",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 74,
+      "type": "ka",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 74.375,
+      "type": "don",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 74.469,
+      "type": "ka",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 74.563,
+      "type": "don",
+      "sausage": "cheese"
+    },
+    {
+      "t": 74.75,
+      "type": "don",
+      "sausage": "cheese"
+    },
+    {
+      "t": 74.938,
+      "type": "don",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 75.125,
+      "type": "don",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 75.313,
+      "type": "don",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 75.5,
+      "type": "don",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 75.594,
+      "type": "don",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 75.688,
+      "type": "ka",
+      "sausage": "cheese"
+    },
+    {
+      "t": 75.875,
+      "type": "don",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 76.063,
+      "type": "ka",
+      "sausage": "cheese"
+    },
+    {
+      "t": 76.25,
+      "type": "ka",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 76.625,
+      "type": "don",
+      "sausage": "cheese"
+    },
+    {
+      "t": 77,
+      "type": "ka",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 77.094,
+      "type": "ka",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 77.188,
+      "type": "don",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 77.375,
+      "type": "ka",
+      "sausage": "cheese"
+    },
+    {
+      "t": 77.563,
+      "type": "don",
+      "sausage": "cheese"
+    },
+    {
+      "t": 77.656,
+      "type": "don",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 77.75,
+      "type": "ka",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 77.938,
+      "type": "don",
+      "sausage": "great-wall"
+    },
+    {
+      "t": 78.125,
+      "type": "don",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 78.219,
+      "type": "ka",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 78.313,
+      "type": "ka",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 78.5,
+      "type": "ka",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 78.594,
+      "type": "ka",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 78.688,
+      "type": "ka",
+      "sausage": "great-wall"
+    },
+    {
+      "t": 78.875,
+      "type": "don",
+      "sausage": "great-wall"
+    },
+    {
+      "t": 79.063,
+      "type": "ka",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 79.156,
+      "type": "ka",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 79.25,
+      "type": "don",
+      "sausage": "great-wall"
+    },
+    {
+      "t": 79.438,
+      "type": "don",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 79.625,
+      "type": "don",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 79.719,
+      "type": "don",
+      "sausage": "great-wall"
+    },
+    {
+      "t": 79.813,
+      "type": "ka",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 80,
+      "type": "ka",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 80.094,
+      "type": "don",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 80.188,
+      "type": "don",
+      "sausage": "cheese"
+    },
+    {
+      "t": 80.281,
+      "type": "don",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 80.375,
+      "type": "ka",
+      "sausage": "great-wall"
+    },
+    {
+      "t": 80.563,
+      "type": "don",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 80.75,
+      "type": "don",
+      "sausage": "cheese"
+    },
+    {
+      "t": 80.938,
+      "type": "don",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 81.125,
+      "type": "ka",
+      "sausage": "cheese"
+    },
+    {
+      "t": 81.313,
+      "type": "don",
+      "sausage": "great-wall"
+    },
+    {
+      "t": 81.5,
+      "type": "don",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 81.594,
+      "type": "ka",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 81.688,
+      "type": "don",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 81.875,
+      "type": "ka",
+      "sausage": "great-wall"
+    },
+    {
+      "t": 82.063,
+      "type": "ka",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 82.156,
+      "type": "ka",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 82.25,
+      "type": "don",
+      "sausage": "great-wall"
+    },
+    {
+      "t": 82.438,
+      "type": "don",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 82.625,
+      "type": "don",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 82.719,
+      "type": "ka",
+      "sausage": "cheese"
+    },
+    {
+      "t": 82.813,
+      "type": "don",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 83,
+      "type": "ka",
+      "sausage": "cheese"
+    },
+    {
+      "t": 83.094,
+      "type": "don",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 83.188,
+      "type": "don",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 83.375,
+      "type": "ka",
+      "sausage": "cheese"
+    },
+    {
+      "t": 83.563,
+      "type": "ka",
+      "sausage": "cheese"
+    },
+    {
+      "t": 83.656,
+      "type": "don",
+      "sausage": "cheese"
+    },
+    {
+      "t": 83.75,
+      "type": "don",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 83.938,
+      "type": "don",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 84.125,
+      "type": "ka",
+      "sausage": "great-wall"
+    },
+    {
+      "t": 84.219,
+      "type": "don",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 84.313,
+      "type": "ka",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 84.5,
+      "type": "don",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 84.688,
+      "type": "ka",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 84.875,
+      "type": "ka",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 84.969,
+      "type": "don",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 85.063,
+      "type": "ka",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 85.25,
+      "type": "ka",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 85.344,
+      "type": "don",
+      "sausage": "great-wall"
+    },
+    {
+      "t": 85.438,
+      "type": "don",
+      "sausage": "great-wall"
+    },
+    {
+      "t": 85.625,
+      "type": "don",
+      "sausage": "cheese"
+    },
+    {
+      "t": 85.813,
+      "type": "ka",
+      "sausage": "cheese"
+    },
+    {
+      "t": 86,
+      "type": "ka",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 86.094,
+      "type": "don",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 86.188,
+      "type": "ka",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 86.375,
+      "type": "don",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 86.563,
+      "type": "don",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 86.656,
+      "type": "don",
+      "sausage": "great-wall"
+    },
+    {
+      "t": 86.75,
+      "type": "don",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 86.938,
+      "type": "ka",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 87.125,
+      "type": "don",
+      "sausage": "cheese"
+    },
+    {
+      "t": 87.219,
+      "type": "ka",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 87.313,
+      "type": "don",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 87.5,
+      "type": "don",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 87.688,
+      "type": "don",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 87.875,
+      "type": "don",
+      "sausage": "cheese"
+    },
+    {
+      "t": 87.969,
+      "type": "don",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 88.063,
+      "type": "don",
+      "sausage": "great-wall"
+    },
+    {
+      "t": 88.25,
+      "type": "ka",
+      "sausage": "cheese"
+    },
+    {
+      "t": 88.344,
+      "type": "don",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 88.438,
+      "type": "ka",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 88.625,
+      "type": "don",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 88.813,
+      "type": "ka",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 89,
+      "type": "don",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 89.188,
+      "type": "don",
+      "sausage": "cheese"
+    },
+    {
+      "t": 89.375,
+      "type": "don",
+      "sausage": "great-wall"
+    },
+    {
+      "t": 89.469,
+      "type": "don",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 89.563,
+      "type": "ka",
+      "sausage": "great-wall"
+    },
+    {
+      "t": 89.75,
+      "type": "ka",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 89.844,
+      "type": "ka",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 89.938,
+      "type": "ka",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 90.125,
+      "type": "don",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 90.313,
+      "type": "don",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 90.5,
+      "type": "don",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 90.594,
+      "type": "don",
+      "sausage": "cheese"
+    },
+    {
+      "t": 90.688,
+      "type": "ka",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 90.875,
+      "type": "don",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 91.063,
+      "type": "ka",
+      "sausage": "cheese"
+    },
+    {
+      "t": 91.156,
+      "type": "don",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 91.25,
+      "type": "ka",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 91.438,
+      "type": "don",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 91.625,
+      "type": "don",
+      "sausage": "cheese"
+    },
+    {
+      "t": 91.719,
+      "type": "don",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 91.813,
+      "type": "don",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 92,
+      "type": "ka",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 92.094,
+      "type": "don",
+      "sausage": "cheese"
+    },
+    {
+      "t": 92.188,
+      "type": "don",
+      "sausage": "cheese"
+    },
+    {
+      "t": 92.375,
+      "type": "don",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 92.563,
+      "type": "don",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 92.656,
+      "type": "don",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 92.75,
+      "type": "ka",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 92.938,
+      "type": "don",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 93.125,
+      "type": "ka",
+      "sausage": "great-wall"
+    },
+    {
+      "t": 93.219,
+      "type": "don",
+      "sausage": "cheese"
+    },
+    {
+      "t": 93.313,
+      "type": "don",
+      "sausage": "cheese"
+    },
+    {
+      "t": 93.5,
+      "type": "don",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 93.688,
+      "type": "don",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 93.875,
+      "type": "don",
+      "sausage": "great-wall"
+    },
+    {
+      "t": 93.969,
+      "type": "ka",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 94.063,
+      "type": "don",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 94.25,
+      "type": "ka",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 94.344,
+      "type": "ka",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 94.438,
+      "type": "ka",
+      "sausage": "cheese"
+    },
+    {
+      "t": 94.625,
+      "type": "ka",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 94.813,
+      "type": "don",
+      "sausage": "cheese"
+    },
+    {
+      "t": 95,
+      "type": "ka",
+      "sausage": "great-wall"
+    },
+    {
+      "t": 95.188,
+      "type": "ka",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 95.375,
+      "type": "ka",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 95.469,
+      "type": "ka",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 95.563,
+      "type": "don",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 95.75,
+      "type": "don",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 95.844,
+      "type": "don",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 95.938,
+      "type": "don",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 96.125,
+      "type": "ka",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 96.313,
+      "type": "ka",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 96.5,
+      "type": "don",
+      "sausage": "cheese"
+    },
+    {
+      "t": 96.594,
+      "type": "ka",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 96.688,
+      "type": "ka",
+      "sausage": "cheese"
+    },
+    {
+      "t": 96.781,
+      "type": "ka",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 96.875,
+      "type": "ka",
+      "sausage": "cheese"
+    },
+    {
+      "t": 97.063,
+      "type": "ka",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 97.25,
+      "type": "ka",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 97.438,
+      "type": "ka",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 97.625,
+      "type": "don",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 97.813,
+      "type": "ka",
+      "sausage": "great-wall"
+    },
+    {
+      "t": 98,
+      "type": "ka",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 98.094,
+      "type": "don",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 98.188,
+      "type": "ka",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 98.281,
+      "type": "ka",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 98.375,
+      "type": "ka",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 98.563,
+      "type": "ka",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 98.75,
+      "type": "ka",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 98.938,
+      "type": "don",
+      "sausage": "great-wall"
+    },
+    {
+      "t": 99.125,
+      "type": "don",
+      "sausage": "cheese"
+    },
+    {
+      "t": 99.313,
+      "type": "ka",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 99.5,
+      "type": "ka",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 99.688,
+      "type": "don",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 99.875,
+      "type": "ka",
+      "sausage": "cheese"
+    },
+    {
+      "t": 99.969,
+      "type": "don",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 100.063,
+      "type": "ka",
+      "sausage": "cheese"
+    },
+    {
+      "t": 100.25,
+      "type": "don",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 100.344,
+      "type": "ka",
+      "sausage": "cheese"
+    },
+    {
+      "t": 100.438,
+      "type": "don",
+      "sausage": "cheese"
+    },
+    {
+      "t": 100.625,
+      "type": "ka",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 100.813,
+      "type": "don",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 101,
+      "type": "don",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 101.094,
+      "type": "don",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 101.188,
+      "type": "ka",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 101.281,
+      "type": "ka",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 101.375,
+      "type": "don",
+      "sausage": "cheese"
+    },
+    {
+      "t": 101.563,
+      "type": "ka",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 101.75,
+      "type": "ka",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 101.938,
+      "type": "don",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 102.125,
+      "type": "ka",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 102.313,
+      "type": "ka",
+      "sausage": "great-wall"
+    },
+    {
+      "t": 102.5,
+      "type": "ka",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 102.688,
+      "type": "don",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 102.875,
+      "type": "ka",
+      "sausage": "great-wall"
+    },
+    {
+      "t": 102.969,
+      "type": "don",
+      "sausage": "cheese"
+    },
+    {
+      "t": 103.063,
+      "type": "ka",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 103.25,
+      "type": "ka",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 103.344,
+      "type": "don",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 103.438,
+      "type": "don",
+      "sausage": "cheese"
+    },
+    {
+      "t": 103.625,
+      "type": "don",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 103.813,
+      "type": "don",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 104,
+      "type": "ka",
+      "sausage": "great-wall"
+    },
+    {
+      "t": 104.094,
+      "type": "ka",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 104.188,
+      "type": "don",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 104.375,
+      "type": "ka",
+      "sausage": "cheese"
+    },
+    {
+      "t": 104.563,
+      "type": "ka",
+      "sausage": "cheese"
+    },
+    {
+      "t": 104.656,
+      "type": "ka",
+      "sausage": "cheese"
+    },
+    {
+      "t": 104.75,
+      "type": "don",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 104.938,
+      "type": "don",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 105.125,
+      "type": "don",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 105.219,
+      "type": "ka",
+      "sausage": "great-wall"
+    },
+    {
+      "t": 105.313,
+      "type": "don",
+      "sausage": "cheese"
+    },
+    {
+      "t": 105.5,
+      "type": "don",
+      "sausage": "great-wall"
+    },
+    {
+      "t": 105.594,
+      "type": "ka",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 105.688,
+      "type": "ka",
+      "sausage": "cheese"
+    },
+    {
+      "t": 105.781,
+      "type": "don",
+      "sausage": "great-wall"
+    },
+    {
+      "t": 105.875,
+      "type": "don",
+      "sausage": "cheese"
+    },
+    {
+      "t": 106.063,
+      "type": "ka",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 106.25,
+      "type": "don",
+      "sausage": "great-wall"
+    },
+    {
+      "t": 106.438,
+      "type": "ka",
+      "sausage": "cheese"
+    },
+    {
+      "t": 106.625,
+      "type": "ka",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 106.813,
+      "type": "ka",
+      "sausage": "cheese"
+    },
+    {
+      "t": 107,
+      "type": "don",
+      "sausage": "great-wall"
+    },
+    {
+      "t": 107.188,
+      "type": "ka",
+      "sausage": "great-wall"
+    },
+    {
+      "t": 107.375,
+      "type": "ka",
+      "sausage": "great-wall"
+    },
+    {
+      "t": 107.469,
+      "type": "ka",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 107.563,
+      "type": "ka",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 107.75,
+      "type": "don",
+      "sausage": "cheese"
+    },
+    {
+      "t": 107.844,
+      "type": "don",
+      "sausage": "cheese"
+    },
+    {
+      "t": 107.938,
+      "type": "don",
+      "sausage": "cheese"
+    },
+    {
+      "t": 108.125,
+      "type": "ka",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 108.313,
+      "type": "ka",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 108.5,
+      "type": "ka",
+      "sausage": "cheese"
+    },
+    {
+      "t": 108.594,
+      "type": "ka",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 108.688,
+      "type": "don",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 108.875,
+      "type": "don",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 109.063,
+      "type": "ka",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 109.156,
+      "type": "don",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 109.25,
+      "type": "ka",
+      "sausage": "cheese"
+    },
+    {
+      "t": 109.438,
+      "type": "ka",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 109.625,
+      "type": "ka",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 109.719,
+      "type": "ka",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 109.813,
+      "type": "ka",
+      "sausage": "cheese"
+    },
+    {
+      "t": 110,
+      "type": "don",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 110.094,
+      "type": "ka",
+      "sausage": "cheese"
+    },
+    {
+      "t": 110.188,
+      "type": "don",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 110.281,
+      "type": "ka",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 110.375,
+      "type": "ka",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 110.563,
+      "type": "ka",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 110.75,
+      "type": "ka",
+      "sausage": "cheese"
+    },
+    {
+      "t": 110.938,
+      "type": "don",
+      "sausage": "great-wall"
+    },
+    {
+      "t": 111.125,
+      "type": "ka",
+      "sausage": "cheese"
+    },
+    {
+      "t": 111.313,
+      "type": "ka",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 111.5,
+      "type": "don",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 111.594,
+      "type": "don",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 111.688,
+      "type": "don",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 111.781,
+      "type": "ka",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 111.875,
+      "type": "ka",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 112.063,
+      "type": "don",
+      "sausage": "cheese"
+    },
+    {
+      "t": 112.25,
+      "type": "don",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 112.438,
+      "type": "don",
+      "sausage": "cheese"
+    },
+    {
+      "t": 112.625,
+      "type": "don",
+      "sausage": "cheese"
+    },
+    {
+      "t": 112.813,
+      "type": "don",
+      "sausage": "cheese"
+    },
+    {
+      "t": 113,
+      "type": "don",
+      "sausage": "great-wall"
+    },
+    {
+      "t": 113.188,
+      "type": "don",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 113.375,
+      "type": "don",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 113.469,
+      "type": "don",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 113.563,
+      "type": "don",
+      "sausage": "cheese"
+    },
+    {
+      "t": 113.75,
+      "type": "ka",
+      "sausage": "great-wall"
+    },
+    {
+      "t": 113.844,
+      "type": "don",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 113.938,
+      "type": "don",
+      "sausage": "cheese"
+    },
+    {
+      "t": 114.125,
+      "type": "don",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 114.313,
+      "type": "don",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 114.5,
+      "type": "ka",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 114.594,
+      "type": "don",
+      "sausage": "cheese"
+    },
+    {
+      "t": 114.688,
+      "type": "don",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 114.875,
+      "type": "don",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 115.063,
+      "type": "ka",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 115.156,
+      "type": "ka",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 115.25,
+      "type": "ka",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 115.438,
+      "type": "ka",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 115.625,
+      "type": "don",
+      "sausage": "cheese"
+    },
+    {
+      "t": 115.719,
+      "type": "don",
+      "sausage": "great-wall"
+    },
+    {
+      "t": 115.813,
+      "type": "don",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 116,
+      "type": "don",
+      "sausage": "cheese"
+    },
+    {
+      "t": 116.188,
+      "type": "ka",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 116.375,
+      "type": "don",
+      "sausage": "great-wall"
+    },
+    {
+      "t": 116.469,
+      "type": "ka",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 116.563,
+      "type": "ka",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 116.75,
+      "type": "don",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 116.844,
+      "type": "ka",
+      "sausage": "great-wall"
+    },
+    {
+      "t": 116.938,
+      "type": "ka",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 117.125,
+      "type": "don",
+      "sausage": "great-wall"
+    },
+    {
+      "t": 117.313,
+      "type": "don",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 117.5,
+      "type": "ka",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 117.688,
+      "type": "don",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 117.875,
+      "type": "don",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 117.969,
+      "type": "don",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 118.063,
+      "type": "don",
+      "sausage": "cheese"
+    },
+    {
+      "t": 118.25,
+      "type": "ka",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 118.344,
+      "type": "ka",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 118.438,
+      "type": "don",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 118.625,
+      "type": "ka",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 118.813,
+      "type": "ka",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 119,
+      "type": "don",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 119.094,
+      "type": "ka",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 119.188,
+      "type": "ka",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 119.375,
+      "type": "ka",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 119.563,
+      "type": "don",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 119.656,
+      "type": "don",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 119.75,
+      "type": "don",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 119.938,
+      "type": "don",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 120.125,
+      "type": "don",
+      "sausage": "cheese"
+    },
+    {
+      "t": 120.219,
+      "type": "don",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 120.313,
+      "type": "don",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 120.5,
+      "type": "don",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 120.594,
+      "type": "ka",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 120.688,
+      "type": "don",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 120.875,
+      "type": "don",
+      "sausage": "cheese"
+    },
+    {
+      "t": 121.063,
+      "type": "don",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 121.156,
+      "type": "don",
+      "sausage": "cheese"
+    },
+    {
+      "t": 121.25,
+      "type": "don",
+      "sausage": "cheese"
+    },
+    {
+      "t": 121.438,
+      "type": "ka",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 121.625,
+      "type": "don",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 121.719,
+      "type": "don",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 121.813,
+      "type": "don",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 122,
+      "type": "ka",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 122.188,
+      "type": "ka",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 122.375,
+      "type": "ka",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 122.469,
+      "type": "ka",
+      "sausage": "great-wall"
+    },
+    {
+      "t": 122.563,
+      "type": "don",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 122.75,
+      "type": "don",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 122.844,
+      "type": "ka",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 122.938,
+      "type": "don",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 123.125,
+      "type": "don",
+      "sausage": "cheese"
+    },
+    {
+      "t": 123.313,
+      "type": "don",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 123.5,
+      "type": "ka",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 123.688,
+      "type": "don",
+      "sausage": "great-wall"
+    },
+    {
+      "t": 123.875,
+      "type": "ka",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 123.969,
+      "type": "don",
+      "sausage": "cheese"
+    },
+    {
+      "t": 124.063,
+      "type": "ka",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 124.25,
+      "type": "ka",
+      "sausage": "cheese"
+    },
+    {
+      "t": 124.344,
+      "type": "don",
+      "sausage": "cheese"
+    },
+    {
+      "t": 124.438,
+      "type": "don",
+      "sausage": "cheese"
+    },
+    {
+      "t": 124.625,
+      "type": "ka",
+      "sausage": "cheese"
+    },
+    {
+      "t": 124.813,
+      "type": "ka",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 125,
+      "type": "don",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 125.094,
+      "type": "don",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 125.188,
+      "type": "don",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 125.375,
+      "type": "ka",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 125.563,
+      "type": "ka",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 125.656,
+      "type": "don",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 125.75,
+      "type": "don",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 125.938,
+      "type": "don",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 126.125,
+      "type": "don",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 126.219,
+      "type": "ka",
+      "sausage": "cheese"
+    },
+    {
+      "t": 126.313,
+      "type": "don",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 126.5,
+      "type": "don",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 126.594,
+      "type": "ka",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 126.688,
+      "type": "ka",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 126.875,
+      "type": "ka",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 127.063,
+      "type": "ka",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 127.156,
+      "type": "ka",
+      "sausage": "cheese"
+    },
+    {
+      "t": 127.25,
+      "type": "don",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 127.438,
+      "type": "don",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 127.625,
+      "type": "don",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 127.719,
+      "type": "don",
+      "sausage": "cheese"
+    },
+    {
+      "t": 127.813,
+      "type": "ka",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 128,
+      "type": "ka",
+      "sausage": "cheese"
+    },
+    {
+      "t": 128.188,
+      "type": "don",
+      "sausage": "cheese"
+    },
+    {
+      "t": 128.375,
+      "type": "don",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 128.469,
+      "type": "don",
+      "sausage": "great-wall"
+    },
+    {
+      "t": 128.563,
+      "type": "don",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 128.75,
+      "type": "don",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 128.844,
+      "type": "don",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 128.938,
+      "type": "ka",
+      "sausage": "cheese"
+    },
+    {
+      "t": 129.125,
+      "type": "don",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 129.313,
+      "type": "ka",
+      "sausage": "great-wall"
+    },
+    {
+      "t": 129.5,
+      "type": "don",
+      "sausage": "cheese"
+    },
+    {
+      "t": 129.594,
+      "type": "don",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 129.688,
+      "type": "ka",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 129.875,
+      "type": "don",
+      "sausage": "cheese"
+    },
+    {
+      "t": 130.063,
+      "type": "don",
+      "sausage": "cheese"
+    },
+    {
+      "t": 130.156,
+      "type": "ka",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 130.25,
+      "type": "ka",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 130.438,
+      "type": "ka",
+      "sausage": "great-wall"
+    },
+    {
+      "t": 130.625,
+      "type": "ka",
+      "sausage": "cheese"
+    },
+    {
+      "t": 130.719,
+      "type": "ka",
+      "sausage": "cheese"
+    },
+    {
+      "t": 130.813,
+      "type": "ka",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 131,
+      "type": "don",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 131.188,
+      "type": "don",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 131.375,
+      "type": "don",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 131.469,
+      "type": "don",
+      "sausage": "flying-fish-roe"
+    },
+    {
+      "t": 131.563,
+      "type": "don",
+      "sausage": "cheese"
+    },
+    {
+      "t": 131.75,
+      "type": "don",
+      "sausage": "cheese"
+    },
+    {
+      "t": 131.844,
+      "type": "don",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 131.938,
+      "type": "ka",
+      "sausage": "big-wrap-small"
+    },
+    {
+      "t": 132.125,
+      "type": "don",
+      "sausage": "big-taste"
+    },
+    {
+      "t": 132.313,
+      "type": "ka",
+      "sausage": "big-taste"
+    }
+  ]
+}

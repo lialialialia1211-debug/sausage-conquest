@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { gameState, updateGameState, spendMoney } from '../state/GameState';
 import { GRID_SLOTS } from '../data/map';
 import { SAUSAGE_TYPES } from '../data/sausages';
+import { EventBus } from '../utils/EventBus';
 
 // EveningScene: sunset ambiance background + MapPanel HTML overlay
 // Waits for evening-done event then transitions to GrillScene
@@ -56,18 +57,11 @@ export class EveningScene extends Phaser.Scene {
 
     this.cameras.main.fadeIn(400, 0, 0, 0);
 
-    // Auto-apply evening setup: slot is fixed by battle results, no selection needed
-    // MapPanel is skipped — auto-set location, deduct rent, carry forward prices
-    this.cameras.main.once('camerafadeincomplete', () => {
+    // Auto-apply evening setup: slot is fixed by battle results, no selection needed.
+    // Defer one JS tick so scene switching/test-tool cleanup cannot swallow the overlay event.
+    window.setTimeout(() => {
       this.applyEveningAutomatically();
-    });
-
-    // Fallback: if fade-in event never fires, apply after a long delay to avoid racing
-    this.time.delayedCall(2000, () => {
-      if (!this.readyForNext) {
-        this.applyEveningAutomatically();
-      }
-    });
+    }, 0);
   }
 
   private createTwinklingLights(width: number, height: number): void {
@@ -103,55 +97,62 @@ export class EveningScene extends Phaser.Scene {
     if (this.readyForNext) return;
     this.readyForNext = true;
 
-    // Auto-select location: player's slot is fixed by battle results
-    const playerTier = gameState.playerSlot || 1;
-    let slot = GRID_SLOTS.find(s => s.tier === playerTier) || GRID_SLOTS[0];
+    try {
+      // Auto-select location: player's slot is fixed by battle results
+      const playerTier = gameState.playerSlot || 1;
+      let slot = GRID_SLOTS.find(s => s.tier === playerTier) || GRID_SLOTS[0];
 
-    updateGameState({ selectedSlot: slot.id });
+      updateGameState({ selectedSlot: slot.id });
 
-    // Auto-deduct rent for the current slot; fall back to tier 1 if can't afford
-    if (slot.rent > 0) {
-      const paid = spendMoney(slot.rent);
-      if (paid) {
-        updateGameState({ dailyExpenses: gameState.dailyExpenses + slot.rent });
-      } else {
-        const freeSlot = GRID_SLOTS.find(s => s.rent === 0) || GRID_SLOTS[0];
-        updateGameState({ selectedSlot: freeSlot.id });
-        slot = freeSlot;
+      // Auto-deduct rent for the current slot; fall back to tier 1 if can't afford
+      if (slot.rent > 0) {
+        const paid = spendMoney(slot.rent);
+        if (paid) {
+          updateGameState({ dailyExpenses: gameState.dailyExpenses + slot.rent });
+        } else {
+          const freeSlot = GRID_SLOTS.find(s => s.rent === 0) || GRID_SLOTS[0];
+          updateGameState({ selectedSlot: freeSlot.id });
+          slot = freeSlot;
+        }
       }
-    }
 
-    // Carry forward existing prices; fill missing unlocked sausages with suggested price
-    const prices: Record<string, number> = {};
-    for (const s of SAUSAGE_TYPES) {
-      if (gameState.unlockedSausages.includes(s.id)) {
-        prices[s.id] = (gameState.prices as Record<string, number>)?.[s.id] ?? s.suggestedPrice;
+      // Carry forward existing prices; fill missing unlocked sausages with suggested price
+      const prices: Record<string, number> = {};
+      for (const s of SAUSAGE_TYPES) {
+        if (gameState.unlockedSausages.includes(s.id)) {
+          prices[s.id] = (gameState.prices as Record<string, number>)?.[s.id] ?? s.suggestedPrice;
+        }
       }
+      updateGameState({ prices });
+    } catch (error) {
+      console.warn('[EveningScene] Failed to auto-apply evening setup; continuing to song select.', error);
     }
-    updateGameState({ prices });
 
     let eveningTransitioned = false;
     const doEveningTransition = () => {
       if (eveningTransitioned) return;
       eveningTransitioned = true;
-      this.scene.start('GrillScene');
+      EventBus.emit('hide-panel');
+      try {
+        const { width: fw, height: fh } = this.scale;
+        const fadeRect = this.add.rectangle(fw / 2, fh / 2, fw, fh, 0x000000, 0).setDepth(9999);
+        this.tweens.add({
+          targets: fadeRect,
+          alpha: { from: 0, to: 1 },
+          duration: 400,
+          onComplete: () => this.scene.start('GrillScene'),
+        });
+        this.time.delayedCall(1000, () => {
+          if (!this.scene.isActive()) return;
+          this.scene.start('GrillScene');
+        });
+      } catch (e) {
+        this.scene.start('GrillScene');
+      }
     };
-    try {
-      const { width: fw, height: fh } = this.scale;
-      const fadeRect = this.add.rectangle(fw / 2, fh / 2, fw, fh, 0x000000, 0).setDepth(9999);
-      this.tweens.add({
-        targets: fadeRect,
-        alpha: { from: 0, to: 1 },
-        duration: 400,
-        onComplete: doEveningTransition,
-      });
-      this.time.delayedCall(1000, () => {
-        if (!this.scene.isActive()) return;
-        doEveningTransition();
-      });
-    } catch (e) {
-      doEveningTransition();
-    }
+
+    EventBus.once('song-select-done', doEveningTransition);
+    EventBus.emit('show-panel', 'song-select');
   }
 
   shutdown(): void {

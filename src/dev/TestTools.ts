@@ -171,6 +171,7 @@ export function setupTestTools(game: Phaser.Game): void {
       refreshStatus();
     }),
     makeButton('地圖頁', () => {
+      sessionStorage.removeItem('sausage-test-short-grill');
       seedTestState();
       startScene(game, 'EveningScene');
       refreshStatus();
