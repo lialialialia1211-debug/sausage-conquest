@@ -1463,11 +1463,15 @@ export class GrillScene extends Phaser.Scene {
     this.combo100CutinPlayed = true;
 
     const x = this.scale.width / 2;
-    const y = (this.wzY || this.scale.height * 0.72) + 58;
-    const maxW = Math.min(280, this.scale.width * 0.18);
-    const maxH = Math.min(160, this.scale.height * 0.18);
+    const y = (this.wzY || this.scale.height * 0.72) + 8;
+    const maxH = Math.min(210, this.scale.height * 0.25);
+    const maxW = maxH * (9 / 16);
     const container = this.add.container(x, y).setDepth(18).setAlpha(0);
     this.combo100CutinContainer = container;
+    const maskGfx = this.add.graphics().setVisible(false);
+    maskGfx.fillStyle(0xffffff, 1);
+    maskGfx.fillRect(x - maxW / 2, y - maxH / 2, maxW, maxH);
+    const videoMask = maskGfx.createGeometryMask();
 
     const frame = this.add.graphics();
     frame.fillStyle(0x120402, 0.72);
@@ -1504,6 +1508,7 @@ export class GrillScene extends Phaser.Scene {
         duration: 300,
         ease: 'Sine.easeIn',
         onComplete: () => {
+          maskGfx.destroy();
           container.destroy(true);
           if (this.combo100CutinContainer === container) {
             this.combo100CutinContainer = null;
@@ -1526,8 +1531,18 @@ export class GrillScene extends Phaser.Scene {
         }
         if (!container.active) return;
         const video = this.add.video(0, 0);
-        video.setDisplaySize(maxW, maxH).setDepth(18.5);
+        const fitVideo = () => {
+          const sourceW = video.video?.videoWidth || video.width || maxW;
+          const sourceH = video.video?.videoHeight || video.height || maxH;
+          const fitScale = Math.min(maxW / sourceW, maxH / sourceH);
+          video.setScale(fitScale).setDepth(18.5);
+        };
+        video.setMask(videoMask);
+        fitVideo();
         video.loadURL(COMBO_100_VIDEO_URL, true);
+        video.on(Phaser.GameObjects.Events.VIDEO_METADATA, fitVideo);
+        video.on(Phaser.GameObjects.Events.VIDEO_CREATED, fitVideo);
+        video.on(Phaser.GameObjects.Events.VIDEO_PLAYING, fitVideo);
         video.once(Phaser.GameObjects.Events.VIDEO_COMPLETE, cleanup);
         video.once(Phaser.GameObjects.Events.VIDEO_ERROR, showFallback);
         container.add(video);
@@ -1535,6 +1550,8 @@ export class GrillScene extends Phaser.Scene {
         fallbackLabel.setVisible(false);
         fallbackHint.setVisible(false);
         video.play(false);
+        this.time.delayedCall(100, fitVideo);
+        this.time.delayedCall(350, fitVideo);
         this.time.delayedCall(5200, cleanup);
       })
       .catch(showFallback);
