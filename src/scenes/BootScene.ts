@@ -286,7 +286,7 @@ export class BootScene extends Phaser.Scene {
         if (songSelected) return;
         songSelected = true;
         EventBus.emit('hide-panel');
-        this.scene.start('GrillScene');
+        this.scene.start('MorningScene');
       });
       EventBus.emit('show-panel', 'song-select');
     };

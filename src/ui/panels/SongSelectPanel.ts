@@ -1,10 +1,16 @@
-import { SONGS } from '../../data/songs';
+import { SONGS, type SongDefinition } from '../../data/songs';
 import { gameState, updateGameState } from '../../state/GameState';
 import { EventBus } from '../../utils/EventBus';
+
+const PREVIEW_SECONDS = 12;
+const PREVIEW_VOLUME = 0.48;
 
 export class SongSelectPanel {
   private panel: HTMLElement;
   private frame: HTMLElement;
+  private previewStatus: HTMLElement;
+  private previewAudio: HTMLAudioElement | null = null;
+  private previewTimer: number | null = null;
   private selectedSongId = gameState.selectedSongId || 'grill-theme';
 
   constructor() {
@@ -33,6 +39,10 @@ export class SongSelectPanel {
       'border-color:#ffd447;',
       'box-shadow:0 0 34px rgba(255,107,0,0.36),inset 0 0 24px rgba(255,212,71,0.08);',
     ].join('');
+
+    this.previewStatus = document.createElement('div');
+    this.previewStatus.style.cssText = 'color:#bda98d;font-size:12px;line-height:1.45;';
+    this.previewStatus.textContent = '點選曲目可預覽 12 秒片段。';
 
     this.frame.appendChild(this.buildHeader());
     this.frame.appendChild(this.buildSongList());
@@ -127,6 +137,7 @@ export class SongSelectPanel {
         this.selectedSongId = song.id;
         updateGameState({ selectedSongId: song.id });
         this.updateCards();
+        this.playPreview(song);
       });
 
       list.appendChild(card);
@@ -147,23 +158,51 @@ export class SongSelectPanel {
       'background:rgba(0,0,0,0.22);',
     ].join('');
 
-    const note = document.createElement('div');
-    note.style.cssText = 'color:#bda98d;font-size:12px;line-height:1.45;';
-    note.textContent = 'Holy Knight 目前是初版譜，之後可以依聽感逐段微調。';
-
     const start = document.createElement('button');
     start.className = 'btn-neon';
     start.style.cssText = 'min-width:176px;font-size:18px;padding:12px 22px;';
     start.textContent = '開始烤';
     start.addEventListener('click', () => {
+      this.stopPreview();
       window.sessionStorage.removeItem('sausage-test-short-grill');
       updateGameState({ selectedSongId: this.selectedSongId });
       EventBus.emit('song-select-done', { songId: this.selectedSongId });
     });
 
-    footer.appendChild(note);
+    footer.appendChild(this.previewStatus);
     footer.appendChild(start);
     return footer;
+  }
+
+  private playPreview(song: SongDefinition): void {
+    const variant = song.variants[gameState.difficulty ?? 'casual'];
+    this.stopPreview();
+
+    this.previewAudio = new Audio(`${import.meta.env.BASE_URL}${variant.audioPath}`);
+    this.previewAudio.volume = PREVIEW_VOLUME;
+    this.previewAudio.currentTime = 0;
+    this.previewStatus.textContent = `預覽播放中：${song.title}`;
+
+    this.previewAudio.play().catch(() => {
+      this.previewStatus.textContent = '瀏覽器擋下預覽播放，請再點一次曲目。';
+    });
+
+    this.previewTimer = window.setTimeout(() => {
+      this.stopPreview(`預覽結束：${song.title}`);
+    }, PREVIEW_SECONDS * 1000);
+  }
+
+  private stopPreview(statusText = '點選曲目可預覽 12 秒片段。'): void {
+    if (this.previewTimer !== null) {
+      window.clearTimeout(this.previewTimer);
+      this.previewTimer = null;
+    }
+    if (this.previewAudio) {
+      this.previewAudio.pause();
+      this.previewAudio.currentTime = 0;
+      this.previewAudio = null;
+    }
+    this.previewStatus.textContent = statusText;
   }
 
   private updateCards(): void {
